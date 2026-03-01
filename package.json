@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node server/index.js",
     "start": "node server/index.js",
+    "build": "npm run client:build",
     "client:install": "npm --prefix client install",
     "client:build": "npm --prefix client run build"
   },
