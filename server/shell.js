@@ -1,3 +1,4 @@
+import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
@@ -89,6 +90,7 @@ export function startImport(album) {
     id,
     album,
     status: 'running',
+    cleanup: null,
     createdAt: Date.now(),
     finishedAt: null,
     logs: [],
@@ -109,14 +111,33 @@ export function startImport(album) {
     appendLog(job, 'stderr', error.message);
   });
 
-  processRef.on('close', (code) => {
+  processRef.on('close', async (code) => {
     job.status = code === 0 ? 'done' : 'failed';
     job.finishedAt = Date.now();
     activeJobId = null;
 
+    if (code === 0 && config.cleanupRawAfterImport) {
+      try {
+        await fsp.rm(albumPath, { recursive: true, force: true });
+        job.cleanup = {
+          ok: true,
+          removedPath: albumPath
+        };
+        appendLog(job, 'stdout', `Cleanup complete: removed RAW folder '${album}'.`);
+      } catch (error) {
+        job.cleanup = {
+          ok: false,
+          removedPath: albumPath,
+          message: error.message
+        };
+        appendLog(job, 'stderr', `Cleanup failed for RAW folder '${album}': ${error.message}`);
+      }
+    }
+
     const payload = {
       status: job.status,
-      code
+      code,
+      cleanup: job.cleanup
     };
 
     for (const client of job.clients) {
@@ -160,7 +181,8 @@ export function streamJob(id, response) {
     album: job.album,
     status: job.status,
     createdAt: job.createdAt,
-    finishedAt: job.finishedAt
+    finishedAt: job.finishedAt,
+    cleanup: job.cleanup
   });
 
   for (const entry of job.logs) {
@@ -170,7 +192,8 @@ export function streamJob(id, response) {
   if (job.status === 'done' || job.status === 'failed') {
     sendEvent(response, 'end', {
       status: job.status,
-      code: job.status === 'done' ? 0 : 1
+      code: job.status === 'done' ? 0 : 1,
+      cleanup: job.cleanup
     });
     response.end();
     return { ok: true };

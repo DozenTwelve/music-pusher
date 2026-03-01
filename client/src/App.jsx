@@ -144,7 +144,7 @@ function AlbumList({ albums, selectedAlbum, onSelect }) {
   );
 }
 
-function ConsolePanel({ selectedAlbum }) {
+function ConsolePanel({ selectedAlbum, onImportDone }) {
   const [auditOutput, setAuditOutput] = useState('');
   const [importLogs, setImportLogs] = useState([]);
   const [importStatus, setImportStatus] = useState('idle');
@@ -195,7 +195,17 @@ function ConsolePanel({ selectedAlbum }) {
       events.addEventListener('end', (event) => {
         const payload = JSON.parse(event.data);
         setImportStatus(payload.status || 'done');
+        if (payload?.cleanup?.ok) {
+          setImportLogs((previous) => [
+            ...previous,
+            {
+              stream: 'stdout',
+              line: `Cleanup complete: removed ${payload.cleanup.removedPath}`
+            }
+          ]);
+        }
         events.close();
+        onImportDone();
       });
 
       events.onerror = () => {
@@ -254,6 +264,11 @@ export default function App() {
       const list = response.data?.albums || [];
       setAlbums(list);
 
+      if (list.length === 0) {
+        setSelectedAlbum('');
+        return;
+      }
+
       if (list.length > 0 && !list.some((item) => item.album === selectedAlbum)) {
         setSelectedAlbum(list[0].album);
       }
@@ -285,7 +300,7 @@ export default function App() {
         <AlbumList albums={albums} selectedAlbum={selectedAlbum} onSelect={setSelectedAlbum} />
       </section>
 
-      <ConsolePanel selectedAlbum={selectedAlbum} />
+      <ConsolePanel selectedAlbum={selectedAlbum} onImportDone={loadAlbums} />
     </main>
   );
 }

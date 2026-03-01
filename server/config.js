@@ -9,6 +9,23 @@ function parseInteger(value, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function parseBoolean(value, fallback) {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+}
+
 function expandHome(inputPath) {
   if (typeof inputPath !== 'string') {
     return inputPath;
@@ -32,5 +49,6 @@ export const config = {
   maxFileSizeBytes: parseInteger(process.env.MAX_FILE_SIZE_MB, 2048) * 1024 * 1024,
   maxFiles: parseInteger(process.env.MAX_FILES, 2000),
   exiftoolBin: expandHome(process.env.EXIFTOOL_BIN) || 'exiftool',
-  beetBin: expandHome(process.env.BEET_BIN) || 'beet'
+  beetBin: expandHome(process.env.BEET_BIN) || 'beet',
+  cleanupRawAfterImport: parseBoolean(process.env.CLEANUP_RAW_AFTER_IMPORT, true)
 };

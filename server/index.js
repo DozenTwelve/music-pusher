@@ -174,6 +174,10 @@ app.get('/api/import/:jobId/stream', (req, res) => {
   }
 });
 
+app.get('/1.ico', (req, res) => {
+  res.sendFile(path.join(process.cwd(), '1.ico'));
+});
+
 const clientDist = path.join(process.cwd(), 'client', 'dist');
 app.use(express.static(clientDist));
 

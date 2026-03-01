@@ -142,6 +142,10 @@ export async function listAlbums() {
 
     const albumPath = path.join(config.rawDir, entry.name);
     const stats = await gatherAlbumStats(albumPath);
+    if (stats.fileCount === 0) {
+      continue;
+    }
+
     albums.push({
       album: entry.name,
       fileCount: stats.fileCount,
