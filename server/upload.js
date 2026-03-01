@@ -93,6 +93,7 @@ const storage = multer.diskStorage({
 
 export const uploadMiddleware = multer({
   storage,
+  preservePath: true,
   limits: {
     fileSize: config.maxFileSizeBytes,
     files: config.maxFiles

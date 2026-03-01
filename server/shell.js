@@ -36,7 +36,7 @@ function appendLog(job, stream, chunk) {
 export function runAudit(album) {
   return new Promise((resolve) => {
     const albumPath = path.join(config.rawDir, album);
-    const processRef = spawn('exiftool', ['-r', albumPath], {
+    const processRef = spawn(config.exiftoolBin, ['-r', albumPath], {
       shell: false
     });
 
@@ -98,7 +98,7 @@ export function startImport(album) {
   jobs.set(id, job);
   activeJobId = id;
 
-  const processRef = spawn('beet', ['import', '-A', albumPath], {
+  const processRef = spawn(config.beetBin, ['import', '-A', albumPath], {
     shell: false
   });
 
