@@ -149,6 +149,9 @@ function ConsolePanel({ selectedAlbum, onImportDone }) {
   const [importLogs, setImportLogs] = useState([]);
   const [importStatus, setImportStatus] = useState('idle');
   const [error, setError] = useState('');
+  const eventSourceRef = useRef(null);
+
+  useEffect(() => () => eventSourceRef.current?.close(), []);
 
   async function runAuditAction() {
     if (!selectedAlbum) {
@@ -185,7 +188,9 @@ function ConsolePanel({ selectedAlbum, onImportDone }) {
       }
 
       setImportStatus('running');
+      eventSourceRef.current?.close();
       const events = new EventSource(`/api/import/${jobId}/stream`);
+      eventSourceRef.current = events;
 
       events.addEventListener('log', (event) => {
         const payload = JSON.parse(event.data);
