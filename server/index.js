@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import express from 'express';
 import cors from 'cors';
+import multer from 'multer';
 import { config } from './config.js';
 import {
   uploadMiddleware,
@@ -174,6 +175,14 @@ app.get('/api/import/:jobId/stream', (req, res) => {
   }
 });
 
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    ok: false,
+    code: 'not_found',
+    message: `Unknown API route: ${req.method} ${req.originalUrl}`
+  });
+});
+
 app.get('/1.ico', (req, res) => {
   res.sendFile(path.join(process.cwd(), '1.ico'));
 });
@@ -188,6 +197,26 @@ app.get('*', async (req, res, next) => {
   } catch {
     next();
   }
+});
+
+// eslint-disable-next-line no-unused-vars
+app.use(async (err, req, res, next) => {
+  // Multer streams files to disk before it aborts on a limit; remove the
+  // partial files so a rejected upload does not leave junk in RAW_DIR.
+  if (Array.isArray(req.files) && req.files.length > 0) {
+    await Promise.all(
+      req.files
+        .filter((file) => file?.path)
+        .map((file) => fs.rm(file.path, { force: true }).catch(() => {}))
+    );
+  }
+
+  if (err instanceof multer.MulterError) {
+    res.status(413).json({ ok: false, code: err.code, message: err.message });
+    return;
+  }
+
+  res.status(500).json({ ok: false, code: 'server_error', message: err.message });
 });
 
 const server = app.listen(config.port, () => {

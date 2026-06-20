@@ -77,7 +77,10 @@ const storage = multer.diskStorage({
     const absoluteTargetDir = path.resolve(config.rawDir, safeDirectory);
     const resolvedRawDir = path.resolve(config.rawDir);
 
-    if (!absoluteTargetDir.startsWith(resolvedRawDir)) {
+    if (
+      absoluteTargetDir !== resolvedRawDir &&
+      !absoluteTargetDir.startsWith(resolvedRawDir + path.sep)
+    ) {
       cb(new Error('Invalid file destination path.'));
       return;
     }

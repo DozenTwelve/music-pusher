@@ -7,30 +7,63 @@ import { config } from './config.js';
 const jobs = new Map();
 let activeJobId = null;
 
+const MAX_RETAINED_JOBS = 20;
+
 function sendEvent(response, eventName, payload) {
   response.write(`event: ${eventName}\n`);
   response.write(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
-function appendLog(job, stream, chunk) {
-  const text = String(chunk);
-  const lines = text.split(/\r?\n/).filter(Boolean);
+function pushLine(job, stream, line) {
+  const entry = {
+    stream,
+    line,
+    ts: Date.now()
+  };
 
-  for (const line of lines) {
-    const entry = {
-      stream,
-      line,
-      ts: Date.now()
-    };
+  job.logs.push(entry);
+  if (job.logs.length > 5000) {
+    job.logs.shift();
+  }
 
-    job.logs.push(entry);
-    if (job.logs.length > 5000) {
-      job.logs.shift();
+  for (const client of job.clients) {
+    sendEvent(client, 'log', entry);
+  }
+}
+
+// Process data chunks do not align to line boundaries, so hold the trailing
+// partial line per stream until the next chunk (or stream end) completes it.
+function appendChunk(job, stream, chunk) {
+  const text = job.partial[stream] + String(chunk);
+  const parts = text.split(/\r?\n/);
+  job.partial[stream] = parts.pop();
+
+  for (const line of parts) {
+    if (line) {
+      pushLine(job, stream, line);
     }
+  }
+}
 
-    for (const client of job.clients) {
-      sendEvent(client, 'log', entry);
-    }
+function flushPartial(job, stream) {
+  const rest = job.partial[stream];
+  job.partial[stream] = '';
+  if (rest) {
+    pushLine(job, stream, rest);
+  }
+}
+
+function pruneJobs() {
+  if (jobs.size <= MAX_RETAINED_JOBS) {
+    return;
+  }
+
+  const finished = [...jobs.values()]
+    .filter((job) => job.id !== activeJobId && job.status !== 'running')
+    .sort((a, b) => (a.finishedAt || 0) - (b.finishedAt || 0));
+
+  while (jobs.size > MAX_RETAINED_JOBS && finished.length > 0) {
+    jobs.delete(finished.shift().id);
   }
 }
 
@@ -94,6 +127,7 @@ export function startImport(album) {
     createdAt: Date.now(),
     finishedAt: null,
     logs: [],
+    partial: { stdout: '', stderr: '' },
     clients: new Set()
   };
 
@@ -104,14 +138,17 @@ export function startImport(album) {
     shell: false
   });
 
-  processRef.stdout.on('data', (chunk) => appendLog(job, 'stdout', chunk));
-  processRef.stderr.on('data', (chunk) => appendLog(job, 'stderr', chunk));
+  processRef.stdout.on('data', (chunk) => appendChunk(job, 'stdout', chunk));
+  processRef.stderr.on('data', (chunk) => appendChunk(job, 'stderr', chunk));
 
   processRef.on('error', (error) => {
-    appendLog(job, 'stderr', error.message);
+    pushLine(job, 'stderr', error.message);
   });
 
   processRef.on('close', async (code) => {
+    flushPartial(job, 'stdout');
+    flushPartial(job, 'stderr');
+
     job.status = code === 0 ? 'done' : 'failed';
     job.finishedAt = Date.now();
     activeJobId = null;
@@ -123,14 +160,14 @@ export function startImport(album) {
           ok: true,
           removedPath: albumPath
         };
-        appendLog(job, 'stdout', `Cleanup complete: removed RAW folder '${album}'.`);
+        pushLine(job, 'stdout', `Cleanup complete: removed RAW folder '${album}'.`);
       } catch (error) {
         job.cleanup = {
           ok: false,
           removedPath: albumPath,
           message: error.message
         };
-        appendLog(job, 'stderr', `Cleanup failed for RAW folder '${album}': ${error.message}`);
+        pushLine(job, 'stderr', `Cleanup failed for RAW folder '${album}': ${error.message}`);
       }
     }
 
@@ -146,6 +183,7 @@ export function startImport(album) {
     }
 
     job.clients.clear();
+    pruneJobs();
   });
 
   return {
