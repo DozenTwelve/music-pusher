@@ -8,7 +8,8 @@
     "start": "node server/index.js",
     "build": "npm run client:build",
     "client:install": "npm --prefix client install",
-    "client:build": "npm --prefix client run build"
+    "client:build": "npm --prefix client run build",
+    "deploy": "bash scripts/deploy.sh"
   },
   "dependencies": {
     "cors": "^2.8.5",
