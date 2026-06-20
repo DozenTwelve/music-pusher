@@ -15,6 +15,7 @@ function formatBytes(value) {
 function UploadPanel({ onUploadDone }) {
   const [files, setFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [progressKnown, setProgressKnown] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
@@ -46,19 +47,28 @@ function UploadPanel({ onUploadDone }) {
     setError('');
     setResult(null);
     setIsUploading(true);
+    setUploadProgress(0);
+    setProgressKnown(true);
 
     try {
       const response = await axios.post('/api/upload', body, {
         onUploadProgress(event) {
           if (!event.total) {
+            setProgressKnown(false);
             return;
           }
+          setProgressKnown(true);
           setUploadProgress(Math.round((event.loaded / event.total) * 100));
         }
       });
 
       setResult(response.data);
+      setProgressKnown(true);
       setUploadProgress(100);
+      setFiles([]);
+      if (inputRef.current) {
+        inputRef.current.value = '';
+      }
       onUploadDone();
     } catch (uploadError) {
       const message = uploadError?.response?.data?.message || uploadError.message;
@@ -73,10 +83,15 @@ function UploadPanel({ onUploadDone }) {
       <h2>1. Upload Album Folder</h2>
       <p className="muted">Pick one folder. Supported: music files, cover images, cue/log/txt.</p>
 
+      <label htmlFor="folder-input" className="muted">
+        Album folder
+      </label>
       <input
+        id="folder-input"
         ref={inputRef}
         type="file"
         multiple
+        aria-label="Choose album folder"
         onChange={(event) => setFiles(Array.from(event.target.files || []))}
       />
 
@@ -90,7 +105,10 @@ function UploadPanel({ onUploadDone }) {
       </button>
 
       <div className="progress-shell">
-        <div className="progress-bar" style={{ width: `${uploadProgress}%` }} />
+        <div
+          className={`progress-bar${isUploading && !progressKnown ? ' indeterminate' : ''}`}
+          style={isUploading && !progressKnown ? undefined : { width: `${uploadProgress}%` }}
+        />
       </div>
 
       {error ? <p className="error">{error}</p> : null}
@@ -261,9 +279,11 @@ export default function App() {
   const [albums, setAlbums] = useState([]);
   const [selectedAlbum, setSelectedAlbum] = useState('');
   const [loadingAlbums, setLoadingAlbums] = useState(false);
+  const [albumsError, setAlbumsError] = useState('');
 
   async function loadAlbums() {
     setLoadingAlbums(true);
+    setAlbumsError('');
     try {
       const response = await axios.get('/api/albums');
       const list = response.data?.albums || [];
@@ -277,6 +297,8 @@ export default function App() {
       if (list.length > 0 && !list.some((item) => item.album === selectedAlbum)) {
         setSelectedAlbum(list[0].album);
       }
+    } catch (loadError) {
+      setAlbumsError(loadError?.response?.data?.message || loadError.message);
     } finally {
       setLoadingAlbums(false);
     }
@@ -302,6 +324,7 @@ export default function App() {
             {loadingAlbums ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
+        {albumsError ? <p className="error">Could not load albums: {albumsError}</p> : null}
         <AlbumList albums={albums} selectedAlbum={selectedAlbum} onSelect={setSelectedAlbum} />
       </section>
 
