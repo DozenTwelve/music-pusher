@@ -66,11 +66,11 @@ export default function UploadPanel({ onUploadDone }) {
   }
 
   return (
-    <section className="panel">
-      <h2>1. Upload Album Folder</h2>
-      <p className="muted">Pick one folder. Supported: music files, cover images, cue/log/txt.</p>
+    <div className="upload-block">
+      <h3>Add album</h3>
+      <p className="muted small">Pick a folder — music, art, cue/log/txt/lrc.</p>
 
-      <label htmlFor="folder-input" className="muted">
+      <label htmlFor="folder-input" className="muted small">
         Album folder
       </label>
       <input
@@ -121,6 +121,6 @@ export default function UploadPanel({ onUploadDone }) {
           ) : null}
         </div>
       ) : null}
-    </section>
+    </div>
   );
 }

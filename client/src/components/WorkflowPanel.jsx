@@ -7,9 +7,22 @@ import {
   importStreamUrl,
   errorMessage
 } from '../api.js';
-import MetadataReport from './MetadataReport.jsx';
+import { Diagnosis, FixForm } from './MetadataReport.jsx';
 
-export default function ConsolePanel({ selectedAlbum, onImportDone }) {
+// Count the things "Fix" can still act on, for the step-2 status line.
+function countFixable(report) {
+  if (!report) {
+    return 0;
+  }
+  return (
+    report.splitFields.length +
+    report.textIssues.length +
+    report.filenameIssues.length +
+    (report.track.needsNormalize ? 1 : 0)
+  );
+}
+
+export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
   const [report, setReport] = useState(null);
   const [draft, setDraft] = useState({ normalizeTracks: false, fixFilenames: false, repairText: false });
   const [busy, setBusy] = useState('');
@@ -21,11 +34,14 @@ export default function ConsolePanel({ selectedAlbum, onImportDone }) {
 
   useEffect(() => () => eventSourceRef.current?.close(), []);
 
-  // Reset analysis when the selected album changes.
+  // Reset everything when the selected album changes.
   useEffect(() => {
     setReport(null);
     setDraft({ normalizeTracks: false, fixFilenames: false, repairText: false });
     setFixSummary('');
+    setImportLogs([]);
+    setImportStatus('idle');
+    setError('');
   }, [selectedAlbum]);
 
   function applyReport(data) {
@@ -159,43 +175,98 @@ export default function ConsolePanel({ selectedAlbum, onImportDone }) {
     }
   }
 
-  return (
-    <section className="panel">
-      <h2>3. Analyze + Import Console</h2>
-      <p className="muted">Selected album: {selectedAlbum || 'none'}</p>
+  if (!selectedAlbum) {
+    return (
+      <section className="workflow panel">
+        <div className="workflow-head">
+          <h2>Workflow</h2>
+          <span className="muted album-chip">No album selected</span>
+        </div>
+        <p className="muted">Select an album from Staging to analyze, clean up, and import it.</p>
+      </section>
+    );
+  }
 
-      <div className="button-row">
-        <button type="button" disabled={!selectedAlbum || busy === 'analyze'} onClick={runAnalyze}>
-          {busy === 'analyze' ? 'Analyzing...' : 'Analyze Metadata'}
-        </button>
-        <button type="button" disabled={!report || busy === 'fix'} onClick={applyFixes}>
-          {busy === 'fix' ? 'Applying...' : 'Apply Fixes'}
-        </button>
-        <button type="button" disabled={!selectedAlbum || importStatus === 'running'} onClick={importAlbum}>
-          {importStatus === 'running' ? 'Importing...' : 'Import to Library'}
-        </button>
+  const analyzeStatus = report
+    ? report.groupCount > 1
+      ? `Would split into ${report.groupCount} albums · ${report.trackCount} tracks`
+      : `Stays as 1 album · ${report.trackCount} tracks`
+    : 'Not analyzed yet.';
+
+  const fixableCount = countFixable(report);
+  const fixStatus = !report
+    ? 'Run Analyze first.'
+    : fixableCount > 0
+      ? `${fixableCount} issue${fixableCount > 1 ? 's' : ''} to review.`
+      : 'Nothing to fix — looks clean.';
+
+  return (
+    <section className="workflow panel">
+      <div className="workflow-head">
+        <h2>Workflow</h2>
+        <span className="album-chip">{selectedAlbum}</span>
       </div>
+
+      <ol className="steps">
+        <li className={`step${report ? ' done' : ''}`}>
+          <span className="step-badge">1</span>
+          <div className="step-body">
+            <div className="step-head">
+              <strong>Analyze metadata</strong>
+              <button type="button" onClick={runAnalyze} disabled={busy === 'analyze'}>
+                {busy === 'analyze' ? 'Analyzing…' : report ? 'Re-analyze' : 'Analyze'}
+              </button>
+            </div>
+            <p className="step-status">{analyzeStatus}</p>
+            {report ? (
+              <div className="step-detail">
+                <Diagnosis report={report} />
+              </div>
+            ) : null}
+          </div>
+        </li>
+
+        <li className={`step${report ? '' : ' todo'}`}>
+          <span className="step-badge">2</span>
+          <div className="step-body">
+            <div className="step-head">
+              <strong>Fix issues</strong>
+              <button type="button" onClick={applyFixes} disabled={!report || busy === 'fix'}>
+                {busy === 'fix' ? 'Applying…' : 'Apply Fixes'}
+              </button>
+            </div>
+            <p className="step-status">{fixStatus}</p>
+            {fixSummary ? <p className="step-status ok">{fixSummary}</p> : null}
+            {report ? (
+              <div className="step-detail">
+                <FixForm report={report} draft={draft} onDraftChange={updateDraft} />
+              </div>
+            ) : null}
+          </div>
+        </li>
+
+        <li className={`step${importStatus === 'done' ? ' done' : ' todo'}`}>
+          <span className="step-badge">3</span>
+          <div className="step-body">
+            <div className="step-head">
+              <strong>Import to library</strong>
+              <button type="button" onClick={importAlbum} disabled={importStatus === 'running'}>
+                {importStatus === 'running' ? 'Importing…' : 'Import'}
+              </button>
+            </div>
+            <p className="step-status">Status: {importStatus}</p>
+            <div className="step-detail">
+              <pre className="terminal">
+                {importLogs.length === 0
+                  ? 'No import logs yet.'
+                  : importLogs.map((entry) => `[${entry.stream}] ${entry.line}`).join('\n')}
+              </pre>
+            </div>
+          </div>
+        </li>
+      </ol>
 
       {error ? <pre className="error">{error}</pre> : null}
-      {fixSummary ? <p className="muted">{fixSummary}</p> : null}
-
-      <div className="terminal-wrap">
-        <h3>Metadata Analysis</h3>
-        {report ? (
-          <MetadataReport report={report} draft={draft} onDraftChange={updateDraft} />
-        ) : (
-          <p className="muted">No analysis yet. Pick an album and click Analyze Metadata.</p>
-        )}
-      </div>
-
-      <div className="terminal-wrap">
-        <h3>Import Logs ({importStatus})</h3>
-        <pre className="terminal">
-          {importLogs.length === 0
-            ? 'No import logs yet.'
-            : importLogs.map((entry) => `[${entry.stream}] ${entry.line}`).join('\n')}
-        </pre>
-      </div>
     </section>
   );
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { getAlbums, errorMessage } from './api.js';
 import UploadPanel from './components/UploadPanel.jsx';
 import AlbumList from './components/AlbumList.jsx';
-import ConsolePanel from './components/ConsolePanel.jsx';
+import WorkflowPanel from './components/WorkflowPanel.jsx';
 
 export default function App() {
   const [albums, setAlbums] = useState([]);
@@ -40,23 +40,24 @@ export default function App() {
     <main className="app-shell">
       <header>
         <h1>Music Pusher</h1>
-        <p>Upload album folders to RAW, analyze tags, then import with live logs.</p>
+        <p>Push album folders into your beets library — upload, clean up tags, then import.</p>
       </header>
 
-      <UploadPanel onUploadDone={loadAlbums} />
+      <div className="layout">
+        <aside className="staging panel">
+          <div className="section-header">
+            <h2>Staging</h2>
+            <button type="button" className="ghost" onClick={loadAlbums} disabled={loadingAlbums}>
+              {loadingAlbums ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </div>
+          {albumsError ? <p className="error">Could not load albums: {albumsError}</p> : null}
+          <AlbumList albums={albums} selectedAlbum={selectedAlbum} onSelect={setSelectedAlbum} />
+          <UploadPanel onUploadDone={loadAlbums} />
+        </aside>
 
-      <section className="panel">
-        <div className="section-header">
-          <h2>Album Queue</h2>
-          <button type="button" onClick={loadAlbums} disabled={loadingAlbums}>
-            {loadingAlbums ? 'Refreshing...' : 'Refresh'}
-          </button>
-        </div>
-        {albumsError ? <p className="error">Could not load albums: {albumsError}</p> : null}
-        <AlbumList albums={albums} selectedAlbum={selectedAlbum} onSelect={setSelectedAlbum} />
-      </section>
-
-      <ConsolePanel selectedAlbum={selectedAlbum} onImportDone={loadAlbums} />
+        <WorkflowPanel selectedAlbum={selectedAlbum} onImportDone={loadAlbums} />
+      </div>
     </main>
   );
 }

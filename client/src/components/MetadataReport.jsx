@@ -1,6 +1,7 @@
 import { FIELD_LABELS, showText } from '../format.js';
 
-export default function MetadataReport({ report, draft, onDraftChange }) {
+// Read-only diagnosis: what is wrong with the album (shown under "Analyze").
+export function Diagnosis({ report }) {
   const splitDanger = report.groupCount > 1;
 
   return (
@@ -10,7 +11,7 @@ export default function MetadataReport({ report, draft, onDraftChange }) {
           ? `⚠ This album would split into ${report.groupCount} albums. Cause: ${report.splitFields
               .map((f) => FIELD_LABELS[f] || f)
               .join(', ')}.`
-          : `✓ Grouping consistent — stays as 1 album (${report.trackCount} tracks). See below for any other issues.`}
+          : `✓ Grouping consistent — stays as 1 album (${report.trackCount} tracks).`}
       </div>
 
       {report.incomplete ? (
@@ -26,24 +27,59 @@ export default function MetadataReport({ report, draft, onDraftChange }) {
       {report.textIssues.length ? (
         <div className="report-banner warn">
           {report.textIssues.length} corrupted/dirty tag{report.textIssues.length > 1 ? 's' : ''} found
-          (downloader damage). Tick “Repair corrupted text” below to auto-fix the confident ones.
+          (downloader damage). Tick “Repair corrupted text” in step 2 to auto-fix the confident ones.
         </div>
       ) : null}
 
       {report.multiDisc ? (
-        <p className="muted">
+        <p className="muted small">
           Multi-disc set ({report.discs.length} discs):{' '}
           {report.discs
             .map((d) => `disc ${d.disc} = ${d.trackCount} tracks${d.contiguous ? '' : ' ⚠ gaps'}`)
             .join(', ')}
-          . Leave Disc blank below — do not unify it.
+          . Leave Disc blank in step 2 — do not unify it.
         </p>
       ) : null}
 
       {report.formats.length > 1 ? (
-        <p className="muted">Mixed formats present: {report.formats.join(', ')}</p>
+        <p className="muted small">Mixed formats present: {report.formats.join(', ')}</p>
       ) : null}
 
+      {report.textIssues.length ? (
+        <details>
+          <summary>Tag text issues ({report.textIssues.length})</summary>
+          <ul>
+            {report.textIssues.map((issue, idx) => (
+              <li key={`${issue.file}-${issue.field}-${idx}`}>
+                <code>{issue.field}</code> · {issue.file}: “{showText(issue.display)}” → “
+                {showText(issue.suggested)}”
+                {issue.confident ? '' : ' ⚠ manual (ambiguous)'}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+
+      {report.filenameIssues.length ? (
+        <details>
+          <summary>Filename fixes ({report.filenameIssues.length})</summary>
+          <ul>
+            {report.filenameIssues.map((issue) => (
+              <li key={issue.file}>
+                {issue.file} → {issue.suggested}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+// The remedy form: unify fields and toggle the auto-fixes (shown under "Fix").
+export function FixForm({ report, draft, onDraftChange }) {
+  return (
+    <div className="report">
       <table className="field-table">
         <thead>
           <tr>
@@ -110,34 +146,6 @@ export default function MetadataReport({ report, draft, onDraftChange }) {
           {report.textIssues.length ? ` (${report.textIssues.length})` : ' — none found'}
         </label>
       </div>
-
-      {report.textIssues.length ? (
-        <details>
-          <summary>Tag text issues ({report.textIssues.length})</summary>
-          <ul>
-            {report.textIssues.map((issue, idx) => (
-              <li key={`${issue.file}-${issue.field}-${idx}`}>
-                <code>{issue.field}</code> · {issue.file}: “{showText(issue.display)}” → “
-                {showText(issue.suggested)}”
-                {issue.confident ? '' : ' ⚠ manual (ambiguous)'}
-              </li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
-
-      {report.filenameIssues.length ? (
-        <details>
-          <summary>Filename fixes ({report.filenameIssues.length})</summary>
-          <ul>
-            {report.filenameIssues.map((issue) => (
-              <li key={issue.file}>
-                {issue.file} → {issue.suggested}
-              </li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
     </div>
   );
 }

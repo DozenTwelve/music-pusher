@@ -1,25 +1,26 @@
 import { formatBytes } from '../format.js';
 
 export default function AlbumList({ albums, selectedAlbum, onSelect }) {
-  return (
-    <section className="panel">
-      <h2>2. Staging Area (RAW)</h2>
-      {albums.length === 0 ? <p className="muted">No staged albums yet.</p> : null}
+  if (albums.length === 0) {
+    return <p className="muted empty">No staged albums yet. Upload one below.</p>;
+  }
 
-      <div className="album-grid">
-        {albums.map((album) => (
+  return (
+    <ul className="album-list">
+      {albums.map((album) => (
+        <li key={album.album}>
           <button
-            key={album.album}
-            className={`album-card ${selectedAlbum === album.album ? 'selected' : ''}`}
-            onClick={() => onSelect(album.album)}
             type="button"
+            className={`album-row${selectedAlbum === album.album ? ' selected' : ''}`}
+            onClick={() => onSelect(album.album)}
           >
-            <strong>{album.album}</strong>
-            <span>{album.fileCount} files</span>
-            <span>{formatBytes(album.totalBytes)}</span>
+            <span className="album-name">{album.album}</span>
+            <span className="album-meta">
+              {album.fileCount} files · {formatBytes(album.totalBytes)}
+            </span>
           </button>
-        ))}
-      </div>
-    </section>
+        </li>
+      ))}
+    </ul>
   );
 }
