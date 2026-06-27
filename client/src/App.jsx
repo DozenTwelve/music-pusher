@@ -182,6 +182,16 @@ function MetadataReport({ report, draft, onDraftChange }) {
           : `✓ Consistent — this album stays as 1 album (${report.trackCount} tracks).`}
       </div>
 
+      {report.multiDisc ? (
+        <p className="muted">
+          Multi-disc set ({report.discs.length} discs):{' '}
+          {report.discs
+            .map((d) => `disc ${d.disc} = ${d.trackCount} tracks${d.contiguous ? '' : ' ⚠ gaps'}`)
+            .join(', ')}
+          . Leave Disc blank below — do not unify it.
+        </p>
+      ) : null}
+
       {report.formats.length > 1 ? (
         <p className="muted">Mixed formats present: {report.formats.join(', ')}</p>
       ) : null}

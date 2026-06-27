@@ -189,17 +189,50 @@ export async function inspectAlbum(album) {
     fields[field] = summarizeField(tracks.map((t) => t[field]));
   }
 
+  // Disc structure. A genuine multi-disc set legitimately carries >1 disc
+  // value, so it must not be treated as a tag inconsistency to "unify".
+  const trackCount = tracks.length;
+  const discNums = tracks.map((t) => parseNumberPair(t.disc).num);
+  const distinctDiscs = [...new Set(discNums.filter((n) => n != null))].sort((a, b) => a - b);
+  const missingDisc = discNums.filter((n) => n == null).length;
+  const multiDisc = distinctDiscs.length >= 2 && missingDisc === 0;
+
+  // Per-disc track totals (single-disc albums collapse to one group of N).
+  const trackPairs = tracks.map((t) => parseNumberPair(t.track));
+  const discTrackCounts = new Map();
+  discNums.forEach((n) => {
+    const key = n ?? 1;
+    discTrackCounts.set(key, (discTrackCounts.get(key) || 0) + 1);
+  });
+
+  const discs = (distinctDiscs.length ? distinctDiscs : [1]).map((d) => {
+    const nums = tracks
+      .map((t, i) => ((discNums[i] ?? 1) === d ? trackPairs[i].num : null))
+      .filter((n) => n != null)
+      .sort((a, b) => a - b);
+    const contiguous =
+      nums.length > 0 && nums[0] === 1 && nums.every((n, k) => k === 0 || n === nums[k - 1] + 1);
+    return { disc: d, trackCount: discTrackCounts.get(d) || 0, contiguous };
+  });
+
+  if (multiDisc) {
+    // Expected to vary — surface the structure, not a "problem".
+    fields.disc = { ...fields.disc, consistent: true, proposed: '', multiDisc: true };
+  }
+
   // How many albums would a player create? Distinct combos of grouping fields.
   const groupKeys = new Set(
     tracks.map((t) => GROUPING_FIELDS.map((f) => t[f] || '∅').join(' ¦ '))
   );
   const splitFields = GROUPING_FIELDS.filter((f) => !fields[f].consistent);
 
-  // Track-number health: numbers present + totals all equal to the track count.
-  const trackCount = tracks.length;
-  const trackPairs = tracks.map((t) => parseNumberPair(t.track));
+  // Track-number health is per disc: numbers present and totals matching the
+  // count of their own disc (e.g. 4/10 on disc 1, 8/9 on disc 2).
   const missingTrackNumbers = trackPairs.filter((p) => p.num == null).length;
-  const wrongTrackTotals = trackPairs.filter((p) => p.total !== trackCount).length;
+  const wrongTrackTotals = trackPairs.filter((p, i) => {
+    const expectedTotal = discTrackCounts.get(discNums[i] ?? 1);
+    return p.total !== expectedTotal;
+  }).length;
 
   const filenameIssues = [];
   for (const track of tracks) {
@@ -221,6 +254,8 @@ export async function inspectAlbum(album) {
     splitFields,
     fields,
     formats,
+    multiDisc,
+    discs,
     track: {
       count: trackCount,
       missingNumbers: missingTrackNumbers,
@@ -308,9 +343,26 @@ async function runFix(album, options = {}) {
     }
   }
 
-  const trackCount = files.length;
   const changes = [];
   const errors = [];
+
+  // Disc-aware track normalization needs each disc's track count up front, so
+  // pre-scan all files before rewriting any (4/10 on disc 1, 8/9 on disc 2).
+  let trackMeta = null;
+  if (normalizeTracks) {
+    trackMeta = new Map();
+    const discCounts = new Map();
+    for (const absPath of files) {
+      const tags = await probeTags(absPath);
+      const discNum = parseNumberPair(tags.disc || tags.disk || tags.discnumber).num ?? 1;
+      const num = parseNumberPair(tags.track || tags.tracknumber).num ?? leadingTrackNumber(absPath);
+      trackMeta.set(absPath, { discNum, num });
+      discCounts.set(discNum, (discCounts.get(discNum) || 0) + 1);
+    }
+    for (const meta of trackMeta.values()) {
+      meta.total = discCounts.get(meta.discNum);
+    }
+  }
 
   for (const absPath of files) {
     const fields = [];
@@ -320,11 +372,9 @@ async function runFix(album, options = {}) {
     }
 
     if (normalizeTracks) {
-      const tags = await probeTags(absPath);
-      const pair = parseNumberPair(tags.track || tags.tracknumber);
-      const num = pair.num ?? leadingTrackNumber(absPath);
-      if (num != null) {
-        fields.push(['track', `${num}/${trackCount}`]);
+      const meta = trackMeta.get(absPath);
+      if (meta && meta.num != null) {
+        fields.push(['track', `${meta.num}/${meta.total}`]);
       }
     }
 
