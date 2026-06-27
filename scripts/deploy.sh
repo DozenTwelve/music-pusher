@@ -10,7 +10,7 @@
 #
 set -euo pipefail
 
-APP_NAME="${PM2_APP_NAME:-music-dropbox}"
+APP_NAME="${PM2_APP_NAME:-music-pusher}"
 
 # Move to the repo root (this script lives in <root>/scripts).
 cd "$(dirname "$0")/.."
@@ -33,6 +33,10 @@ npm run build
 echo "==> Reloading PM2 process '$APP_NAME'"
 if pm2 describe "$APP_NAME" > /dev/null 2>&1; then
   pm2 reload "$APP_NAME" --update-env
+elif pm2 describe music-dropbox > /dev/null 2>&1; then
+  # Legacy process name from before the project was unified on "music-pusher".
+  echo "Found legacy process 'music-dropbox' — reloading it instead"
+  pm2 reload music-dropbox --update-env
 else
   echo "PM2 process '$APP_NAME' not found — starting it from ecosystem.config.js"
   pm2 start ecosystem.config.js
