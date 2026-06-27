@@ -12,6 +12,16 @@ function formatBytes(value) {
   return `${amount.toFixed(amount < 10 && size > 0 ? 1 : 0)} ${units[size]}`;
 }
 
+// Make invisible/corrupt characters visible in tag-issue previews: control
+// bytes and zero-width chars become ·, a non-breaking space becomes ␣.
+// eslint-disable-next-line no-control-regex
+const HIDDEN_CHARS_RE = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u200b-\u200d\ufeff]/g;
+function showText(value) {
+  return String(value ?? '')
+    .replace(HIDDEN_CHARS_RE, '·')
+    .replace(/\u00a0/g, '␣');
+}
+
 function UploadPanel({ onUploadDone }) {
   const [files, setFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -179,7 +189,7 @@ function MetadataReport({ report, draft, onDraftChange }) {
           ? `⚠ This album would split into ${report.groupCount} albums. Cause: ${report.splitFields
               .map((f) => FIELD_LABELS[f] || f)
               .join(', ')}.`
-          : `✓ Consistent — this album stays as 1 album (${report.trackCount} tracks).`}
+          : `✓ Grouping consistent — stays as 1 album (${report.trackCount} tracks). See below for any other issues.`}
       </div>
 
       {report.incomplete ? (
@@ -286,7 +296,8 @@ function MetadataReport({ report, draft, onDraftChange }) {
           <ul>
             {report.textIssues.map((issue, idx) => (
               <li key={`${issue.file}-${issue.field}-${idx}`}>
-                <code>{issue.field}</code> · {issue.file}: “{issue.display}” → “{issue.suggested}”
+                <code>{issue.field}</code> · {issue.file}: “{showText(issue.display)}” → “
+                {showText(issue.suggested)}”
                 {issue.confident ? '' : ' ⚠ manual (ambiguous)'}
               </li>
             ))}
@@ -312,7 +323,7 @@ function MetadataReport({ report, draft, onDraftChange }) {
 
 function ConsolePanel({ selectedAlbum, onImportDone }) {
   const [report, setReport] = useState(null);
-  const [draft, setDraft] = useState({ normalizeTracks: false, fixFilenames: false });
+  const [draft, setDraft] = useState({ normalizeTracks: false, fixFilenames: false, repairText: false });
   const [busy, setBusy] = useState('');
   const [fixSummary, setFixSummary] = useState('');
   const [importLogs, setImportLogs] = useState([]);
@@ -325,7 +336,7 @@ function ConsolePanel({ selectedAlbum, onImportDone }) {
   // Reset analysis when the selected album changes.
   useEffect(() => {
     setReport(null);
-    setDraft({ normalizeTracks: false, fixFilenames: false });
+    setDraft({ normalizeTracks: false, fixFilenames: false, repairText: false });
     setFixSummary('');
   }, [selectedAlbum]);
 
@@ -334,7 +345,8 @@ function ConsolePanel({ selectedAlbum, onImportDone }) {
     // Pre-fill drafts with the mode for each inconsistent field (override-able).
     const hasConfidentText = (data.textIssues || []).some((i) => i.confident);
     const next = {
-      normalizeTracks: data.track.needsNormalize,
+      // Renumbering rewrites every file, so leave it opt-in even when needed.
+      normalizeTracks: false,
       fixFilenames: data.filenameIssues.length > 0,
       repairText: hasConfidentText
     };
@@ -463,7 +475,7 @@ function ConsolePanel({ selectedAlbum, onImportDone }) {
 
   return (
     <section className="panel">
-      <h2>3. Audit + Import Console</h2>
+      <h2>3. Analyze + Import Console</h2>
       <p className="muted">Selected album: {selectedAlbum || 'none'}</p>
 
       <div className="button-row">
