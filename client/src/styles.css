@@ -221,6 +221,12 @@ button:disabled {
   color: var(--accent-2);
 }
 
+.report-banner.warn {
+  background: #fdf6e3;
+  border: 1px solid #e6d28a;
+  color: #8a6d1b;
+}
+
 .field-table {
   width: 100%;
   border-collapse: collapse;

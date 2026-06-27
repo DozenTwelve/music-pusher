@@ -137,8 +137,9 @@ function summarizeField(values) {
     .map(([value, count]) => ({ value, count }))
     .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
 
-  // A field is "consistent" only if every track shares one present value.
-  const consistent = distinct.length <= 1 && missing === 0;
+  // Consistent = no split risk: one shared value, or the field is uniformly
+  // absent (all-empty groups together, so it is not a split cause).
+  const consistent = distinct.length === 0 || (distinct.length === 1 && missing === 0);
   const proposed = distinct.length > 0 ? distinct[0].value : '';
 
   return { distinct, missing, consistent, proposed };
@@ -159,6 +160,73 @@ function suggestFilenameFix(fileName) {
   return `${fixedBase}${ext}`;
 }
 
+// Control bytes (excluding tab/newline/CR) show up in tags when a downloader
+// truncated a Unicode code point to its low byte (e.g. U+2019 ’ -> 0x19). The
+// matcher and reconstruction table are written with \u escapes so this source
+// file stays free of raw control characters.
+// eslint-disable-next-line no-control-regex
+const CONTROL_RE = /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g;
+const INVISIBLE_RE = /[\u200b-\u200d\ufeff]/g; // zero-width space/joiners + BOM
+const NBSP_RE = /\u00a0/g;
+// Only the typographic-punctuation family has a confident single-codepoint
+// reconstruction. Anything else (U+2606 ☆ -> 0x06, U+221E ∞ -> 0x1E, ...) is
+// ambiguous and left for manual review.
+const CONTROL_FIX = {
+  0x13: '–', // en dash –
+  0x14: '—', // em dash —
+  0x18: '‘', // left single quote ‘
+  0x19: '’', // right single quote / apostrophe ’
+  0x1c: '“', // left double quote “
+  0x1d: '”' // right double quote ”
+};
+const TEXT_FIELDS = ['title', 'artist', 'album', 'album_artist'];
+
+// Collapse the spacing/encoding noise that silently splits albums: NBSP,
+// zero-width chars, NFC drift, and stray/edge whitespace.
+function normalizeTagValue(value) {
+  return value
+    .normalize('NFC')
+    .replace(NBSP_RE, ' ')
+    .replace(INVISIBLE_RE, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
+// Return a hygiene report for a tag value, or null when it is clean.
+function analyzeText(value) {
+  if (typeof value !== 'string' || value === '') {
+    return null;
+  }
+
+  CONTROL_RE.lastIndex = 0;
+  const hasControl = CONTROL_RE.test(value);
+  const hasInvisible = /[\u200b-\u200d\ufeff\u00a0]/.test(value);
+  const hasSpacing = value !== value.trim() || /\s{2,}/.test(value);
+  const hasNfc = value !== value.normalize('NFC');
+
+  if (!hasControl && !hasInvisible && !hasSpacing && !hasNfc) {
+    return null;
+  }
+
+  let confident = true;
+  const repaired = value.replace(CONTROL_RE, (ch) => {
+    const fix = CONTROL_FIX[ch.charCodeAt(0)];
+    if (fix) {
+      return fix;
+    }
+    confident = false;
+    return ch; // leave the unknown control char in place
+  });
+
+  CONTROL_RE.lastIndex = 0;
+  return {
+    kind: hasControl ? 'control' : 'whitespace',
+    display: value.replace(CONTROL_RE, '·'), // visible placeholder ·
+    suggested: normalizeTagValue(repaired),
+    confident
+  };
+}
+
 export async function inspectAlbum(album) {
   const albumPath = path.join(config.rawDir, album);
   const files = await listAudioFiles(albumPath);
@@ -173,6 +241,8 @@ export async function inspectAlbum(album) {
     tracks.push({
       file: path.relative(albumPath, absPath),
       formatName: tags.__format_name || '',
+      title: tags.title || '',
+      artist: tags.artist || '',
       album: tags.album || '',
       album_artist: tags.album_artist || tags.albumartist || '',
       date: tags.date || tags.year || '',
@@ -205,11 +275,15 @@ export async function inspectAlbum(album) {
     discTrackCounts.set(key, (discTrackCounts.get(key) || 0) + 1);
   });
 
-  const discs = (distinctDiscs.length ? distinctDiscs : [1]).map((d) => {
-    const nums = tracks
+  const discList = distinctDiscs.length ? distinctDiscs : [1];
+  const numsOnDisc = (d) =>
+    tracks
       .map((t, i) => ((discNums[i] ?? 1) === d ? trackPairs[i].num : null))
       .filter((n) => n != null)
       .sort((a, b) => a - b);
+
+  const discs = discList.map((d) => {
+    const nums = numsOnDisc(d);
     const contiguous =
       nums.length > 0 && nums[0] === 1 && nums.every((n, k) => k === 0 || n === nums[k - 1] + 1);
     return { disc: d, trackCount: discTrackCounts.get(d) || 0, contiguous };
@@ -218,6 +292,20 @@ export async function inspectAlbum(album) {
   if (multiDisc) {
     // Expected to vary — surface the structure, not a "problem".
     fields.disc = { ...fields.disc, consistent: true, proposed: '', multiDisc: true };
+  }
+
+  // Some "inconsistencies" are pure spacing/encoding drift: the values become
+  // identical after normalization. Flag those and propose the clean form.
+  for (const field of GROUPING_FIELDS) {
+    const info = fields[field];
+    if (info.consistent || info.missing > 0) {
+      continue;
+    }
+    const norms = new Set(info.distinct.map((d) => normalizeTagValue(d.value)));
+    if (norms.size === 1) {
+      info.whitespaceOnly = true;
+      info.proposed = [...norms][0];
+    }
   }
 
   // How many albums would a player create? Distinct combos of grouping fields.
@@ -233,6 +321,50 @@ export async function inspectAlbum(album) {
     const expectedTotal = discTrackCounts.get(discNums[i] ?? 1);
     return p.total !== expectedTotal;
   }).length;
+
+  // Missing-track detection: gaps in each disc's numbering, plus trailing
+  // tracks when a reliable per-disc total is known. The cumulative-total case
+  // (same total on every disc, equal to the file count) is not trustworthy for
+  // a trailing check, so skip it there.
+  const trackGaps = [];
+  for (const d of discList) {
+    const nums = numsOnDisc(d);
+    if (nums.length === 0) {
+      continue;
+    }
+    const present = new Set(nums);
+    const maxNum = nums[nums.length - 1];
+    const missing = [];
+    for (let n = 1; n <= maxNum; n += 1) {
+      if (!present.has(n)) {
+        missing.push(n);
+      }
+    }
+    const totals = tracks
+      .map((t, i) => ((discNums[i] ?? 1) === d ? trackPairs[i].total : null))
+      .filter((x) => x != null);
+    const declared = totals.length > 0 && totals.every((x) => x === totals[0]) ? totals[0] : null;
+    const cumulativeLooking = multiDisc && declared === trackCount;
+    if (declared != null && !cumulativeLooking && declared > maxNum) {
+      for (let n = maxNum + 1; n <= declared; n += 1) {
+        missing.push(n);
+      }
+    }
+    if (missing.length > 0) {
+      trackGaps.push({ disc: d, missing });
+    }
+  }
+
+  // Tag text hygiene: control-char corruption and invisible/whitespace noise.
+  const textIssues = [];
+  for (const track of tracks) {
+    for (const field of TEXT_FIELDS) {
+      const issue = analyzeText(track[field]);
+      if (issue) {
+        textIssues.push({ file: track.file, field, ...issue });
+      }
+    }
+  }
 
   const filenameIssues = [];
   for (const track of tracks) {
@@ -262,16 +394,21 @@ export async function inspectAlbum(album) {
       wrongTotals: wrongTrackTotals,
       needsNormalize: missingTrackNumbers > 0 || wrongTrackTotals > 0
     },
+    trackGaps,
+    incomplete: trackGaps.length > 0,
+    textIssues,
     filenameIssues,
     tracks
   };
 }
 
 // Vorbis comments (FLAC/OGG/Opus) use conventional uppercase keys. ffmpeg's
-// generic `album_artist`/`disc`/`track` keys get written verbatim and many
-// players then miss them, so map to the standard names for those containers.
-// MP4 and MP3 handle the generic keys correctly, so leave them untouched.
+// generic keys get written verbatim and many players then miss them, so map to
+// the standard names for those containers. MP4 and MP3 handle the generic keys
+// correctly, so leave them untouched.
 const VORBIS_KEY = {
+  title: 'TITLE',
+  artist: 'ARTIST',
   date: 'DATE',
   album: 'ALBUM',
   album_artist: 'ALBUMARTIST',
@@ -325,8 +462,15 @@ export async function fixAlbum(album, options = {}) {
   }
 }
 
+function currentFieldValue(tags, field) {
+  if (field === 'album_artist') {
+    return tags.album_artist || tags.albumartist || '';
+  }
+  return tags[field] || '';
+}
+
 async function runFix(album, options = {}) {
-  const { set = {}, normalizeTracks = false, fixFilenames = false } = options;
+  const { set = {}, normalizeTracks = false, fixFilenames = false, repairText = false } = options;
   const albumPath = path.join(config.rawDir, album);
   const files = await listAudioFiles(albumPath);
 
@@ -346,14 +490,22 @@ async function runFix(album, options = {}) {
   const changes = [];
   const errors = [];
 
-  // Disc-aware track normalization needs each disc's track count up front, so
-  // pre-scan all files before rewriting any (4/10 on disc 1, 8/9 on disc 2).
+  // Disc-aware track normalization and text repair both need the existing tags,
+  // so scan every file once up front (also gives each disc's track count).
+  const needScan = normalizeTracks || repairText;
+  const scan = new Map();
+  if (needScan) {
+    for (const absPath of files) {
+      scan.set(absPath, await probeTags(absPath));
+    }
+  }
+
   let trackMeta = null;
   if (normalizeTracks) {
     trackMeta = new Map();
     const discCounts = new Map();
     for (const absPath of files) {
-      const tags = await probeTags(absPath);
+      const tags = scan.get(absPath);
       const discNum = parseNumberPair(tags.disc || tags.disk || tags.discnumber).num ?? 1;
       const num = parseNumberPair(tags.track || tags.tracknumber).num ?? leadingTrackNumber(absPath);
       trackMeta.set(absPath, { discNum, num });
@@ -375,6 +527,22 @@ async function runFix(album, options = {}) {
       const meta = trackMeta.get(absPath);
       if (meta && meta.num != null) {
         fields.push(['track', `${meta.num}/${meta.total}`]);
+      }
+    }
+
+    if (repairText) {
+      const tags = scan.get(absPath);
+      for (const field of TEXT_FIELDS) {
+        if (unify[field] != null) {
+          continue; // an explicit unify value wins over text repair
+        }
+        const current = currentFieldValue(tags, field);
+        const issue = analyzeText(current);
+        // Only auto-apply confident reconstructions; ambiguous corruption is
+        // reported by inspect for manual handling.
+        if (issue && issue.confident && issue.suggested && issue.suggested !== current) {
+          fields.push([field, issue.suggested]);
+        }
       }
     }
 
@@ -425,7 +593,7 @@ async function runFix(album, options = {}) {
   return {
     ok: errors.length === 0,
     album,
-    applied: { unify, normalizeTracks, fixFilenames },
+    applied: { unify, normalizeTracks, fixFilenames, repairText },
     changes,
     renames,
     errors,

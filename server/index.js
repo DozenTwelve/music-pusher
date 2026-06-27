@@ -158,7 +158,8 @@ app.post('/api/fix', async (req, res) => {
     const result = await fixAlbum(album, {
       set: req.body?.set || {},
       normalizeTracks: Boolean(req.body?.normalizeTracks),
-      fixFilenames: Boolean(req.body?.fixFilenames)
+      fixFilenames: Boolean(req.body?.fixFilenames),
+      repairText: Boolean(req.body?.repairText)
     });
     const status = result.ok ? 200 : result.code === 'fix_busy' ? 409 : 422;
     res.status(status).json(result);

@@ -182,6 +182,23 @@ function MetadataReport({ report, draft, onDraftChange }) {
           : `✓ Consistent — this album stays as 1 album (${report.trackCount} tracks).`}
       </div>
 
+      {report.incomplete ? (
+        <div className="report-banner bad">
+          ⚠ Missing tracks:{' '}
+          {report.trackGaps
+            .map((g) => `disc ${g.disc} → ${g.missing.map((n) => `#${n}`).join(', ')}`)
+            .join('; ')}
+          . Add them before importing.
+        </div>
+      ) : null}
+
+      {report.textIssues.length ? (
+        <div className="report-banner warn">
+          {report.textIssues.length} corrupted/dirty tag{report.textIssues.length > 1 ? 's' : ''} found
+          (downloader damage). Tick “Repair corrupted text” below to auto-fix the confident ones.
+        </div>
+      ) : null}
+
       {report.multiDisc ? (
         <p className="muted">
           Multi-disc set ({report.discs.length} discs):{' '}
@@ -252,7 +269,30 @@ function MetadataReport({ report, draft, onDraftChange }) {
           Fix apostrophes in filenames
           {report.filenameIssues.length ? ` (${report.filenameIssues.length})` : ' — none found'}
         </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={draft.repairText}
+            onChange={(event) => onDraftChange('repairText', event.target.checked)}
+          />
+          Repair corrupted text in tags
+          {report.textIssues.length ? ` (${report.textIssues.length})` : ' — none found'}
+        </label>
       </div>
+
+      {report.textIssues.length ? (
+        <details>
+          <summary>Tag text issues ({report.textIssues.length})</summary>
+          <ul>
+            {report.textIssues.map((issue, idx) => (
+              <li key={`${issue.file}-${issue.field}-${idx}`}>
+                <code>{issue.field}</code> · {issue.file}: “{issue.display}” → “{issue.suggested}”
+                {issue.confident ? '' : ' ⚠ manual (ambiguous)'}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
 
       {report.filenameIssues.length ? (
         <details>
@@ -292,7 +332,12 @@ function ConsolePanel({ selectedAlbum, onImportDone }) {
   function applyReport(data) {
     setReport(data);
     // Pre-fill drafts with the mode for each inconsistent field (override-able).
-    const next = { normalizeTracks: data.track.needsNormalize, fixFilenames: data.filenameIssues.length > 0 };
+    const hasConfidentText = (data.textIssues || []).some((i) => i.confident);
+    const next = {
+      normalizeTracks: data.track.needsNormalize,
+      fixFilenames: data.filenameIssues.length > 0,
+      repairText: hasConfidentText
+    };
     for (const field of Object.keys(FIELD_LABELS)) {
       const info = data.fields[field];
       next[field] = info && !info.consistent ? info.proposed : '';
@@ -339,7 +384,8 @@ function ConsolePanel({ selectedAlbum, onImportDone }) {
         album: selectedAlbum,
         set,
         normalizeTracks: Boolean(draft.normalizeTracks),
-        fixFilenames: Boolean(draft.fixFilenames)
+        fixFilenames: Boolean(draft.fixFilenames),
+        repairText: Boolean(draft.repairText)
       });
       const data = response.data;
       const parts = [
