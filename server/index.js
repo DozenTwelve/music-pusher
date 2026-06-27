@@ -11,6 +11,7 @@ import {
   sanitizeAlbumName
 } from './upload.js';
 import { runAudit, startImport, streamJob, getJob } from './shell.js';
+import { inspectAlbum, fixAlbum } from './metadata.js';
 
 const app = express();
 
@@ -100,6 +101,69 @@ app.post('/api/audit', async (req, res) => {
     stdout: audit.stdout,
     stderr: audit.stderr
   });
+});
+
+// Resolve and validate an album name from the request body, sending the
+// appropriate error response and returning null when it is not usable.
+async function resolveAlbum(req, res) {
+  const album = sanitizeAlbumName(req.body?.album);
+  if (!album) {
+    res.status(400).json({
+      ok: false,
+      code: 'invalid_album',
+      message: 'Album name is required and must be a single folder segment.'
+    });
+    return null;
+  }
+
+  const albumPath = path.join(config.rawDir, album);
+  try {
+    const stat = await fs.stat(albumPath);
+    if (!stat.isDirectory()) {
+      throw new Error('Not a directory');
+    }
+  } catch {
+    res.status(404).json({
+      ok: false,
+      code: 'album_not_found',
+      message: `Album '${album}' not found in RAW staging directory.`
+    });
+    return null;
+  }
+
+  return album;
+}
+
+app.post('/api/inspect', async (req, res) => {
+  const album = await resolveAlbum(req, res);
+  if (!album) {
+    return;
+  }
+
+  try {
+    const report = await inspectAlbum(album);
+    res.status(report.ok ? 200 : 422).json(report);
+  } catch (error) {
+    res.status(500).json({ ok: false, code: 'inspect_failed', message: error.message });
+  }
+});
+
+app.post('/api/fix', async (req, res) => {
+  const album = await resolveAlbum(req, res);
+  if (!album) {
+    return;
+  }
+
+  try {
+    const result = await fixAlbum(album, {
+      set: req.body?.set || {},
+      normalizeTracks: Boolean(req.body?.normalizeTracks),
+      fixFilenames: Boolean(req.body?.fixFilenames)
+    });
+    res.status(result.ok ? 200 : 422).json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, code: 'fix_failed', message: error.message });
+  }
 });
 
 app.post('/api/import', async (req, res) => {

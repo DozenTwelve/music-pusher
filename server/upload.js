@@ -4,7 +4,7 @@ import path from 'node:path';
 import multer from 'multer';
 import { config } from './config.js';
 
-const AUDIO_EXTENSIONS = new Set(['.mp3', '.flac', '.m4a', '.aac', '.wav', '.ogg', '.alac']);
+export const AUDIO_EXTENSIONS = new Set(['.mp3', '.flac', '.m4a', '.aac', '.wav', '.ogg', '.alac']);
 const ART_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 const SIDECAR_EXTENSIONS = new Set(['.cue', '.log', '.txt']);
 const SKIP_FILENAMES = new Set(['.ds_store', 'thumbs.db', 'desktop.ini']);

@@ -162,8 +162,109 @@ function AlbumList({ albums, selectedAlbum, onSelect }) {
   );
 }
 
+const FIELD_LABELS = {
+  date: 'Date / Year',
+  album: 'Album',
+  album_artist: 'Album Artist',
+  disc: 'Disc'
+};
+
+function MetadataReport({ report, draft, onDraftChange }) {
+  const splitDanger = report.groupCount > 1;
+
+  return (
+    <div className="report">
+      <div className={`report-banner ${splitDanger ? 'bad' : 'good'}`}>
+        {splitDanger
+          ? `⚠ This album would split into ${report.groupCount} albums. Cause: ${report.splitFields
+              .map((f) => FIELD_LABELS[f] || f)
+              .join(', ')}.`
+          : `✓ Consistent — this album stays as 1 album (${report.trackCount} tracks).`}
+      </div>
+
+      {report.formats.length > 1 ? (
+        <p className="muted">Mixed formats present: {report.formats.join(', ')}</p>
+      ) : null}
+
+      <table className="field-table">
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Status</th>
+            <th>Distinct values</th>
+            <th>Unify to</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Object.keys(FIELD_LABELS).map((field) => {
+            const info = report.fields[field];
+            if (!info) {
+              return null;
+            }
+            const valueSummary = info.distinct.length
+              ? info.distinct.map((d) => `${d.value} ×${d.count}`).join('  |  ')
+              : '(empty)';
+            return (
+              <tr key={field} className={info.consistent ? '' : 'row-bad'}>
+                <td>{FIELD_LABELS[field]}</td>
+                <td>{info.consistent ? 'OK' : `${info.distinct.length || 0} values${info.missing ? `, ${info.missing} missing` : ''}`}</td>
+                <td className="value-cell">{valueSummary}</td>
+                <td>
+                  <input
+                    type="text"
+                    value={draft[field] ?? ''}
+                    placeholder={info.proposed || '(leave blank to skip)'}
+                    onChange={(event) => onDraftChange(field, event.target.value)}
+                  />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      <div className="report-extras">
+        <label>
+          <input
+            type="checkbox"
+            checked={draft.normalizeTracks}
+            onChange={(event) => onDraftChange('normalizeTracks', event.target.checked)}
+          />
+          Normalize track numbering (set totals to {report.trackCount})
+          {report.track.needsNormalize ? ' — needed' : ' — already OK'}
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={draft.fixFilenames}
+            onChange={(event) => onDraftChange('fixFilenames', event.target.checked)}
+          />
+          Fix apostrophes in filenames
+          {report.filenameIssues.length ? ` (${report.filenameIssues.length})` : ' — none found'}
+        </label>
+      </div>
+
+      {report.filenameIssues.length ? (
+        <details>
+          <summary>Filename fixes ({report.filenameIssues.length})</summary>
+          <ul>
+            {report.filenameIssues.map((issue) => (
+              <li key={issue.file}>
+                {issue.file} → {issue.suggested}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
 function ConsolePanel({ selectedAlbum, onImportDone }) {
-  const [auditOutput, setAuditOutput] = useState('');
+  const [report, setReport] = useState(null);
+  const [draft, setDraft] = useState({ normalizeTracks: false, fixFilenames: false });
+  const [busy, setBusy] = useState('');
+  const [fixSummary, setFixSummary] = useState('');
   const [importLogs, setImportLogs] = useState([]);
   const [importStatus, setImportStatus] = useState('idle');
   const [error, setError] = useState('');
@@ -171,21 +272,83 @@ function ConsolePanel({ selectedAlbum, onImportDone }) {
 
   useEffect(() => () => eventSourceRef.current?.close(), []);
 
-  async function runAuditAction() {
+  // Reset analysis when the selected album changes.
+  useEffect(() => {
+    setReport(null);
+    setDraft({ normalizeTracks: false, fixFilenames: false });
+    setFixSummary('');
+  }, [selectedAlbum]);
+
+  function applyReport(data) {
+    setReport(data);
+    // Pre-fill drafts with the mode for each inconsistent field (override-able).
+    const next = { normalizeTracks: data.track.needsNormalize, fixFilenames: data.filenameIssues.length > 0 };
+    for (const field of Object.keys(FIELD_LABELS)) {
+      const info = data.fields[field];
+      next[field] = info && !info.consistent ? info.proposed : '';
+    }
+    setDraft(next);
+  }
+
+  function updateDraft(key, value) {
+    setDraft((previous) => ({ ...previous, [key]: value }));
+  }
+
+  async function runAnalyze() {
     if (!selectedAlbum) {
       return;
     }
-
     setError('');
-    setAuditOutput('Running exiftool...\n');
-
+    setFixSummary('');
+    setBusy('analyze');
     try {
-      const response = await axios.post('/api/audit', { album: selectedAlbum });
-      const stdout = response.data.stdout || '';
-      const stderr = response.data.stderr || '';
-      setAuditOutput([stdout, stderr].filter(Boolean).join('\n'));
+      const response = await axios.post('/api/inspect', { album: selectedAlbum });
+      applyReport(response.data);
     } catch (requestError) {
       setError(requestError?.response?.data?.message || requestError.message);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function applyFixes() {
+    if (!selectedAlbum || !report) {
+      return;
+    }
+    setError('');
+    setBusy('fix');
+    const set = {};
+    for (const field of Object.keys(FIELD_LABELS)) {
+      const value = (draft[field] ?? '').trim();
+      if (value) {
+        set[field] = value;
+      }
+    }
+    try {
+      const response = await axios.post('/api/fix', {
+        album: selectedAlbum,
+        set,
+        normalizeTracks: Boolean(draft.normalizeTracks),
+        fixFilenames: Boolean(draft.fixFilenames)
+      });
+      const data = response.data;
+      const parts = [
+        `Tagged ${data.changes.length} files`,
+        data.renames.length ? `renamed ${data.renames.length}` : null,
+        data.errors.length ? `${data.errors.length} errors` : null,
+        data.after ? `now ${data.after.groupCount} album(s)` : null
+      ].filter(Boolean);
+      setFixSummary(parts.join(' · '));
+      if (data.errors.length) {
+        setError(data.errors.map((e) => `${e.file}: ${e.message}`).join('\n'));
+      }
+      if (data.after) {
+        applyReport(data.after);
+      }
+    } catch (requestError) {
+      setError(requestError?.response?.data?.message || requestError.message);
+    } finally {
+      setBusy('');
     }
   }
 
@@ -248,19 +411,27 @@ function ConsolePanel({ selectedAlbum, onImportDone }) {
       <p className="muted">Selected album: {selectedAlbum || 'none'}</p>
 
       <div className="button-row">
-        <button type="button" disabled={!selectedAlbum} onClick={runAuditAction}>
-          Audit
+        <button type="button" disabled={!selectedAlbum || busy === 'analyze'} onClick={runAnalyze}>
+          {busy === 'analyze' ? 'Analyzing...' : 'Analyze Metadata'}
+        </button>
+        <button type="button" disabled={!report || busy === 'fix'} onClick={applyFixes}>
+          {busy === 'fix' ? 'Applying...' : 'Apply Fixes'}
         </button>
         <button type="button" disabled={!selectedAlbum || importStatus === 'running'} onClick={importAlbum}>
           {importStatus === 'running' ? 'Importing...' : 'Import to Library'}
         </button>
       </div>
 
-      {error ? <p className="error">{error}</p> : null}
+      {error ? <pre className="error">{error}</pre> : null}
+      {fixSummary ? <p className="muted">{fixSummary}</p> : null}
 
       <div className="terminal-wrap">
-        <h3>Audit Output</h3>
-        <pre className="terminal">{auditOutput || 'No audit run yet.'}</pre>
+        <h3>Metadata Analysis</h3>
+        {report ? (
+          <MetadataReport report={report} draft={draft} onDraftChange={updateDraft} />
+        ) : (
+          <p className="muted">No analysis yet. Pick an album and click Analyze Metadata.</p>
+        )}
       </div>
 
       <div className="terminal-wrap">

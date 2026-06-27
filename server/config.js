@@ -49,6 +49,8 @@ export const config = {
   maxFileSizeBytes: parseInteger(process.env.MAX_FILE_SIZE_MB, 2048) * 1024 * 1024,
   maxFiles: parseInteger(process.env.MAX_FILES, 2000),
   exiftoolBin: expandHome(process.env.EXIFTOOL_BIN) || 'exiftool',
+  ffmpegBin: expandHome(process.env.FFMPEG_BIN) || 'ffmpeg',
+  ffprobeBin: expandHome(process.env.FFPROBE_BIN) || 'ffprobe',
   beetBin: expandHome(process.env.BEET_BIN) || 'beet',
   cleanupRawAfterImport: parseBoolean(process.env.CLEANUP_RAW_AFTER_IMPORT, true)
 };

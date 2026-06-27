@@ -193,6 +193,88 @@ button:disabled {
   word-break: break-word;
 }
 
+.error {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.report {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.report-banner {
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.report-banner.bad {
+  background: #fcecec;
+  border: 1px solid #e3b4b4;
+  color: var(--error);
+}
+
+.report-banner.good {
+  background: #eaf6ef;
+  border: 1px solid #b3ddc4;
+  color: var(--accent-2);
+}
+
+.field-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.field-table th,
+.field-table td {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--panel-border);
+  vertical-align: top;
+}
+
+.field-table th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.field-table tr.row-bad td {
+  background: #fdf4f4;
+}
+
+.field-table .value-cell {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 320px;
+}
+
+.field-table input[type='text'] {
+  width: 100%;
+  min-width: 120px;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.report-extras {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.report-extras label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.report-extras input[type='checkbox'] {
+  width: auto;
+}
+
 @media (max-width: 680px) {
   .app-shell {
     padding: 0.8rem;
