@@ -200,6 +200,15 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
       ? `${fixableCount} issue${fixableCount > 1 ? 's' : ''} to review.`
       : 'Nothing to fix — looks clean.';
 
+  const importStepState =
+    importStatus === 'done'
+      ? 'done'
+      : importStatus === 'failed'
+        ? 'failed'
+        : importStatus === 'running' || importStatus === 'starting'
+          ? 'active'
+          : 'todo';
+
   return (
     <section className="workflow panel">
       <div className="workflow-head">
@@ -245,7 +254,7 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
           </div>
         </li>
 
-        <li className={`step${importStatus === 'done' ? ' done' : ' todo'}`}>
+        <li className={`step ${importStepState}`}>
           <span className="step-badge">3</span>
           <div className="step-body">
             <div className="step-head">

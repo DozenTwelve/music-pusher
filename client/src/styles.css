@@ -279,8 +279,17 @@ button.ghost:hover {
   background: #bcc6bf;
 }
 
+.step.active .step-badge {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(21, 111, 99, 0.18);
+}
+
 .step.done .step-badge {
   background: var(--accent-2);
+}
+
+.step.failed .step-badge {
+  background: var(--error);
 }
 
 .step-body {

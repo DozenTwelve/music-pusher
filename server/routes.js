@@ -136,7 +136,16 @@ apiRouter.post('/fix', async (req, res) => {
       fixFilenames: Boolean(req.body?.fixFilenames),
       repairText: Boolean(req.body?.repairText)
     });
-    const status = result.ok ? 200 : result.code === 'fix_busy' ? 409 : 422;
+    // A fix that ran is a 200 even with per-file errors (a partial success the
+    // client renders from result.errors); reserve 4xx for not-run outcomes.
+    let status;
+    if (result.code === 'fix_busy') {
+      status = 409;
+    } else if (result.code === 'no_audio_files') {
+      status = 422;
+    } else {
+      status = 200;
+    }
     res.status(status).json(result);
   } catch (error) {
     res.status(500).json({ ok: false, code: 'fix_failed', message: error.message });
