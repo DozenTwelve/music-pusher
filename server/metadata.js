@@ -14,6 +14,10 @@ const UNIFIABLE_FIELDS = ['date', 'album', 'album_artist', 'disc'];
 const READ_FIELDS = ['album', 'album_artist', 'date', 'disc', 'track', 'genre'];
 
 const MP4_EXTENSIONS = new Set(['.m4a', '.aac', '.alac', '.mp4', '.m4b']);
+const VORBIS_EXTENSIONS = new Set(['.flac', '.ogg', '.opus']);
+// Prefix for the temp file written during an in-place tag rewrite. A crashed
+// rewrite can leave one behind; it must never be mistaken for a real track.
+const TEMP_PREFIX = '__fix__';
 
 function runProcess(bin, args) {
   return new Promise((resolve) => {
@@ -48,6 +52,11 @@ async function listAudioFiles(albumPath) {
         continue;
       }
       if (!entry.isFile()) {
+        continue;
+      }
+      // Skip leftover rewrite temp files so a crashed fix never gets counted
+      // as a track (or, worse, imported into the library).
+      if (entry.name.startsWith(TEMP_PREFIX)) {
         continue;
       }
       if (AUDIO_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
@@ -167,8 +176,8 @@ export async function inspectAlbum(album) {
       album: tags.album || '',
       album_artist: tags.album_artist || tags.albumartist || '',
       date: tags.date || tags.year || '',
-      disc: tags.disc || tags.disk || '',
-      track: tags.track || ''
+      disc: tags.disc || tags.disk || tags.discnumber || '',
+      track: tags.track || tags.tracknumber || ''
     });
   }
 
@@ -223,23 +232,33 @@ export async function inspectAlbum(album) {
   };
 }
 
-// ffmpeg key for each field. ffmpeg maps these generic keys to the right atom
-// per container (©day/aART/etc. for mp4, DATE/ALBUMARTIST/... for flac).
-const FFMPEG_KEY = {
-  date: 'date',
-  album: 'album',
-  album_artist: 'album_artist',
-  disc: 'disc'
+// Vorbis comments (FLAC/OGG/Opus) use conventional uppercase keys. ffmpeg's
+// generic `album_artist`/`disc`/`track` keys get written verbatim and many
+// players then miss them, so map to the standard names for those containers.
+// MP4 and MP3 handle the generic keys correctly, so leave them untouched.
+const VORBIS_KEY = {
+  date: 'DATE',
+  album: 'ALBUM',
+  album_artist: 'ALBUMARTIST',
+  disc: 'DISCNUMBER',
+  track: 'TRACKNUMBER'
 };
 
-async function rewriteTags(absPath, metadataArgs) {
+function metadataKeyFor(field, ext) {
+  if (VORBIS_EXTENSIONS.has(ext)) {
+    return VORBIS_KEY[field] || field;
+  }
+  return field;
+}
+
+async function rewriteTags(absPath, fields) {
   const ext = path.extname(absPath).toLowerCase();
   const dir = path.dirname(absPath);
-  const tmpPath = path.join(dir, `__fix__${path.basename(absPath)}`);
+  const tmpPath = path.join(dir, `${TEMP_PREFIX}${path.basename(absPath)}`);
 
   const args = ['-v', 'error', '-i', absPath, '-map', '0', '-c', 'copy', '-map_metadata', '0'];
-  for (const [key, value] of metadataArgs) {
-    args.push('-metadata', `${key}=${value}`);
+  for (const [field, value] of fields) {
+    args.push('-metadata', `${metadataKeyFor(field, ext)}=${value}`);
   }
   if (MP4_EXTENSIONS.has(ext)) {
     args.push('-movflags', '+faststart');
@@ -254,7 +273,24 @@ async function rewriteTags(absPath, metadataArgs) {
   await fsp.rename(tmpPath, absPath);
 }
 
+// Albums with a fix in progress. Concurrent rewrites of the same album would
+// race on the shared temp file, so reject overlapping requests.
+const fixesInFlight = new Set();
+
 export async function fixAlbum(album, options = {}) {
+  if (fixesInFlight.has(album)) {
+    return { ok: false, code: 'fix_busy', message: `A fix is already running for album '${album}'.` };
+  }
+
+  fixesInFlight.add(album);
+  try {
+    return await runFix(album, options);
+  } finally {
+    fixesInFlight.delete(album);
+  }
+}
+
+async function runFix(album, options = {}) {
   const { set = {}, normalizeTracks = false, fixFilenames = false } = options;
   const albumPath = path.join(config.rawDir, album);
   const files = await listAudioFiles(albumPath);
@@ -277,10 +313,10 @@ export async function fixAlbum(album, options = {}) {
   const errors = [];
 
   for (const absPath of files) {
-    const metadataArgs = [];
+    const fields = [];
 
     for (const [field, value] of Object.entries(unify)) {
-      metadataArgs.push([FFMPEG_KEY[field], value]);
+      fields.push([field, value]);
     }
 
     if (normalizeTracks) {
@@ -288,19 +324,19 @@ export async function fixAlbum(album, options = {}) {
       const pair = parseNumberPair(tags.track || tags.tracknumber);
       const num = pair.num ?? leadingTrackNumber(absPath);
       if (num != null) {
-        metadataArgs.push(['track', `${num}/${trackCount}`]);
+        fields.push(['track', `${num}/${trackCount}`]);
       }
     }
 
-    if (metadataArgs.length === 0) {
+    if (fields.length === 0) {
       continue;
     }
 
     try {
-      await rewriteTags(absPath, metadataArgs);
+      await rewriteTags(absPath, fields);
       changes.push({
         file: path.relative(albumPath, absPath),
-        applied: metadataArgs.map(([k, v]) => `${k}=${v}`)
+        applied: fields.map(([k, v]) => `${k}=${v}`)
       });
     } catch (error) {
       errors.push({ file: path.relative(albumPath, absPath), message: error.message });

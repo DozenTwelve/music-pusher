@@ -160,7 +160,8 @@ app.post('/api/fix', async (req, res) => {
       normalizeTracks: Boolean(req.body?.normalizeTracks),
       fixFilenames: Boolean(req.body?.fixFilenames)
     });
-    res.status(result.ok ? 200 : 422).json(result);
+    const status = result.ok ? 200 : result.code === 'fix_busy' ? 409 : 422;
+    res.status(status).json(result);
   } catch (error) {
     res.status(500).json({ ok: false, code: 'fix_failed', message: error.message });
   }
