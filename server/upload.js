@@ -6,6 +6,11 @@ import { config } from './config.js';
 
 export const AUDIO_EXTENSIONS = new Set(['.mp3', '.flac', '.m4a', '.aac', '.wav', '.ogg', '.alac']);
 export const ART_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+// Cover images are transcoded to JPEG on embed, so we can accept any format
+// ffmpeg can decode — a broader set than the art files bundled with an album.
+export const COVER_IMAGE_EXTENSIONS = new Set([
+  '.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.tif', '.tiff'
+]);
 const SIDECAR_EXTENSIONS = new Set(['.cue', '.log', '.txt', '.lrc']);
 const SKIP_FILENAMES = new Set(['.ds_store', 'thumbs.db', 'desktop.ini']);
 

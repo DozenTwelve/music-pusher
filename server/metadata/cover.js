@@ -9,6 +9,10 @@ const MP4_EXTENSIONS = new Set(['.m4a', '.aac', '.alac', '.mp4', '.m4b']);
 // Embed the cover into one track: map the audio streams from the file and the
 // picture from the cover, flag it attached_pic, write to a temp file, then rename
 // over the original — the same temp-then-rename pattern as the tag rewrites.
+//
+// The picture is transcoded to JPEG rather than copied: MP4's cover atom only
+// accepts jpeg/png, so a copied webp/gif/bmp would fail there. Normalizing to
+// mjpeg lets any uploaded image format embed cleanly across MP3/FLAC/MP4.
 async function embedInFile(absPath, coverPath) {
   const ext = path.extname(absPath).toLowerCase();
   const dir = path.dirname(absPath);
@@ -20,7 +24,8 @@ async function embedInFile(absPath, coverPath) {
     '-i', coverPath,
     '-map', '0:a',
     '-map', '1:v',
-    '-c', 'copy',
+    '-c:a', 'copy',
+    '-c:v', 'mjpeg',
     '-disposition:v:0', 'attached_pic',
     '-map_metadata', '0'
   ];

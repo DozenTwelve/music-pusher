@@ -8,7 +8,7 @@ import {
   listAlbums,
   buildUploadSummary,
   sanitizeAlbumName,
-  ART_EXTENSIONS
+  COVER_IMAGE_EXTENSIONS
 } from './upload.js';
 import { runAudit, startImport, streamJob, getJob } from './shell.js';
 import { inspectAlbum, fixAlbum, embedCover } from './metadata/index.js';
@@ -23,7 +23,7 @@ const coverUpload = multer({
   limits: { fileSize: config.maxCoverSizeBytes, files: 1 },
   fileFilter(req, file, cb) {
     const ext = path.extname(file.originalname || '').toLowerCase();
-    cb(null, ART_EXTENSIONS.has(ext));
+    cb(null, COVER_IMAGE_EXTENSIONS.has(ext));
   }
 });
 
@@ -178,7 +178,7 @@ apiRouter.post('/cover', coverUpload.single('cover'), async (req, res) => {
     res.status(400).json({
       ok: false,
       code: 'no_cover',
-      message: 'A cover image is required (field "cover", one of jpg/jpeg/png/webp).'
+      message: 'A cover image is required (field "cover": jpg, jpeg, png, webp, gif, bmp, or tiff).'
     });
     return;
   }

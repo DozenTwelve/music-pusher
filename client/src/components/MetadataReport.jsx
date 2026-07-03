@@ -162,19 +162,16 @@ export function FixForm({ report, draft, onDraftChange }) {
   );
 }
 
-// Cover art embed: pick an image and push it into every track (shown under "Fix").
+// Cover art embed: only shown when at least one track is missing a cover — when
+// every track already has art there is nothing to fix, so the menu stays hidden.
 export function CoverArtFix({ report, onEmbed, busy }) {
   const [file, setFile] = useState(null);
   // Bumped after an embed to remount (and thus clear) the file input.
   const [resetKey, setResetKey] = useState(0);
   const art = report.art;
-  if (!art) {
+  if (!art?.hasMissing) {
     return null;
   }
-
-  const status = art.hasMissing
-    ? `${art.withArt}/${art.total} tracks have embedded art — ${art.missing} missing.`
-    : `✓ All ${art.total} tracks already have embedded art.`;
 
   async function handleEmbed() {
     if (!file) {
@@ -187,7 +184,10 @@ export function CoverArtFix({ report, onEmbed, busy }) {
 
   return (
     <div className="report cover-fix">
-      <p className={`step-status${art.hasMissing ? '' : ' ok'}`}>{status}</p>
+      <p className="step-status">
+        {art.withArt}/{art.total} tracks have embedded art — {art.missing} missing. Upload a cover to
+        embed it into every track.
+      </p>
       <div className="cover-controls">
         <input
           key={resetKey}
@@ -196,7 +196,7 @@ export function CoverArtFix({ report, onEmbed, busy }) {
           onChange={(event) => setFile(event.target.files?.[0] || null)}
         />
         <button type="button" onClick={handleEmbed} disabled={!file || busy}>
-          {busy ? 'Embedding…' : art.hasMissing ? 'Embed cover' : 'Replace cover'}
+          {busy ? 'Embedding…' : 'Embed cover'}
         </button>
       </div>
     </div>
