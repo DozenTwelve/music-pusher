@@ -195,8 +195,8 @@ export function CoverArtFix({ report, onEmbed, busy }) {
           accept="image/*"
           onChange={(event) => setFile(event.target.files?.[0] || null)}
         />
-        <button type="button" onClick={handleEmbed} disabled={!file || busy}>
-          {busy ? 'Embedding…' : 'Embed cover'}
+        <button type="button" onClick={handleEmbed} disabled={!file || Boolean(busy)}>
+          {busy === 'cover' ? 'Embedding…' : 'Embed cover'}
         </button>
       </div>
     </div>

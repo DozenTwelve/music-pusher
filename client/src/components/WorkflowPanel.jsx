@@ -250,7 +250,7 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
           <div className="step-body">
             <div className="step-head">
               <strong>Analyze metadata</strong>
-              <button type="button" onClick={runAnalyze} disabled={busy === 'analyze'}>
+              <button type="button" onClick={runAnalyze} disabled={Boolean(busy)}>
                 {busy === 'analyze' ? 'Analyzing…' : report ? 'Re-analyze' : 'Analyze'}
               </button>
             </div>
@@ -268,7 +268,7 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
           <div className="step-body">
             <div className="step-head">
               <strong>Fix issues</strong>
-              <button type="button" onClick={applyFixes} disabled={!report || busy === 'fix'}>
+              <button type="button" onClick={applyFixes} disabled={!report || Boolean(busy)}>
                 {busy === 'fix' ? 'Applying…' : 'Apply Fixes'}
               </button>
             </div>
@@ -277,7 +277,7 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
             {report ? (
               <div className="step-detail">
                 <FixForm report={report} draft={draft} onDraftChange={updateDraft} />
-                <CoverArtFix report={report} onEmbed={handleEmbedCover} busy={busy === 'cover'} />
+                <CoverArtFix report={report} onEmbed={handleEmbedCover} busy={busy} />
               </div>
             ) : null}
           </div>

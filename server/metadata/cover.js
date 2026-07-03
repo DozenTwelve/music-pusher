@@ -3,6 +3,7 @@ import path from 'node:path';
 import { config } from '../config.js';
 import { listAudioFiles, runProcess, TEMP_PREFIX } from './probe.js';
 import { inspectAlbum } from './inspect.js';
+import { withAlbumLock } from './lock.js';
 
 const MP4_EXTENSIONS = new Set(['.m4a', '.aac', '.alac', '.mp4', '.m4b']);
 
@@ -49,21 +50,10 @@ async function embedInFile(absPath, coverPath) {
   await fsp.rename(tmpPath, absPath);
 }
 
-// Albums with an embed in progress. Concurrent embeds of the same album would
-// race on the shared temp cover file, so reject overlapping requests.
-const coversInFlight = new Set();
-
 export async function embedCover(album, { buffer, ext }) {
-  if (coversInFlight.has(album)) {
-    return { ok: false, code: 'cover_busy', message: `A cover embed is already running for album '${album}'.` };
-  }
-
-  coversInFlight.add(album);
-  try {
-    return await runEmbed(album, { buffer, ext });
-  } finally {
-    coversInFlight.delete(album);
-  }
+  // Shared with tag fixes: both rename temp files over the same tracks, so only
+  // one may touch an album at a time.
+  return withAlbumLock(album, 'cover_busy', () => runEmbed(album, { buffer, ext }));
 }
 
 async function runEmbed(album, { buffer, ext }) {

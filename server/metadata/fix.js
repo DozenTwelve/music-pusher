@@ -11,6 +11,7 @@ import {
 } from './probe.js';
 import { analyzeText, suggestFilenameFix, TEXT_FIELDS } from './text.js';
 import { inspectAlbum } from './inspect.js';
+import { withAlbumLock } from './lock.js';
 
 // Fields the UI can unify to a single value across every track.
 const UNIFIABLE_FIELDS = ['date', 'album', 'album_artist', 'disc'];
@@ -61,21 +62,10 @@ async function rewriteTags(absPath, fields) {
   await fsp.rename(tmpPath, absPath);
 }
 
-// Albums with a fix in progress. Concurrent rewrites of the same album would
-// race on the shared temp file, so reject overlapping requests.
-const fixesInFlight = new Set();
-
 export async function fixAlbum(album, options = {}) {
-  if (fixesInFlight.has(album)) {
-    return { ok: false, code: 'fix_busy', message: `A fix is already running for album '${album}'.` };
-  }
-
-  fixesInFlight.add(album);
-  try {
-    return await runFix(album, options);
-  } finally {
-    fixesInFlight.delete(album);
-  }
+  // Shared with cover embeds: both rename temp files over the same tracks, so
+  // only one may touch an album at a time.
+  return withAlbumLock(album, 'fix_busy', () => runFix(album, options));
 }
 
 function currentFieldValue(tags, field) {
