@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FIELD_LABELS, showText } from '../format.js';
+import { CheckIcon, AlertIcon, ImageIcon } from './icons.jsx';
 
 // Read-only diagnosis: what is wrong with the album (shown under "Analyze").
 export function Diagnosis({ report }) {
@@ -8,38 +9,50 @@ export function Diagnosis({ report }) {
   return (
     <div className="report">
       <div className={`report-banner ${splitDanger ? 'bad' : 'good'}`}>
-        {splitDanger
-          ? `⚠ This album would split into ${report.groupCount} albums. Cause: ${report.splitFields
-              .map((f) => FIELD_LABELS[f] || f)
-              .join(', ')}.`
-          : `✓ Grouping consistent — stays as 1 album (${report.trackCount} tracks).`}
+        {splitDanger ? <AlertIcon /> : <CheckIcon />}
+        <span>
+          {splitDanger
+            ? `This album would split into ${report.groupCount} albums. Cause: ${report.splitFields
+                .map((f) => FIELD_LABELS[f] || f)
+                .join(', ')}.`
+            : `Grouping consistent — stays as 1 album (${report.trackCount} tracks).`}
+        </span>
       </div>
 
       {report.incomplete ? (
         <div className="report-banner bad">
-          ⚠ Missing tracks:{' '}
-          {report.trackGaps
-            .map((g) => `disc ${g.disc} → ${g.missing.map((n) => `#${n}`).join(', ')}`)
-            .join('; ')}
-          . Add them before importing.
+          <AlertIcon />
+          <span>
+            Missing tracks:{' '}
+            {report.trackGaps
+              .map((g) => `disc ${g.disc} → ${g.missing.map((n) => `#${n}`).join(', ')}`)
+              .join('; ')}
+            . Add them before importing.
+          </span>
         </div>
       ) : null}
 
       {report.art?.hasMissing ? (
         <div className="report-banner warn">
-          ⚠ No embedded cover art in {report.art.missing} of {report.art.total} track
-          {report.art.total > 1 ? 's' : ''}.
-          {report.art.folderImages.length
-            ? ` A cover file is in the folder (${report.art.folderImages.join(', ')}) but not embedded.`
-            : ''}{' '}
-          Upload one in step 2 to embed it into every track.
+          <ImageIcon />
+          <span>
+            No embedded cover art in {report.art.missing} of {report.art.total} track
+            {report.art.total > 1 ? 's' : ''}.
+            {report.art.folderImages.length
+              ? ` A cover file is in the folder (${report.art.folderImages.join(', ')}) but not embedded.`
+              : ''}{' '}
+            Upload one in step 2 to embed it into every track.
+          </span>
         </div>
       ) : null}
 
       {report.textIssues.length ? (
         <div className="report-banner warn">
-          {report.textIssues.length} corrupted/dirty tag{report.textIssues.length > 1 ? 's' : ''} found
-          (downloader damage). Tick “Repair corrupted text” in step 2 to auto-fix the confident ones.
+          <AlertIcon />
+          <span>
+            {report.textIssues.length} corrupted/dirty tag{report.textIssues.length > 1 ? 's' : ''} found
+            (downloader damage). Tick “Repair corrupted text” in step 2 to auto-fix the confident ones.
+          </span>
         </div>
       ) : null}
 

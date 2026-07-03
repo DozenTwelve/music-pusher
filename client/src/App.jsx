@@ -3,16 +3,29 @@ import { getAlbums, errorMessage } from './api.js';
 import UploadPanel from './components/UploadPanel.jsx';
 import AlbumList from './components/AlbumList.jsx';
 import WorkflowPanel from './components/WorkflowPanel.jsx';
+import { useToast } from './components/Toast.jsx';
+import { SunIcon, MoonIcon, ImageIcon } from './components/icons.jsx';
+
+function useTheme() {
+  const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'light');
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  return [theme, () => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))];
+}
 
 export default function App() {
   const [albums, setAlbums] = useState([]);
   const [selectedAlbum, setSelectedAlbum] = useState('');
   const [loadingAlbums, setLoadingAlbums] = useState(false);
-  const [albumsError, setAlbumsError] = useState('');
+  const [theme, toggleTheme] = useTheme();
+  const toast = useToast();
 
   async function loadAlbums() {
     setLoadingAlbums(true);
-    setAlbumsError('');
     try {
       const list = await getAlbums();
       setAlbums(list);
@@ -26,7 +39,7 @@ export default function App() {
         setSelectedAlbum(list[0].album);
       }
     } catch (loadError) {
-      setAlbumsError(errorMessage(loadError));
+      toast.error(`Could not load albums: ${errorMessage(loadError)}`);
     } finally {
       setLoadingAlbums(false);
     }
@@ -38,10 +51,26 @@ export default function App() {
 
   return (
     <main className="app-shell">
-      <header>
-        <h1>Music Pusher</h1>
-        <p>Push album folders into your beets library — upload, clean up tags, then import.</p>
-      </header>
+      <div className="topbar">
+        <div className="brand">
+          <span className="brand-mark">
+            <ImageIcon size={20} />
+          </span>
+          <header>
+            <h1>Music Pusher</h1>
+            <p>Upload album folders, clean up tags, then import into beets.</p>
+          </header>
+        </div>
+        <button
+          type="button"
+          className="theme-toggle"
+          onClick={toggleTheme}
+          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+        >
+          {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+        </button>
+      </div>
 
       <div className="layout">
         <aside className="staging panel">
@@ -51,7 +80,6 @@ export default function App() {
               {loadingAlbums ? 'Refreshing…' : 'Refresh'}
             </button>
           </div>
-          {albumsError ? <p className="error">Could not load albums: {albumsError}</p> : null}
           <AlbumList albums={albums} selectedAlbum={selectedAlbum} onSelect={setSelectedAlbum} />
           <UploadPanel onUploadDone={loadAlbums} />
         </aside>

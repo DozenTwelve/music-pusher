@@ -9,6 +9,7 @@ import {
   errorMessage
 } from '../api.js';
 import { Diagnosis, FixForm, CoverArtFix } from './MetadataReport.jsx';
+import { useToast } from './Toast.jsx';
 
 // Count the things "Fix" can still act on, for the step-2 status line.
 function countFixable(report) {
@@ -31,8 +32,8 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
   const [fixSummary, setFixSummary] = useState('');
   const [importLogs, setImportLogs] = useState([]);
   const [importStatus, setImportStatus] = useState('idle');
-  const [error, setError] = useState('');
   const eventSourceRef = useRef(null);
+  const toast = useToast();
 
   useEffect(() => () => eventSourceRef.current?.close(), []);
 
@@ -43,7 +44,6 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
     setFixSummary('');
     setImportLogs([]);
     setImportStatus('idle');
-    setError('');
   }, [selectedAlbum]);
 
   function applyReport(data) {
@@ -71,14 +71,13 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
     if (!selectedAlbum) {
       return;
     }
-    setError('');
     setFixSummary('');
     setBusy('analyze');
     try {
       const data = await inspectAlbum(selectedAlbum);
       applyReport(data);
     } catch (requestError) {
-      setError(errorMessage(requestError));
+      toast.error(errorMessage(requestError));
     } finally {
       setBusy('');
     }
@@ -88,7 +87,6 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
     if (!selectedAlbum || !report) {
       return;
     }
-    setError('');
     setBusy('fix');
     const set = {};
     for (const field of Object.keys(FIELD_LABELS)) {
@@ -112,13 +110,15 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
       ].filter(Boolean);
       setFixSummary(parts.join(' · '));
       if (data.errors.length) {
-        setError(data.errors.map((e) => `${e.file}: ${e.message}`).join('\n'));
+        toast.error(data.errors.map((e) => `${e.file}: ${e.message}`).join('\n'));
+      } else {
+        toast.success(parts.join(' · '));
       }
       if (data.after) {
         applyReport(data.after);
       }
     } catch (requestError) {
-      setError(errorMessage(requestError));
+      toast.error(errorMessage(requestError));
     } finally {
       setBusy('');
     }
@@ -128,7 +128,6 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
     if (!selectedAlbum || !file) {
       return;
     }
-    setError('');
     setBusy('cover');
     try {
       const data = await embedCover(selectedAlbum, file);
@@ -138,13 +137,15 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
       ].filter(Boolean);
       setFixSummary(parts.join(' · '));
       if (data.errors.length) {
-        setError(data.errors.map((e) => `${e.file}: ${e.message}`).join('\n'));
+        toast.error(data.errors.map((e) => `${e.file}: ${e.message}`).join('\n'));
+      } else {
+        toast.success(parts.join(' · '));
       }
       if (data.after) {
         applyReport(data.after);
       }
     } catch (requestError) {
-      setError(errorMessage(requestError));
+      toast.error(errorMessage(requestError));
     } finally {
       setBusy('');
     }
@@ -155,7 +156,6 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
       return;
     }
 
-    setError('');
     setImportLogs([]);
     setImportStatus('starting');
 
@@ -178,7 +178,8 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
 
       events.addEventListener('end', (event) => {
         const payload = JSON.parse(event.data);
-        setImportStatus(payload.status || 'done');
+        const status = payload.status || 'done';
+        setImportStatus(status);
         if (payload?.cleanup?.ok) {
           setImportLogs((previous) => [
             ...previous,
@@ -188,6 +189,11 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
             }
           ]);
         }
+        if (status === 'done') {
+          toast.success(`Import finished for “${selectedAlbum}”.`);
+        } else {
+          toast.error(`Import failed for “${selectedAlbum}” — see the log.`);
+        }
         events.close();
         onImportDone();
       });
@@ -195,11 +201,11 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
       events.onerror = () => {
         events.close();
         setImportStatus('failed');
-        setError('Lost connection to import log stream.');
+        toast.error('Lost connection to import log stream.');
       };
     } catch (requestError) {
       setImportStatus('failed');
-      setError(errorMessage(requestError));
+      toast.error(errorMessage(requestError));
     }
   }
 
@@ -303,8 +309,6 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
           </div>
         </li>
       </ol>
-
-      {error ? <pre className="error">{error}</pre> : null}
     </section>
   );
 }
