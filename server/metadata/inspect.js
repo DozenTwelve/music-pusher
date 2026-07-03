@@ -1,7 +1,36 @@
+import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
+import { ART_EXTENSIONS } from '../upload.js';
 import { listAudioFiles, probeTags, parseNumberPair } from './probe.js';
 import { normalizeTagValue, analyzeText, suggestFilenameFix, TEXT_FIELDS } from './text.js';
+
+// Walk the album tree and collect loose image files (cover.jpg, folder.png, ...).
+// These are reported for context but do not count as "has art" — detection is
+// embedded-only, so a folder image sitting next to art-less tracks is still a gap.
+async function listFolderImages(albumPath) {
+  const found = [];
+  const stack = [albumPath];
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    const entries = await fsp.readdir(current, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(fullPath);
+        continue;
+      }
+      if (entry.isFile() && ART_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+        found.push(path.relative(albumPath, fullPath));
+      }
+    }
+  }
+
+  found.sort((a, b) => a.localeCompare(b));
+  return found;
+}
 
 // Tags that, when they disagree between tracks, cause a music library to split
 // one album into several. `date` is the usual culprit (per-single release dates),
@@ -51,6 +80,7 @@ export async function inspectAlbum(album) {
     tracks.push({
       file: path.relative(albumPath, absPath),
       formatName: tags.__format_name || '',
+      hasArt: Boolean(tags.__has_art),
       title: tags.title || '',
       artist: tags.artist || '',
       album: tags.album || '',
@@ -188,6 +218,17 @@ export async function inspectAlbum(album) {
   // common reason tag drift creeps in, even though format itself rarely splits.
   const formats = [...new Set(tracks.map((t) => t.formatName).filter(Boolean))];
 
+  // Cover art: embedded-only detection. Any track without an embedded picture is
+  // a gap. Loose image files are surfaced for context but never count as present.
+  const withArt = tracks.filter((t) => t.hasArt).length;
+  const art = {
+    total: trackCount,
+    withArt,
+    missing: trackCount - withArt,
+    hasMissing: withArt < trackCount,
+    folderImages: await listFolderImages(albumPath)
+  };
+
   return {
     ok: true,
     album,
@@ -206,6 +247,7 @@ export async function inspectAlbum(album) {
     },
     trackGaps,
     incomplete: trackGaps.length > 0,
+    art,
     textIssues,
     filenameIssues,
     tracks

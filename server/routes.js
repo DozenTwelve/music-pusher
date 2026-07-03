@@ -1,17 +1,31 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import express from 'express';
+import multer from 'multer';
 import { config } from './config.js';
 import {
   uploadMiddleware,
   listAlbums,
   buildUploadSummary,
-  sanitizeAlbumName
+  sanitizeAlbumName,
+  ART_EXTENSIONS
 } from './upload.js';
 import { runAudit, startImport, streamJob, getJob } from './shell.js';
-import { inspectAlbum, fixAlbum } from './metadata/index.js';
+import { inspectAlbum, fixAlbum, embedCover } from './metadata/index.js';
 
 export const apiRouter = express.Router();
+
+// A single cover image is small, so keep it in memory rather than staging it to
+// disk; embedCover writes it into the album folder itself. Only accept the same
+// image extensions the album uploader does.
+const coverUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: config.maxCoverSizeBytes, files: 1 },
+  fileFilter(req, file, cb) {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    cb(null, ART_EXTENSIONS.has(ext));
+  }
+});
 
 // Resolve and validate an album name from the request body, sending the
 // appropriate error response and returning null when it is not usable.
@@ -149,6 +163,44 @@ apiRouter.post('/fix', async (req, res) => {
     res.status(status).json(result);
   } catch (error) {
     res.status(500).json({ ok: false, code: 'fix_failed', message: error.message });
+  }
+});
+
+apiRouter.post('/cover', coverUpload.single('cover'), async (req, res) => {
+  // Multer parses the multipart body first, so req.body.album is populated by the
+  // time resolveAlbum reads it.
+  const album = await resolveAlbum(req, res);
+  if (!album) {
+    return;
+  }
+
+  if (!req.file) {
+    res.status(400).json({
+      ok: false,
+      code: 'no_cover',
+      message: 'A cover image is required (field "cover", one of jpg/jpeg/png/webp).'
+    });
+    return;
+  }
+
+  try {
+    const result = await embedCover(album, {
+      buffer: req.file.buffer,
+      ext: path.extname(req.file.originalname).toLowerCase()
+    });
+    // Mirrors /fix: a run that reached files is 200 even with per-file errors;
+    // reserve 4xx for not-run outcomes.
+    let status;
+    if (result.code === 'cover_busy') {
+      status = 409;
+    } else if (result.code === 'no_audio_files') {
+      status = 422;
+    } else {
+      status = 200;
+    }
+    res.status(status).json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, code: 'cover_failed', message: error.message });
   }
 });
 

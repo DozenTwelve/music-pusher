@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { FIELD_LABELS, showText } from '../format.js';
 
 // Read-only diagnosis: what is wrong with the album (shown under "Analyze").
@@ -21,6 +22,17 @@ export function Diagnosis({ report }) {
             .map((g) => `disc ${g.disc} → ${g.missing.map((n) => `#${n}`).join(', ')}`)
             .join('; ')}
           . Add them before importing.
+        </div>
+      ) : null}
+
+      {report.art?.hasMissing ? (
+        <div className="report-banner warn">
+          ⚠ No embedded cover art in {report.art.missing} of {report.art.total} track
+          {report.art.total > 1 ? 's' : ''}.
+          {report.art.folderImages.length
+            ? ` A cover file is in the folder (${report.art.folderImages.join(', ')}) but not embedded.`
+            : ''}{' '}
+          Upload one in step 2 to embed it into every track.
         </div>
       ) : null}
 
@@ -145,6 +157,47 @@ export function FixForm({ report, draft, onDraftChange }) {
           Repair corrupted text in tags
           {report.textIssues.length ? ` (${report.textIssues.length})` : ' — none found'}
         </label>
+      </div>
+    </div>
+  );
+}
+
+// Cover art embed: pick an image and push it into every track (shown under "Fix").
+export function CoverArtFix({ report, onEmbed, busy }) {
+  const [file, setFile] = useState(null);
+  // Bumped after an embed to remount (and thus clear) the file input.
+  const [resetKey, setResetKey] = useState(0);
+  const art = report.art;
+  if (!art) {
+    return null;
+  }
+
+  const status = art.hasMissing
+    ? `${art.withArt}/${art.total} tracks have embedded art — ${art.missing} missing.`
+    : `✓ All ${art.total} tracks already have embedded art.`;
+
+  async function handleEmbed() {
+    if (!file) {
+      return;
+    }
+    await onEmbed(file);
+    setFile(null);
+    setResetKey((key) => key + 1);
+  }
+
+  return (
+    <div className="report cover-fix">
+      <p className={`step-status${art.hasMissing ? '' : ' ok'}`}>{status}</p>
+      <div className="cover-controls">
+        <input
+          key={resetKey}
+          type="file"
+          accept="image/*"
+          onChange={(event) => setFile(event.target.files?.[0] || null)}
+        />
+        <button type="button" onClick={handleEmbed} disabled={!file || busy}>
+          {busy ? 'Embedding…' : art.hasMissing ? 'Embed cover' : 'Replace cover'}
+        </button>
       </div>
     </div>
   );

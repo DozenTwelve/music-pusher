@@ -25,6 +25,14 @@ export async function fixAlbum(album, payload) {
   return data;
 }
 
+export async function embedCover(album, file) {
+  const formData = new FormData();
+  formData.append('album', album);
+  formData.append('cover', file);
+  const { data } = await axios.post('/api/cover', formData);
+  return data;
+}
+
 export async function startImport(album) {
   const { data } = await axios.post('/api/import', { album });
   return data;

@@ -48,6 +48,7 @@ export const config = {
   libraryDir: expandHome(process.env.LIBRARY_DIR) || path.join(cwd, 'data', 'LIBRARY'),
   maxFileSizeBytes: parseInteger(process.env.MAX_FILE_SIZE_MB, 2048) * 1024 * 1024,
   maxFiles: parseInteger(process.env.MAX_FILES, 2000),
+  maxCoverSizeBytes: parseInteger(process.env.MAX_COVER_SIZE_MB, 20) * 1024 * 1024,
   exiftoolBin: expandHome(process.env.EXIFTOOL_BIN) || 'exiftool',
   ffmpegBin: expandHome(process.env.FFMPEG_BIN) || 'ffmpeg',
   ffprobeBin: expandHome(process.env.FFPROBE_BIN) || 'ffprobe',

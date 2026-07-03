@@ -25,6 +25,9 @@ this is for you.
 - 🔧 **One-click fixes** (`ffmpeg`, in-place) — unify a field to a single value,
   renumber tracks per disc, repair confidently-recoverable tag text, and fix
   filenames; then it re-inspects to confirm the album collapsed to one group.
+- 🖼️ **Cover-art detection & embed** — flags tracks with no embedded picture
+  (a loose `cover.jpg` in the folder is reported but still counts as missing),
+  then embeds an uploaded image into every track in place (`ffmpeg`).
 - 🔎 **Raw tag dump** via `exiftool -r` for a quick eyeball.
 - ⬇️ **One-click `beet import -A`** with logs streamed live over Server-Sent Events.
 - 🧹 **Optional auto-cleanup** of the RAW folder after a successful import.
@@ -79,6 +82,7 @@ All settings come from `.env` (see `.env.example`):
 | `LIBRARY_DIR`              | `./data/LIBRARY` | Reported by `/api/health` (your beets library target).  |
 | `MAX_FILE_SIZE_MB`         | `2048`           | Per-file upload limit.                                  |
 | `MAX_FILES`                | `2000`           | Max files per upload.                                   |
+| `MAX_COVER_SIZE_MB`        | `20`             | Max size for an uploaded cover image.                   |
 | `BEET_BIN`                 | `beet`           | Path to the `beet` binary (e.g. a venv path).           |
 | `EXIFTOOL_BIN`             | `exiftool`       | Path to the `exiftool` binary.                          |
 | `FFMPEG_BIN`               | `ffmpeg`         | Path to the `ffmpeg` binary (used to rewrite tags).     |
@@ -113,6 +117,7 @@ PM2_APP_NAME=my-app npm run deploy
 | `POST` | `/api/audit`                | Run `exiftool -r` on an album (raw dump).|
 | `POST` | `/api/inspect`              | Structured tag/split/track report.       |
 | `POST` | `/api/fix`                  | Apply tag/track/filename fixes in place. |
+| `POST` | `/api/cover`                | Embed an uploaded cover into every track.|
 | `POST` | `/api/import`               | Start a `beet import` job.               |
 | `GET`  | `/api/import/:jobId`        | Job status.                              |
 | `GET`  | `/api/import/:jobId/stream` | Live import logs (SSE).                  |

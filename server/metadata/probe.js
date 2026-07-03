@@ -59,11 +59,14 @@ export async function listAudioFiles(albumPath) {
 }
 
 export async function probeTags(absPath) {
+  // One ffprobe call yields both the format tags and the stream dispositions, so
+  // embedded cover art (a video stream flagged attached_pic) is detected without
+  // spawning a second process per track.
   const { code, stdout } = await runProcess(config.ffprobeBin, [
     '-v',
     'error',
     '-show_entries',
-    'format=format_name:format_tags',
+    'format=format_name:format_tags:stream=codec_type:stream_disposition=attached_pic',
     '-of',
     'json',
     absPath
@@ -79,6 +82,10 @@ export async function probeTags(absPath) {
         tags[key.toLowerCase()] = value;
       }
       tags.__format_name = parsed?.format?.format_name || '';
+      const streams = Array.isArray(parsed?.streams) ? parsed.streams : [];
+      tags.__has_art = streams.some(
+        (stream) => stream?.codec_type === 'video' && stream?.disposition?.attached_pic === 1
+      );
     } catch {
       // leave tags empty on parse failure
     }

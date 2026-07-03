@@ -3,11 +3,12 @@ import { FIELD_LABELS } from '../format.js';
 import {
   inspectAlbum,
   fixAlbum,
+  embedCover,
   startImport,
   importStreamUrl,
   errorMessage
 } from '../api.js';
-import { Diagnosis, FixForm } from './MetadataReport.jsx';
+import { Diagnosis, FixForm, CoverArtFix } from './MetadataReport.jsx';
 
 // Count the things "Fix" can still act on, for the step-2 status line.
 function countFixable(report) {
@@ -18,7 +19,8 @@ function countFixable(report) {
     report.splitFields.length +
     report.textIssues.length +
     report.filenameIssues.length +
-    (report.track.needsNormalize ? 1 : 0)
+    (report.track.needsNormalize ? 1 : 0) +
+    (report.art?.hasMissing ? 1 : 0)
   );
 }
 
@@ -107,6 +109,32 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
         data.renames.length ? `renamed ${data.renames.length}` : null,
         data.errors.length ? `${data.errors.length} errors` : null,
         data.after ? `now ${data.after.groupCount} album(s)` : null
+      ].filter(Boolean);
+      setFixSummary(parts.join(' · '));
+      if (data.errors.length) {
+        setError(data.errors.map((e) => `${e.file}: ${e.message}`).join('\n'));
+      }
+      if (data.after) {
+        applyReport(data.after);
+      }
+    } catch (requestError) {
+      setError(errorMessage(requestError));
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function handleEmbedCover(file) {
+    if (!selectedAlbum || !file) {
+      return;
+    }
+    setError('');
+    setBusy('cover');
+    try {
+      const data = await embedCover(selectedAlbum, file);
+      const parts = [
+        `Embedded cover into ${data.embedded} file${data.embedded === 1 ? '' : 's'}`,
+        data.errors.length ? `${data.errors.length} errors` : null
       ].filter(Boolean);
       setFixSummary(parts.join(' · '));
       if (data.errors.length) {
@@ -249,6 +277,7 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
             {report ? (
               <div className="step-detail">
                 <FixForm report={report} draft={draft} onDraftChange={updateDraft} />
+                <CoverArtFix report={report} onEmbed={handleEmbedCover} busy={busy === 'cover'} />
               </div>
             ) : null}
           </div>
