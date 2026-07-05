@@ -419,6 +419,22 @@ button {
   margin-top: 0.5rem;
 }
 
+.dropzone-cover {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.dropzone-cover-img {
+  width: 140px;
+  height: 140px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+
 .dropzone-action-btn {
   font-size: 0.82rem;
   font-weight: 500;

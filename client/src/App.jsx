@@ -112,9 +112,6 @@ export default function App() {
                   : 'Nothing staged'}
               </span>
             </div>
-            <Button type="button" variant="outline" size="sm" onClick={loadAlbums} disabled={loadingAlbums}>
-              {loadingAlbums ? 'Refreshing…' : 'Refresh'}
-            </Button>
           </div>
           <AlbumList
             albums={albums}

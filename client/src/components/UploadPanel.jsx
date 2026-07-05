@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { formatBytes } from '../format.js';
-import { uploadAlbum, uploadArchive, errorMessage } from '../api.js';
+import { uploadAlbum, uploadArchive, albumCoverUrl, errorMessage } from '../api.js';
 import { useToast } from './Toast.jsx';
 import { UploadIcon } from './icons.jsx';
 import { Button } from './ui/button.jsx';
@@ -95,6 +95,7 @@ export default function UploadPanel({ onUploadDone }) {
   const [result, setResult] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [archiveMixedFormats, setArchiveMixedFormats] = useState('');
+  const [coverError, setCoverError] = useState(false);
   const folderInputRef = useRef(null);
   const zipInputRef = useRef(null);
   const dragCounter = useRef(0);
@@ -151,6 +152,7 @@ export default function UploadPanel({ onUploadDone }) {
     setEntries([]);
     setResult(null);
     setArchiveMixedFormats('');
+    setCoverError(false);
     if (folderInputRef.current) {
       folderInputRef.current.value = '';
     }
@@ -212,6 +214,7 @@ export default function UploadPanel({ onUploadDone }) {
         : await uploadAlbum(body, onProgress);
 
       setResult(data);
+      setCoverError(false);
       setProgressKnown(true);
       setUploadProgress(100);
       setEntries([]);
@@ -242,6 +245,10 @@ export default function UploadPanel({ onUploadDone }) {
     }
   }
 
+  // After a successful upload the dropzone previews the staged album's cover;
+  // if the album has no art (or the fetch fails) we fall back to the browse UI.
+  const showCover = Boolean(result?.album) && entries.length === 0 && !coverError;
+
   const label = isArchive
     ? entries[0].path
     : entries.length > 0
@@ -269,36 +276,60 @@ export default function UploadPanel({ onUploadDone }) {
           handleDrop(event);
         }}
       >
-        <div className="dropzone-icon">
-          <UploadIcon size={26} />
-        </div>
-        <span className="dropzone-title">{label}</span>
-        {entries.length > 0 ? (
-          <span className="dropzone-hint">{formatBytes(totalSize)}</span>
-        ) : (
-          <div className="dropzone-actions">
+        {showCover ? (
+          <div className="dropzone-cover">
+            <img
+              className="dropzone-cover-img"
+              src={albumCoverUrl(result.album)}
+              alt={`${result.album} cover`}
+              onError={() => setCoverError(true)}
+            />
+            <span className="dropzone-title">{result.album}</span>
             <button
               type="button"
               className="dropzone-action-btn"
               onClick={(event) => {
                 event.stopPropagation();
-                folderInputRef.current?.click();
+                resetSelection();
               }}
             >
-              Browse Folder
-            </button>
-            <span className="dropzone-actions-or">or</span>
-            <button
-              type="button"
-              className="dropzone-action-btn"
-              onClick={(event) => {
-                event.stopPropagation();
-                zipInputRef.current?.click();
-              }}
-            >
-              Browse .zip
+              Upload another
             </button>
           </div>
+        ) : (
+          <>
+            <div className="dropzone-icon">
+              <UploadIcon size={26} />
+            </div>
+            <span className="dropzone-title">{label}</span>
+            {entries.length > 0 ? (
+              <span className="dropzone-hint">{formatBytes(totalSize)}</span>
+            ) : (
+              <div className="dropzone-actions">
+                <button
+                  type="button"
+                  className="dropzone-action-btn"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    folderInputRef.current?.click();
+                  }}
+                >
+                  Browse Folder
+                </button>
+                <span className="dropzone-actions-or">or</span>
+                <button
+                  type="button"
+                  className="dropzone-action-btn"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    zipInputRef.current?.click();
+                  }}
+                >
+                  Browse .zip
+                </button>
+              </div>
+            )}
+          </>
         )}
         <input
           id="folder-input"

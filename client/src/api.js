@@ -5,6 +5,10 @@ export function errorMessage(error) {
   return error?.response?.data?.message || error.message;
 }
 
+export function albumCoverUrl(album) {
+  return `/api/albums/${encodeURIComponent(album)}/cover`;
+}
+
 export async function getAlbums() {
   const { data } = await axios.get('/api/albums');
   return data?.albums || [];

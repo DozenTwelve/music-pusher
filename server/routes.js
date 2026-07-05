@@ -3,12 +3,14 @@ import path from 'node:path';
 import express from 'express';
 import multer from 'multer';
 import { config } from './config.js';
+import { createReadStream } from 'node:fs';
 import {
   uploadMiddleware,
   archiveUploadMiddleware,
   listAlbums,
   buildUploadSummary,
   sanitizeAlbumName,
+  ART_EXTENSIONS,
   COVER_IMAGE_EXTENSIONS
 } from './upload.js';
 import { extractZipAlbum, ArchiveError } from './archive.js';
@@ -137,6 +139,79 @@ apiRouter.get('/albums', async (req, res) => {
       code: 'list_albums_failed',
       message: error.message
     });
+  }
+});
+
+// MIME type for the small set of art extensions we accept.
+const IMAGE_MIME = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp'
+};
+
+// Preferred cover basenames, in priority order. Anything else falls back to the
+// first art file found (sorted) so an album with only, say, `scan01.jpg` still
+// shows something.
+const COVER_NAME_PRIORITY = ['cover', 'front', 'folder', 'album'];
+
+// Find the best cover image inside a staged album directory. Walks the tree
+// (albums are usually flat, but art can sit in a subfolder) and ranks matches.
+async function findCoverFile(albumPath) {
+  const images = [];
+  const stack = [albumPath];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    const entries = await fs.readdir(current, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(full);
+      } else if (entry.isFile() && ART_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+        images.push(full);
+      }
+    }
+  }
+  if (images.length === 0) {
+    return null;
+  }
+  images.sort((a, b) => {
+    const rank = (p) => {
+      const base = path.basename(p, path.extname(p)).toLowerCase();
+      const i = COVER_NAME_PRIORITY.indexOf(base);
+      return i === -1 ? COVER_NAME_PRIORITY.length : i;
+    };
+    return rank(a) - rank(b) || a.localeCompare(b);
+  });
+  return images[0];
+}
+
+// Stream a staged album's cover art. Used by the uploader to preview the cover
+// right after upload. 404 when the album has no loose image.
+apiRouter.get('/albums/:album/cover', async (req, res) => {
+  const album = sanitizeAlbumName(req.params.album);
+  if (!album) {
+    res.status(400).json({ ok: false, code: 'invalid_album', message: 'Album name is required.' });
+    return;
+  }
+
+  const resolvedRawDir = path.resolve(config.rawDir);
+  const albumPath = path.resolve(resolvedRawDir, album);
+  if (albumPath !== resolvedRawDir && !albumPath.startsWith(resolvedRawDir + path.sep)) {
+    res.status(400).json({ ok: false, code: 'invalid_album', message: 'Invalid album path.' });
+    return;
+  }
+
+  try {
+    const coverPath = await findCoverFile(albumPath);
+    if (!coverPath) {
+      res.status(404).json({ ok: false, code: 'no_cover', message: 'No cover art found for this album.' });
+      return;
+    }
+    res.type(IMAGE_MIME[path.extname(coverPath).toLowerCase()] || 'application/octet-stream');
+    createReadStream(coverPath).on('error', () => res.sendStatus(500)).pipe(res);
+  } catch {
+    res.status(404).json({ ok: false, code: 'album_not_found', message: `Album '${album}' not found.` });
   }
 });
 
