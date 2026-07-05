@@ -135,6 +135,49 @@ apiRouter.get('/albums', async (req, res) => {
   }
 });
 
+// Remove a staged album from RAW entirely (its whole folder). The name is
+// sanitized to a single segment and the resolved path is re-checked to be
+// inside RAW before anything is deleted.
+apiRouter.delete('/albums/:album', async (req, res) => {
+  const album = sanitizeAlbumName(req.params.album);
+  if (!album) {
+    res.status(400).json({
+      ok: false,
+      code: 'invalid_album',
+      message: 'Album name is required and must be a single folder segment.'
+    });
+    return;
+  }
+
+  const resolvedRawDir = path.resolve(config.rawDir);
+  const albumPath = path.resolve(resolvedRawDir, album);
+  if (albumPath !== resolvedRawDir && !albumPath.startsWith(resolvedRawDir + path.sep)) {
+    res.status(400).json({ ok: false, code: 'invalid_album', message: 'Invalid album path.' });
+    return;
+  }
+
+  try {
+    const stat = await fs.stat(albumPath);
+    if (!stat.isDirectory()) {
+      throw new Error('Not a directory');
+    }
+  } catch {
+    res.status(404).json({
+      ok: false,
+      code: 'album_not_found',
+      message: `Album '${album}' not found in RAW staging directory.`
+    });
+    return;
+  }
+
+  try {
+    await fs.rm(albumPath, { recursive: true, force: true });
+    res.json({ ok: true, album });
+  } catch (error) {
+    res.status(500).json({ ok: false, code: 'delete_album_failed', message: error.message });
+  }
+});
+
 apiRouter.post('/audit', async (req, res) => {
   const album = await resolveAlbum(req, res);
   if (!album) {

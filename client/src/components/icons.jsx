@@ -70,6 +70,15 @@ export const UploadIcon = (props) => (
   </Svg>
 );
 
+export const TrashIcon = (props) => (
+  <Svg {...props}>
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+    <path d="M10 11v6M14 11v6" />
+    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+  </Svg>
+);
+
 export const ImageIcon = (props) => (
   <Svg {...props}>
     <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />

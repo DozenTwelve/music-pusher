@@ -20,6 +20,11 @@ export async function uploadArchive(formData, onUploadProgress) {
   return data;
 }
 
+export async function deleteAlbum(album) {
+  const { data } = await axios.delete(`/api/albums/${encodeURIComponent(album)}`);
+  return data;
+}
+
 export async function inspectAlbum(album) {
   const { data } = await axios.post('/api/inspect', { album });
   return data;

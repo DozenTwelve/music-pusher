@@ -48,7 +48,7 @@
   --sh-muted: var(--surface-2);
   --sh-muted-foreground: var(--muted);
   --sh-accent: var(--accent-soft);
-  --sh-accent-foreground: var(--accent);
+  --sh-accent-foreground: var(--accent-ink);
   --sh-destructive: var(--danger);
   --sh-destructive-foreground: #ffffff;
   --sh-border: var(--border);

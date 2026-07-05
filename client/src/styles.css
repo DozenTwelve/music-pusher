@@ -6,73 +6,79 @@
   --radius-sm: 9px;
   --radius-pill: 999px;
 
-  /* Surfaces & text (light) */
-  --bg: #eef1f6;
+  /* Surfaces & text (light) — blush palette FBEFEF / FFE2E2 / F5CBCB */
+  --bg: #fbefef;
   --surface: #ffffff;
-  --surface-2: #f4f6fa;
-  --border: #e3e7ef;
-  --border-strong: #d3d9e4;
-  --text: #171a21;
-  --muted: #667085;
+  --surface-2: #fdf3f3;
+  --border: #f3dcdc;
+  --border-strong: #eec7c7;
+  --text: #3e2f38;
+  --muted: #8b7580;
 
-  /* Brand accent */
-  --accent: #6366f1;
-  --accent-hover: #4f46e5;
-  --accent-contrast: #ffffff;
-  --accent-soft: rgba(99, 102, 241, 0.12);
-  --ring: rgba(99, 102, 241, 0.4);
+  /* Brand accent — lavender C5B3D3 */
+  --accent: #c5b3d3;
+  --accent-hover: #b39cc6;
+  --accent-contrast: #2e2430;
+  --accent-soft: rgba(197, 179, 211, 0.30);
+  --accent-ink: #6f5b8c;
+  --ring: rgba(197, 179, 211, 0.55);
+  --bg-tint2: rgba(245, 203, 203, 0.4);
 
   /* Semantic */
-  --success: #16a34a;
-  --success-soft: #e7f6ec;
-  --success-border: #b6e2c4;
-  --warn: #b45309;
-  --warn-soft: #fdf3e3;
-  --warn-border: #f0d6a0;
-  --danger: #dc2626;
-  --danger-soft: #fdecec;
-  --danger-border: #f2c2c2;
+  --success: #3f8f63;
+  --success-soft: #e7f3ec;
+  --success-border: #bfe0cc;
+  --warn: #9c6b2e;
+  --warn-soft: #fbefdd;
+  --warn-border: #ecd6ae;
+  --danger: #c64b63;
+  --danger-soft: #fbe2e7;
+  --danger-border: #f0c3cd;
 
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.08);
-  --shadow-md: 0 6px 18px rgba(16, 24, 40, 0.1), 0 2px 6px rgba(16, 24, 40, 0.06);
-  --shadow-lg: 0 18px 40px rgba(16, 24, 40, 0.16);
+  --shadow-sm: 0 1px 2px rgba(80, 40, 55, 0.06), 0 1px 3px rgba(80, 40, 55, 0.08);
+  --shadow-md: 0 6px 18px rgba(80, 40, 55, 0.1), 0 2px 6px rgba(80, 40, 55, 0.06);
+  --shadow-lg: 0 18px 40px rgba(80, 40, 55, 0.16);
 
-  --terminal-bg: #0e1017;
-  --terminal-text: #d6e4de;
+  --terminal-bg: #2a2230;
+  --terminal-text: #ecdce6;
 }
 
 [data-theme='dark'] {
   color-scheme: dark;
-  --bg: #0a0c11;
-  --surface: #14171e;
-  --surface-2: #1a1e27;
-  --border: #262b36;
-  --border-strong: #333a48;
-  --text: #e7e9f0;
-  --muted: #98a2b3;
+  /* Charcoal + cream palette 222831 / 393E46 / 948979 / DFD0B8 */
+  --bg: #1b2028;
+  --surface: #222831;
+  --surface-2: #2b313a;
+  --border: #333a44;
+  --border-strong: #434a55;
+  --text: #e7dcc5;
+  --muted: #a79c88;
 
-  --accent: #818cf8;
-  --accent-hover: #a5b0ff;
-  --accent-contrast: #10121a;
-  --accent-soft: rgba(129, 140, 248, 0.16);
-  --ring: rgba(129, 140, 248, 0.45);
+  /* Cream accent DFD0B8 with taupe undertone */
+  --accent: #dfd0b8;
+  --accent-hover: #ecddc4;
+  --accent-contrast: #222831;
+  --accent-soft: rgba(223, 208, 184, 0.14);
+  --accent-ink: #ecdcc0;
+  --ring: rgba(223, 208, 184, 0.4);
+  --bg-tint2: rgba(148, 137, 121, 0.1);
 
-  --success: #4ade80;
-  --success-soft: rgba(34, 197, 94, 0.14);
-  --success-border: rgba(34, 197, 94, 0.32);
-  --warn: #fbbf24;
-  --warn-soft: rgba(245, 158, 11, 0.14);
-  --warn-border: rgba(245, 158, 11, 0.32);
-  --danger: #f87171;
-  --danger-soft: rgba(239, 68, 68, 0.14);
-  --danger-border: rgba(239, 68, 68, 0.34);
+  --success: #7fbf97;
+  --success-soft: rgba(127, 191, 151, 0.15);
+  --success-border: rgba(127, 191, 151, 0.34);
+  --warn: #d8b570;
+  --warn-soft: rgba(216, 181, 112, 0.15);
+  --warn-border: rgba(216, 181, 112, 0.34);
+  --danger: #de8b98;
+  --danger-soft: rgba(222, 139, 152, 0.15);
+  --danger-border: rgba(222, 139, 152, 0.36);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 8px 22px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 20px 44px rgba(0, 0, 0, 0.6);
 
-  --terminal-bg: #05070b;
-  --terminal-text: #cfe6dd;
+  --terminal-bg: #171b21;
+  --terminal-text: #dfd0b8;
 }
 
 * {
@@ -85,7 +91,7 @@ body {
   background: var(--bg);
   background-image:
     radial-gradient(1000px 500px at 12% -8%, var(--accent-soft), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, rgba(16, 185, 129, 0.06), transparent 55%);
+    radial-gradient(900px 500px at 100% 0%, var(--bg-tint2), transparent 55%);
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   transition: background-color 200ms ease, color 200ms ease;
@@ -242,7 +248,12 @@ button {
   gap: 0.5rem;
 }
 
+.album-row-wrap {
+  position: relative;
+}
+
 .album-row {
+  position: relative;
   width: 100%;
   text-align: left;
   font-weight: 500;
@@ -253,9 +264,66 @@ button {
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 0.55rem 0.7rem;
+  padding: 0.55rem 2.3rem 0.55rem 1rem;
   overflow-wrap: anywhere;
   transition: background 120ms ease, border-color 120ms ease, transform 80ms ease;
+}
+
+/* Left "spine" — muted at rest, accent when selected, so the staged albums
+ * read like records stacked on a shelf. */
+.album-row::before {
+  content: '';
+  position: absolute;
+  left: 0.4rem;
+  top: 0.55rem;
+  bottom: 0.55rem;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--border-strong);
+  transition: background 120ms ease;
+}
+
+.album-row:hover::before {
+  background: var(--muted);
+}
+
+.album-row.selected::before {
+  background: var(--accent);
+}
+
+/* Delete-from-staging button, revealed on hover/focus of the row. */
+.album-remove {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid transparent;
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+}
+
+.album-row-wrap:hover .album-remove,
+.album-row-wrap:focus-within .album-remove {
+  opacity: 1;
+}
+
+.album-remove:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+@media (hover: none) {
+  /* Touch: no hover to reveal on, so always show the control. */
+  .album-remove {
+    opacity: 1;
+  }
 }
 
 .album-row:hover {
@@ -414,6 +482,12 @@ button {
   overflow-wrap: anywhere;
 }
 
+.warning {
+  color: var(--warn);
+  margin: 0.5rem 0;
+  overflow-wrap: anywhere;
+}
+
 /* ---- Workflow (right column) ---- */
 .workflow-head {
   display: flex;
@@ -430,7 +504,7 @@ button {
   font-size: 0.85rem;
   font-weight: 600;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-ink);
   border: 1px solid transparent;
   border-radius: var(--radius-pill);
   padding: 0.2rem 0.7rem;
