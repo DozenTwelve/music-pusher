@@ -27,6 +27,7 @@ async function embedInFile(absPath, coverPath) {
     '-map', '1:v',
     '-c:a', 'copy',
     '-c:v', 'mjpeg',
+    '-frames:v', '1',
     '-disposition:v:0', 'attached_pic',
     '-map_metadata', '0'
   ];

@@ -222,6 +222,9 @@ input[type='file'] {
 button {
   font: inherit;
   cursor: pointer;
+  border: none;
+  background: transparent;
+  color: inherit;
 }
 
 :where(input, a, [tabindex]):focus-visible {

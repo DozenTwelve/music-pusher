@@ -3,6 +3,9 @@
 // rename it over the original, so two overlapping runs on one album would race on
 // those temp files. Serializing per album prevents that regardless of which
 // operation is running.
+//
+// Note: process-local Set. If the server is scaled to multiple workers/instances,
+// replace with a distributed lock (Redis, etc.) to prevent cross-process races.
 const albumsInFlight = new Set();
 
 // Run `task()` while holding the album's lock. If the album is already locked by

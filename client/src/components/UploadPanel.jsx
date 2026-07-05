@@ -96,6 +96,7 @@ export default function UploadPanel({ onUploadDone }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const inputRef = useRef(null);
   const archiveInputRef = useRef(null);
+  const dragCounter = useRef(0);
   const toast = useToast();
 
   useEffect(() => {
@@ -237,10 +238,19 @@ export default function UploadPanel({ onUploadDone }) {
         }}
         onDragOver={(event) => {
           event.preventDefault();
+          dragCounter.current += 1;
           setIsDragging(true);
         }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={handleDrop}
+        onDragLeave={() => {
+          dragCounter.current -= 1;
+          if (dragCounter.current === 0) {
+            setIsDragging(false);
+          }
+        }}
+        onDrop={(event) => {
+          dragCounter.current = 0;
+          handleDrop(event);
+        }}
       >
         <div className="dropzone-icon">
           <UploadIcon size={26} />
