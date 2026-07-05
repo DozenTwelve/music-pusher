@@ -137,7 +137,7 @@ export default function UploadPanel({ onUploadDone }) {
     setIsDragging(false);
     const dropped = await entriesFromDataTransfer(event.dataTransfer);
     if (dropped.length === 0) {
-      toast.error('Nothing usable in that drop — pick an album folder or a .zip.');
+      toast.error('Nothing usable in that drop — try a folder or a .zip archive.');
       return;
     }
     setResult(null);
@@ -214,7 +214,7 @@ export default function UploadPanel({ onUploadDone }) {
     ? entries[0].path
     : entries.length > 0
       ? `${entries.length} files${rootFolders.size === 1 ? ` · ${[...rootFolders][0]}` : ''}`
-      : 'Drag an album folder or .zip here';
+      : 'Drag and drop an album here';
 
   return (
     <div className="upload-block">
