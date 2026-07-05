@@ -305,6 +305,8 @@ export default function UploadPanel({ onUploadDone }) {
           ref={folderInputRef}
           type="file"
           multiple
+          webkitdirectory=""
+          directory=""
           className="visually-hidden"
           aria-label="Choose album folder"
           onChange={(event) => {
