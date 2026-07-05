@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { formatBytes } from '../format.js';
 import { uploadAlbum, uploadArchive, errorMessage } from '../api.js';
 import { useToast } from './Toast.jsx';
@@ -94,17 +94,10 @@ export default function UploadPanel({ onUploadDone }) {
   const [isDragging, setIsDragging] = useState(false);
   const [result, setResult] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const inputRef = useRef(null);
-  const archiveInputRef = useRef(null);
+  const folderInputRef = useRef(null);
+  const zipInputRef = useRef(null);
   const dragCounter = useRef(0);
   const toast = useToast();
-
-  useEffect(() => {
-    if (inputRef.current) {
-      inputRef.current.setAttribute('webkitdirectory', 'true');
-      inputRef.current.setAttribute('directory', 'true');
-    }
-  }, []);
 
   const totalSize = useMemo(
     () => entries.reduce((sum, entry) => sum + (entry.file.size || 0), 0),
@@ -198,11 +191,11 @@ export default function UploadPanel({ onUploadDone }) {
       setProgressKnown(true);
       setUploadProgress(100);
       setEntries([]);
-      if (inputRef.current) {
-        inputRef.current.value = '';
+      if (folderInputRef.current) {
+        folderInputRef.current.value = '';
       }
-      if (archiveInputRef.current) {
-        archiveInputRef.current.value = '';
+      if (zipInputRef.current) {
+        zipInputRef.current.value = '';
       }
       toast.success(
         `Uploaded ${data.acceptedCount} file${data.acceptedCount === 1 ? '' : 's'} to “${
@@ -227,15 +220,6 @@ export default function UploadPanel({ onUploadDone }) {
     <div className="upload-block">
       <div
         className={`dropzone${isDragging ? ' dragging' : ''}`}
-        role="button"
-        tabIndex={0}
-        onClick={() => inputRef.current?.click()}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            inputRef.current?.click();
-          }
-        }}
         onDragOver={(event) => {
           event.preventDefault();
           dragCounter.current += 1;
@@ -256,26 +240,36 @@ export default function UploadPanel({ onUploadDone }) {
           <UploadIcon size={26} />
         </div>
         <span className="dropzone-title">{label}</span>
-        <span className="dropzone-hint">
-          {entries.length > 0
-            ? formatBytes(totalSize)
-            : 'Click to browse folders'}
-        </span>
-        {entries.length === 0 ? (
-          <button
-            type="button"
-            className="dropzone-zip-trigger"
-            onClick={(event) => {
-              event.stopPropagation();
-              archiveInputRef.current?.click();
-            }}
-          >
-            or choose a .zip archive
-          </button>
-        ) : null}
+        {entries.length > 0 ? (
+          <span className="dropzone-hint">{formatBytes(totalSize)}</span>
+        ) : (
+          <div className="dropzone-actions">
+            <button
+              type="button"
+              className="dropzone-action-btn"
+              onClick={(event) => {
+                event.stopPropagation();
+                folderInputRef.current?.click();
+              }}
+            >
+              Browse Folder
+            </button>
+            <span className="dropzone-actions-or">or</span>
+            <button
+              type="button"
+              className="dropzone-action-btn"
+              onClick={(event) => {
+                event.stopPropagation();
+                zipInputRef.current?.click();
+              }}
+            >
+              Browse .zip
+            </button>
+          </div>
+        )}
         <input
           id="folder-input"
-          ref={inputRef}
+          ref={folderInputRef}
           type="file"
           multiple
           className="visually-hidden"
@@ -290,35 +284,26 @@ export default function UploadPanel({ onUploadDone }) {
             );
           }}
         />
+        <input
+          ref={zipInputRef}
+          type="file"
+          className="visually-hidden"
+          accept=".zip,application/zip,application/x-zip-compressed"
+          aria-label="Choose album zip archive"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (!file) {
+              return;
+            }
+            setResult(null);
+            setEntries([{ file, path: file.name }]);
+          }}
+        />
       </div>
-
-      <input
-        ref={archiveInputRef}
-        type="file"
-        className="visually-hidden"
-        accept=".zip,application/zip,application/x-zip-compressed"
-        aria-label="Choose album zip archive"
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (!file) {
-            return;
-          }
-          setResult(null);
-          setEntries([{ file, path: file.name }]);
-        }}
-      />
 
       <div className="upload-side">
         <div className="stats-row">
         <span>{isArchive ? '1 archive' : `${entries.length} files`}</span>
-        <Button
-          type="button"
-          variant="link"
-          className="h-auto p-0 text-xs"
-          onClick={() => archiveInputRef.current?.click()}
-        >
-          Choose .zip
-        </Button>
       </div>
 
       {mixedFormats ? (

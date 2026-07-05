@@ -380,7 +380,7 @@ button {
   padding: 1.1rem 0.9rem;
   text-align: center;
   color: var(--muted);
-  cursor: pointer;
+  cursor: default;
   transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
 }
 
@@ -412,20 +412,33 @@ button {
   margin-top: 0.15rem;
 }
 
-.dropzone-zip-trigger {
-  display: inline;
-  font-size: 0.78rem;
-  color: var(--accent);
-  background: none;
-  border: none;
-  padding: 0.15rem 0 0;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+.dropzone-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
 }
 
-.dropzone-zip-trigger:hover {
-  color: var(--accent-hover);
+.dropzone-action-btn {
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--accent-ink);
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.dropzone-action-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.dropzone-actions-or {
+  font-size: 0.78rem;
+  color: var(--muted);
 }
 
 .visually-hidden {
