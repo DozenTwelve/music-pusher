@@ -74,18 +74,32 @@ export default function App() {
       </div>
 
       <div className="layout">
-        <aside className="staging panel">
+        <section className="staging panel">
           <div className="section-header">
-            <h2>Staging</h2>
+            <div className="card-heading">
+              <h2>Staging</h2>
+              <span className="card-eyebrow">
+                {albums.length
+                  ? `${albums.length} album${albums.length === 1 ? '' : 's'} ready`
+                  : 'Nothing staged'}
+              </span>
+            </div>
             <Button type="button" variant="outline" size="sm" onClick={loadAlbums} disabled={loadingAlbums}>
               {loadingAlbums ? 'Refreshing…' : 'Refresh'}
             </Button>
           </div>
-          <div className="staging-body">
-            <AlbumList albums={albums} selectedAlbum={selectedAlbum} onSelect={setSelectedAlbum} />
-            <UploadPanel onUploadDone={loadAlbums} />
+          <AlbumList albums={albums} selectedAlbum={selectedAlbum} onSelect={setSelectedAlbum} />
+        </section>
+
+        <section className="add-album panel">
+          <div className="section-header">
+            <div className="card-heading">
+              <h2>Add album</h2>
+              <span className="card-eyebrow">Folder or .zip — music, art, and sidecars</span>
+            </div>
           </div>
-        </aside>
+          <UploadPanel onUploadDone={loadAlbums} />
+        </section>
 
         <WorkflowPanel selectedAlbum={selectedAlbum} onImportDone={loadAlbums} />
       </div>

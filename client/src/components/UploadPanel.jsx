@@ -224,9 +224,6 @@ export default function UploadPanel({ onUploadDone }) {
 
   return (
     <div className="upload-block">
-      <h3>Add album</h3>
-      <p className="muted small">Folder or .zip — music, art, and cue/log/txt/lrc sidecars.</p>
-
       <div
         className={`dropzone${isDragging ? ' dragging' : ''}`}
         role="button"
@@ -287,7 +284,8 @@ export default function UploadPanel({ onUploadDone }) {
         }}
       />
 
-      <div className="stats-row">
+      <div className="upload-side">
+        <div className="stats-row">
         <span>{isArchive ? '1 archive' : `${entries.length} files`}</span>
         <Button
           type="button"
@@ -348,6 +346,7 @@ export default function UploadPanel({ onUploadDone }) {
           ) : null}
         </div>
       ) : null}
+      </div>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
