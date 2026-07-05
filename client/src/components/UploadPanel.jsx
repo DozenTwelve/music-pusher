@@ -145,6 +145,26 @@ export default function UploadPanel({ onUploadDone }) {
     setEntries(dropped);
   }
 
+  // Return the panel to its initial empty state (also clears the native inputs
+  // so re-picking the same file fires onChange again).
+  function resetSelection() {
+    setEntries([]);
+    setResult(null);
+    setArchiveMixedFormats('');
+    if (folderInputRef.current) {
+      folderInputRef.current.value = '';
+    }
+    if (zipInputRef.current) {
+      zipInputRef.current.value = '';
+    }
+  }
+
+  // Declining the mixed-format warning abandons the selection entirely.
+  function cancelConfirm() {
+    setConfirmOpen(false);
+    resetSelection();
+  }
+
   function handleUpload() {
     if (entries.length === 0 || isUploading) {
       return;
@@ -370,7 +390,7 @@ export default function UploadPanel({ onUploadDone }) {
       ) : null}
       </div>
 
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <Dialog open={confirmOpen} onOpenChange={(open) => { if (!open) cancelConfirm(); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Mixed audio formats</DialogTitle>
