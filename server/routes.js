@@ -208,8 +208,20 @@ apiRouter.get('/albums/:album/cover', async (req, res) => {
       res.status(404).json({ ok: false, code: 'no_cover', message: 'No cover art found for this album.' });
       return;
     }
+    // Cover is served by album name, so re-uploading the same album would reuse
+    // this URL — no-cache keeps the preview from showing stale art.
+    res.set('Cache-Control', 'no-cache');
     res.type(IMAGE_MIME[path.extname(coverPath).toLowerCase()] || 'application/octet-stream');
-    createReadStream(coverPath).on('error', () => res.sendStatus(500)).pipe(res);
+    createReadStream(coverPath)
+      .on('error', () => {
+        // A mid-stream error means the headers are already flushed, so we can't
+        // change the status — just abort the response.
+        if (!res.headersSent) {
+          res.sendStatus(500);
+        }
+        res.destroy();
+      })
+      .pipe(res);
   } catch {
     res.status(404).json({ ok: false, code: 'album_not_found', message: `Album '${album}' not found.` });
   }
