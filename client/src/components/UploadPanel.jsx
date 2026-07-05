@@ -1,8 +1,37 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatBytes } from '../format.js';
-import { uploadAlbum, errorMessage } from '../api.js';
+import { uploadAlbum, uploadArchive, errorMessage } from '../api.js';
 import { useToast } from './Toast.jsx';
 import { UploadIcon } from './icons.jsx';
+import { Button } from './ui/button.jsx';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+  DialogClose
+} from './ui/dialog.jsx';
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent
+} from './ui/accordion.jsx';
+
+// Mirrors AUDIO_EXTENSIONS in server/upload.js. Art/sidecar files (cover, lrc,
+// cue, log, txt...) are ignored so they don't count as "mixed formats".
+const AUDIO_EXTENSIONS = new Set(['.mp3', '.flac', '.m4a', '.aac', '.wav', '.ogg', '.alac']);
+
+function audioExtension(name) {
+  const dot = (name || '').lastIndexOf('.');
+  if (dot < 0) {
+    return '';
+  }
+  const extension = name.slice(dot).toLowerCase();
+  return AUDIO_EXTENSIONS.has(extension) ? extension : '';
+}
 
 // Recursively read a dropped file-system entry into `out` as { file, path },
 // preserving the folder structure (webkitGetAsEntry gives fullPath like
@@ -64,7 +93,9 @@ export default function UploadPanel({ onUploadDone }) {
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [result, setResult] = useState(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const inputRef = useRef(null);
+  const archiveInputRef = useRef(null);
   const toast = useToast();
 
   useEffect(() => {
@@ -84,26 +115,63 @@ export default function UploadPanel({ onUploadDone }) {
     [entries]
   );
 
+  // A single root-level .zip is an archive upload; anything else is a folder.
+  const isArchive =
+    entries.length === 1 &&
+    !entries[0].path.includes('/') &&
+    /\.zip$/i.test(entries[0].path);
+
+  const audioFormats = useMemo(() => {
+    if (isArchive) {
+      return [];
+    }
+    const formats = new Set();
+    for (const entry of entries) {
+      const extension = audioExtension(entry.path);
+      if (extension) {
+        formats.add(extension);
+      }
+    }
+    return Array.from(formats);
+  }, [entries, isArchive]);
+
+  const mixedFormats = audioFormats.length > 1;
+  const formatLabel = audioFormats.map((ext) => ext.slice(1)).join(', ');
+
   async function handleDrop(event) {
     event.preventDefault();
     setIsDragging(false);
     const dropped = await entriesFromDataTransfer(event.dataTransfer);
     if (dropped.length === 0) {
-      toast.error('Nothing usable in that drop — pick an album folder.');
+      toast.error('Nothing usable in that drop — pick an album folder or a .zip.');
       return;
     }
     setResult(null);
     setEntries(dropped);
   }
 
-  async function handleUpload() {
+  function handleUpload() {
     if (entries.length === 0 || isUploading) {
       return;
     }
+    // Mixed audio formats are unusual for a single album — confirm first.
+    if (mixedFormats) {
+      setConfirmOpen(true);
+      return;
+    }
+    performUpload();
+  }
+
+  async function performUpload() {
+    setConfirmOpen(false);
 
     const body = new FormData();
-    for (const { file, path } of entries) {
-      body.append('files', file, path);
+    if (isArchive) {
+      body.append('archive', entries[0].file, entries[0].path);
+    } else {
+      for (const { file, path } of entries) {
+        body.append('files', file, path);
+      }
     }
 
     setResult(null);
@@ -112,14 +180,18 @@ export default function UploadPanel({ onUploadDone }) {
     setProgressKnown(true);
 
     try {
-      const data = await uploadAlbum(body, (event) => {
+      const onProgress = (event) => {
         if (!event.total) {
           setProgressKnown(false);
           return;
         }
         setProgressKnown(true);
         setUploadProgress(Math.round((event.loaded / event.total) * 100));
-      });
+      };
+
+      const data = isArchive
+        ? await uploadArchive(body, onProgress)
+        : await uploadAlbum(body, onProgress);
 
       setResult(data);
       setProgressKnown(true);
@@ -127,6 +199,9 @@ export default function UploadPanel({ onUploadDone }) {
       setEntries([]);
       if (inputRef.current) {
         inputRef.current.value = '';
+      }
+      if (archiveInputRef.current) {
+        archiveInputRef.current.value = '';
       }
       toast.success(
         `Uploaded ${data.acceptedCount} file${data.acceptedCount === 1 ? '' : 's'} to “${
@@ -141,15 +216,16 @@ export default function UploadPanel({ onUploadDone }) {
     }
   }
 
-  const label =
-    entries.length > 0
+  const label = isArchive
+    ? entries[0].path
+    : entries.length > 0
       ? `${entries.length} files${rootFolders.size === 1 ? ` · ${[...rootFolders][0]}` : ''}`
-      : 'Drag an album folder here';
+      : 'Drag an album folder or .zip here';
 
   return (
     <div className="upload-block">
       <h3>Add album</h3>
-      <p className="muted small">Music, art, and cue/log/txt/lrc sidecars.</p>
+      <p className="muted small">Folder or .zip — music, art, and cue/log/txt/lrc sidecars.</p>
 
       <div
         className={`dropzone${isDragging ? ' dragging' : ''}`}
@@ -183,25 +259,60 @@ export default function UploadPanel({ onUploadDone }) {
           multiple
           className="visually-hidden"
           aria-label="Choose album folder"
-          onChange={(event) =>
+          onChange={(event) => {
+            setResult(null);
             setEntries(
               Array.from(event.target.files || []).map((file) => ({
                 file,
                 path: file.webkitRelativePath || file.name
               }))
-            )
-          }
+            );
+          }}
         />
       </div>
 
+      <input
+        ref={archiveInputRef}
+        type="file"
+        className="visually-hidden"
+        accept=".zip,application/zip,application/x-zip-compressed"
+        aria-label="Choose album zip archive"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (!file) {
+            return;
+          }
+          setResult(null);
+          setEntries([{ file, path: file.name }]);
+        }}
+      />
+
       <div className="stats-row">
-        <span>{entries.length} files</span>
-        <span>{formatBytes(totalSize)}</span>
+        <span>{isArchive ? '1 archive' : `${entries.length} files`}</span>
+        <Button
+          type="button"
+          variant="link"
+          className="h-auto p-0 text-xs"
+          onClick={() => archiveInputRef.current?.click()}
+        >
+          Choose .zip
+        </Button>
       </div>
 
-      <button type="button" onClick={handleUpload} disabled={entries.length === 0 || isUploading}>
-        {isUploading ? 'Uploading…' : 'Upload Folder'}
-      </button>
+      {mixedFormats ? (
+        <p className="warning small">
+          Mixed audio formats: {formatLabel}. An album is usually one format.
+        </p>
+      ) : null}
+
+      <Button
+        type="button"
+        className="w-full"
+        onClick={handleUpload}
+        disabled={entries.length === 0 || isUploading}
+      >
+        {isUploading ? 'Uploading…' : isArchive ? 'Upload Zip' : 'Upload Folder'}
+      </Button>
 
       <div className="progress-shell">
         <div
@@ -218,19 +329,47 @@ export default function UploadPanel({ onUploadDone }) {
           </p>
           <p>Skipped: {result.skippedCount}</p>
           {result.skippedCount > 0 ? (
-            <details>
-              <summary>View skipped files</summary>
-              <ul>
-                {(result.skipped || []).map((entry) => (
-                  <li key={`${entry.path}-${entry.reason}`}>
-                    {entry.path} - {entry.reason}
-                  </li>
-                ))}
-              </ul>
-            </details>
+            <Accordion type="single" collapsible>
+              <AccordionItem value="skipped" className="border-b-0">
+                <AccordionTrigger className="py-2">
+                  View skipped files ({result.skippedCount})
+                </AccordionTrigger>
+                <AccordionContent>
+                  <ul className="list-disc space-y-1 pl-5">
+                    {(result.skipped || []).map((entry) => (
+                      <li key={`${entry.path}-${entry.reason}`}>
+                        {entry.path} — {entry.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           ) : null}
         </div>
       ) : null}
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mixed audio formats</DialogTitle>
+            <DialogDescription>
+              This folder mixes audio formats ({formatLabel}). An album is usually a single format.
+              Upload anyway?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button type="button" onClick={performUpload}>
+              Upload anyway
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

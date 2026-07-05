@@ -2,7 +2,7 @@ import { formatBytes } from '../format.js';
 
 export default function AlbumList({ albums, selectedAlbum, onSelect }) {
   if (albums.length === 0) {
-    return <p className="muted empty">No staged albums yet. Upload one below.</p>;
+    return <p className="muted empty">No staged albums yet. Upload one to get started.</p>;
   }
 
   return (

@@ -10,6 +10,7 @@ import {
 } from '../api.js';
 import { Diagnosis, FixForm, CoverArtFix } from './MetadataReport.jsx';
 import { useToast } from './Toast.jsx';
+import { Button } from './ui/button.jsx';
 
 // Count the things "Fix" can still act on, for the step-2 status line.
 function countFixable(report) {
@@ -256,9 +257,9 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
           <div className="step-body">
             <div className="step-head">
               <strong>Analyze metadata</strong>
-              <button type="button" onClick={runAnalyze} disabled={Boolean(busy)}>
+              <Button type="button" size="sm" onClick={runAnalyze} disabled={Boolean(busy)}>
                 {busy === 'analyze' ? 'Analyzing…' : report ? 'Re-analyze' : 'Analyze'}
-              </button>
+              </Button>
             </div>
             <p className="step-status">{analyzeStatus}</p>
             {report ? (
@@ -274,9 +275,9 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
           <div className="step-body">
             <div className="step-head">
               <strong>Fix issues</strong>
-              <button type="button" onClick={applyFixes} disabled={!report || Boolean(busy)}>
+              <Button type="button" size="sm" onClick={applyFixes} disabled={!report || Boolean(busy)}>
                 {busy === 'fix' ? 'Applying…' : 'Apply Fixes'}
-              </button>
+              </Button>
             </div>
             <p className="step-status">{fixStatus}</p>
             {fixSummary ? <p className="step-status ok">{fixSummary}</p> : null}
@@ -294,9 +295,9 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
           <div className="step-body">
             <div className="step-head">
               <strong>Import to library</strong>
-              <button type="button" onClick={importAlbum} disabled={importStatus === 'running'}>
+              <Button type="button" size="sm" onClick={importAlbum} disabled={importStatus === 'running'}>
                 {importStatus === 'running' ? 'Importing…' : 'Import'}
-              </button>
+              </Button>
             </div>
             <p className="step-status">Status: {importStatus}</p>
             <div className="step-detail">

@@ -5,11 +5,13 @@ import multer from 'multer';
 import { config } from './config.js';
 import {
   uploadMiddleware,
+  archiveUploadMiddleware,
   listAlbums,
   buildUploadSummary,
   sanitizeAlbumName,
   COVER_IMAGE_EXTENSIONS
 } from './upload.js';
+import { extractZipAlbum, ArchiveError } from './archive.js';
 import { runAudit, startImport, streamJob, getJob } from './shell.js';
 import { inspectAlbum, fixAlbum, embedCover } from './metadata/index.js';
 
@@ -92,6 +94,31 @@ apiRouter.post('/upload', uploadMiddleware.any(), async (req, res) => {
       code: 'upload_failed',
       message: error.message
     });
+  }
+});
+
+apiRouter.post('/upload-archive', archiveUploadMiddleware.single('archive'), async (req, res) => {
+  if (!req.file) {
+    res.status(400).json({
+      ok: false,
+      code: req.archiveRejected || 'no_archive',
+      message: 'Upload a single .zip archive in the "archive" field.'
+    });
+    return;
+  }
+
+  try {
+    const summary = await extractZipAlbum(req.file.path, req.file.originalname);
+    res.json({ ok: true, ...summary });
+  } catch (error) {
+    if (error instanceof ArchiveError) {
+      const status = error.code === 'file_too_large' || error.code === 'too_many_files' ? 413 : 422;
+      res.status(status).json({ ok: false, code: error.code, message: error.message });
+      return;
+    }
+    res.status(500).json({ ok: false, code: 'archive_extract_failed', message: error.message });
+  } finally {
+    fs.rm(req.file.path, { force: true }).catch(() => {});
   }
 });
 

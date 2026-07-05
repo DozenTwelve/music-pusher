@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import multer from 'multer';
 import { config } from './config.js';
 
@@ -14,7 +16,7 @@ export const COVER_IMAGE_EXTENSIONS = new Set([
 const SIDECAR_EXTENSIONS = new Set(['.cue', '.log', '.txt', '.lrc']);
 const SKIP_FILENAMES = new Set(['.ds_store', 'thumbs.db', 'desktop.ini']);
 
-function normalizeRelativePath(inputPath) {
+export function normalizeRelativePath(inputPath) {
   if (typeof inputPath !== 'string' || inputPath.length === 0) {
     return { ok: false, reason: 'missing_path' };
   }
@@ -39,7 +41,7 @@ function normalizeRelativePath(inputPath) {
   return { ok: true, relativePath: segments.join('/') };
 }
 
-function classifyFile(relativePath) {
+export function classifyFile(relativePath) {
   const lowerBase = path.posix.basename(relativePath).toLowerCase();
 
   if (lowerBase.startsWith('._')) {
@@ -130,6 +132,36 @@ export const uploadMiddleware = multer({
     }
 
     file.safeRelativePath = normalized.relativePath;
+    cb(null, true);
+  }
+});
+
+// Archives are uploaded as one .zip file to a scratch location outside the RAW
+// directory (so a half-written temp file never registers as an album), then
+// extracted by server/archive.js.
+const archiveStorage = multer.diskStorage({
+  destination(req, file, cb) {
+    const tmpDir = path.join(os.tmpdir(), 'music-pusher-uploads');
+    fs.mkdir(tmpDir, { recursive: true }, (error) => cb(error, tmpDir));
+  },
+  filename(req, file, cb) {
+    cb(null, `${crypto.randomUUID()}.zip`);
+  }
+});
+
+export const archiveUploadMiddleware = multer({
+  storage: archiveStorage,
+  limits: {
+    fileSize: config.maxArchiveSizeBytes,
+    files: 1
+  },
+  fileFilter(req, file, cb) {
+    const extension = path.extname(file.originalname || '').toLowerCase();
+    if (extension !== '.zip') {
+      req.archiveRejected = 'unsupported_archive';
+      cb(null, false);
+      return;
+    }
     cb(null, true);
   }
 });

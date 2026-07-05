@@ -1,6 +1,16 @@
 import { useState } from 'react';
 import { FIELD_LABELS, showText } from '../format.js';
 import { CheckIcon, AlertIcon, ImageIcon } from './icons.jsx';
+import { Button } from './ui/button.jsx';
+import { Input } from './ui/input.jsx';
+import { Checkbox } from './ui/checkbox.jsx';
+import { Label } from './ui/label.jsx';
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent
+} from './ui/accordion.jsx';
 
 // Read-only diagnosis: what is wrong with the album (shown under "Analyze").
 export function Diagnosis({ report }) {
@@ -70,32 +80,40 @@ export function Diagnosis({ report }) {
         <p className="muted small">Mixed formats present: {report.formats.join(', ')}</p>
       ) : null}
 
-      {report.textIssues.length ? (
-        <details>
-          <summary>Tag text issues ({report.textIssues.length})</summary>
-          <ul>
-            {report.textIssues.map((issue, idx) => (
-              <li key={`${issue.file}-${issue.field}-${idx}`}>
-                <code>{issue.field}</code> · {issue.file}: “{showText(issue.display)}” → “
-                {showText(issue.suggested)}”
-                {issue.confident ? '' : ' ⚠ manual (ambiguous)'}
-              </li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
+      {report.textIssues.length || report.filenameIssues.length ? (
+        <Accordion type="single" collapsible className="border-t border-border">
+          {report.textIssues.length ? (
+            <AccordionItem value="text-issues">
+              <AccordionTrigger>Tag text issues ({report.textIssues.length})</AccordionTrigger>
+              <AccordionContent>
+                <ul className="list-disc space-y-1 pl-5">
+                  {report.textIssues.map((issue, idx) => (
+                    <li key={`${issue.file}-${issue.field}-${idx}`}>
+                      <code>{issue.field}</code> · {issue.file}: “{showText(issue.display)}” → “
+                      {showText(issue.suggested)}”
+                      {issue.confident ? '' : ' ⚠ manual (ambiguous)'}
+                    </li>
+                  ))}
+                </ul>
+              </AccordionContent>
+            </AccordionItem>
+          ) : null}
 
-      {report.filenameIssues.length ? (
-        <details>
-          <summary>Filename fixes ({report.filenameIssues.length})</summary>
-          <ul>
-            {report.filenameIssues.map((issue) => (
-              <li key={issue.file}>
-                {issue.file} → {issue.suggested}
-              </li>
-            ))}
-          </ul>
-        </details>
+          {report.filenameIssues.length ? (
+            <AccordionItem value="filename-fixes" className="border-b-0">
+              <AccordionTrigger>Filename fixes ({report.filenameIssues.length})</AccordionTrigger>
+              <AccordionContent>
+                <ul className="list-disc space-y-1 pl-5">
+                  {report.filenameIssues.map((issue) => (
+                    <li key={issue.file}>
+                      {issue.file} → {issue.suggested}
+                    </li>
+                  ))}
+                </ul>
+              </AccordionContent>
+            </AccordionItem>
+          ) : null}
+        </Accordion>
       ) : null}
     </div>
   );
@@ -129,8 +147,9 @@ export function FixForm({ report, draft, onDraftChange }) {
                 <td>{info.consistent ? 'OK' : `${info.distinct.length || 0} values${info.missing ? `, ${info.missing} missing` : ''}`}</td>
                 <td className="value-cell">{valueSummary}</td>
                 <td>
-                  <input
+                  <Input
                     type="text"
+                    className="min-w-[120px] text-sm"
                     value={draft[field] ?? ''}
                     placeholder={info.proposed || '(leave blank to skip)'}
                     onChange={(event) => onDraftChange(field, event.target.value)}
@@ -143,33 +162,39 @@ export function FixForm({ report, draft, onDraftChange }) {
       </table>
 
       <div className="report-extras">
-        <label>
-          <input
-            type="checkbox"
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="normalizeTracks"
             checked={draft.normalizeTracks}
-            onChange={(event) => onDraftChange('normalizeTracks', event.target.checked)}
+            onCheckedChange={(value) => onDraftChange('normalizeTracks', value === true)}
           />
-          Normalize track numbering (set totals to {report.trackCount})
-          {report.track.needsNormalize ? ' — needed' : ' — already OK'}
-        </label>
-        <label>
-          <input
-            type="checkbox"
+          <Label htmlFor="normalizeTracks" className="cursor-pointer font-normal">
+            Normalize track numbering (set totals to {report.trackCount})
+            {report.track.needsNormalize ? ' — needed' : ' — already OK'}
+          </Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="fixFilenames"
             checked={draft.fixFilenames}
-            onChange={(event) => onDraftChange('fixFilenames', event.target.checked)}
+            onCheckedChange={(value) => onDraftChange('fixFilenames', value === true)}
           />
-          Fix apostrophes in filenames
-          {report.filenameIssues.length ? ` (${report.filenameIssues.length})` : ' — none found'}
-        </label>
-        <label>
-          <input
-            type="checkbox"
+          <Label htmlFor="fixFilenames" className="cursor-pointer font-normal">
+            Fix apostrophes in filenames
+            {report.filenameIssues.length ? ` (${report.filenameIssues.length})` : ' — none found'}
+          </Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="repairText"
             checked={draft.repairText}
-            onChange={(event) => onDraftChange('repairText', event.target.checked)}
+            onCheckedChange={(value) => onDraftChange('repairText', value === true)}
           />
-          Repair corrupted text in tags
-          {report.textIssues.length ? ` (${report.textIssues.length})` : ' — none found'}
-        </label>
+          <Label htmlFor="repairText" className="cursor-pointer font-normal">
+            Repair corrupted text in tags
+            {report.textIssues.length ? ` (${report.textIssues.length})` : ' — none found'}
+          </Label>
+        </div>
       </div>
     </div>
   );
@@ -202,15 +227,16 @@ export function CoverArtFix({ report, onEmbed, busy }) {
         embed it into every track.
       </p>
       <div className="cover-controls">
-        <input
+        <Input
           key={resetKey}
           type="file"
           accept="image/*"
+          className="flex-1 min-w-0 cursor-pointer"
           onChange={(event) => setFile(event.target.files?.[0] || null)}
         />
-        <button type="button" onClick={handleEmbed} disabled={!file || Boolean(busy)}>
+        <Button type="button" size="sm" onClick={handleEmbed} disabled={!file || Boolean(busy)}>
           {busy === 'cover' ? 'Embedding…' : 'Embed cover'}
-        </button>
+        </Button>
       </div>
     </div>
   );

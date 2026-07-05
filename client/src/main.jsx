@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
 import { ToastProvider } from './components/Toast.jsx';
+import './index.css';
 import './styles.css';
 
 // Apply the saved (or system) theme before first paint to avoid a flash.

@@ -5,6 +5,7 @@ import AlbumList from './components/AlbumList.jsx';
 import WorkflowPanel from './components/WorkflowPanel.jsx';
 import { useToast } from './components/Toast.jsx';
 import { SunIcon, MoonIcon, ImageIcon } from './components/icons.jsx';
+import { Button } from './components/ui/button.jsx';
 
 function useTheme() {
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'light');
@@ -76,12 +77,14 @@ export default function App() {
         <aside className="staging panel">
           <div className="section-header">
             <h2>Staging</h2>
-            <button type="button" className="ghost" onClick={loadAlbums} disabled={loadingAlbums}>
+            <Button type="button" variant="outline" size="sm" onClick={loadAlbums} disabled={loadingAlbums}>
               {loadingAlbums ? 'Refreshing…' : 'Refresh'}
-            </button>
+            </Button>
           </div>
-          <AlbumList albums={albums} selectedAlbum={selectedAlbum} onSelect={setSelectedAlbum} />
-          <UploadPanel onUploadDone={loadAlbums} />
+          <div className="staging-body">
+            <AlbumList albums={albums} selectedAlbum={selectedAlbum} onSelect={setSelectedAlbum} />
+            <UploadPanel onUploadDone={loadAlbums} />
+          </div>
         </aside>
 
         <WorkflowPanel selectedAlbum={selectedAlbum} onImportDone={loadAlbums} />

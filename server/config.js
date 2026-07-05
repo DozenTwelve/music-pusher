@@ -47,6 +47,7 @@ export const config = {
   rawDir: expandHome(process.env.RAW_DIR) || path.join(cwd, 'data', 'RAW'),
   libraryDir: expandHome(process.env.LIBRARY_DIR) || path.join(cwd, 'data', 'LIBRARY'),
   maxFileSizeBytes: parseInteger(process.env.MAX_FILE_SIZE_MB, 2048) * 1024 * 1024,
+  maxArchiveSizeBytes: parseInteger(process.env.MAX_ARCHIVE_SIZE_MB, 4096) * 1024 * 1024,
   maxFiles: parseInteger(process.env.MAX_FILES, 2000),
   maxCoverSizeBytes: parseInteger(process.env.MAX_COVER_SIZE_MB, 20) * 1024 * 1024,
   exiftoolBin: expandHome(process.env.EXIFTOOL_BIN) || 'exiftool',

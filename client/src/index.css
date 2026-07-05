@@ -1,0 +1,57 @@
+@import 'tailwindcss';
+
+/*
+ * shadcn/ui theme tokens. They are prefixed --sh-* (so they never collide with
+ * the hand-written variables in styles.css) and mapped onto the app's own
+ * design tokens — which already carry [data-theme='dark'] overrides — so every
+ * shadcn component follows light/dark mode automatically.
+ */
+@theme inline {
+  --color-background: var(--sh-background);
+  --color-foreground: var(--sh-foreground);
+  --color-card: var(--sh-card);
+  --color-card-foreground: var(--sh-card-foreground);
+  --color-popover: var(--sh-popover);
+  --color-popover-foreground: var(--sh-popover-foreground);
+  --color-primary: var(--sh-primary);
+  --color-primary-foreground: var(--sh-primary-foreground);
+  --color-secondary: var(--sh-secondary);
+  --color-secondary-foreground: var(--sh-secondary-foreground);
+  --color-muted: var(--sh-muted);
+  --color-muted-foreground: var(--sh-muted-foreground);
+  --color-accent: var(--sh-accent);
+  --color-accent-foreground: var(--sh-accent-foreground);
+  --color-destructive: var(--sh-destructive);
+  --color-destructive-foreground: var(--sh-destructive-foreground);
+  --color-border: var(--sh-border);
+  --color-input: var(--sh-input);
+  --color-ring: var(--sh-ring);
+
+  --radius-sm: calc(var(--sh-radius) - 3px);
+  --radius-md: var(--sh-radius);
+  --radius-lg: calc(var(--sh-radius) + 3px);
+  --radius-xl: calc(var(--sh-radius) + 7px);
+}
+
+:root {
+  --sh-radius: var(--radius-sm, 9px);
+  --sh-background: var(--surface);
+  --sh-foreground: var(--text);
+  --sh-card: var(--surface);
+  --sh-card-foreground: var(--text);
+  --sh-popover: var(--surface);
+  --sh-popover-foreground: var(--text);
+  --sh-primary: var(--accent);
+  --sh-primary-foreground: var(--accent-contrast);
+  --sh-secondary: var(--surface-2);
+  --sh-secondary-foreground: var(--text);
+  --sh-muted: var(--surface-2);
+  --sh-muted-foreground: var(--muted);
+  --sh-accent: var(--accent-soft);
+  --sh-accent-foreground: var(--accent);
+  --sh-destructive: var(--danger);
+  --sh-destructive-foreground: #ffffff;
+  --sh-border: var(--border);
+  --sh-input: var(--border-strong);
+  --sh-ring: var(--ring);
+}

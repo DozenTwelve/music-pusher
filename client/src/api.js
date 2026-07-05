@@ -15,6 +15,11 @@ export async function uploadAlbum(formData, onUploadProgress) {
   return data;
 }
 
+export async function uploadArchive(formData, onUploadProgress) {
+  const { data } = await axios.post('/api/upload-archive', formData, { onUploadProgress });
+  return data;
+}
+
 export async function inspectAlbum(album) {
   const { data } = await axios.post('/api/inspect', { album });
   return data;
