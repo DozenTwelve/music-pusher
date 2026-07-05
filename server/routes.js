@@ -108,10 +108,15 @@ apiRouter.post('/upload-archive', archiveUploadMiddleware.single('archive'), asy
   }
 
   try {
-    const summary = await extractZipAlbum(req.file.path, req.file.originalname);
+    const allowMixed = req.body?.allowMixed === 'true' || req.body?.allowMixed === '1';
+    const summary = await extractZipAlbum(req.file.path, req.file.originalname, { allowMixed });
     res.json({ ok: true, ...summary });
   } catch (error) {
     if (error instanceof ArchiveError) {
+      if (error.code === 'mixed_formats') {
+        res.status(409).json({ ok: false, code: error.code, message: error.message, formats: error.formats });
+        return;
+      }
       const status = error.code === 'file_too_large' || error.code === 'too_many_files' ? 413 : 422;
       res.status(status).json({ ok: false, code: error.code, message: error.message });
       return;

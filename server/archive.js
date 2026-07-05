@@ -4,17 +4,34 @@ import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import yauzl from 'yauzl';
 import { config } from './config.js';
-import { classifyFile, normalizeRelativePath, sanitizeAlbumName } from './upload.js';
+import { AUDIO_EXTENSIONS, classifyFile, normalizeRelativePath, sanitizeAlbumName } from './upload.js';
 
 // Music archives are almost always a single album. We extract a .zip into the
 // RAW staging directory reusing the exact same file classification, path
 // safety, and limits as a folder upload, then report the same summary shape.
 
 class ArchiveError extends Error {
-  constructor(code, message) {
+  constructor(code, message, details) {
     super(message);
     this.code = code;
+    if (details) {
+      Object.assign(this, details);
+    }
   }
+}
+
+// Distinct audio extensions (without the dot) among accepted entries. A single
+// album is almost always one format, so >1 is worth confirming — mirrors the
+// client-side mixed-format check that folder uploads already do pre-flight.
+function distinctAudioFormats(accepted) {
+  const formats = new Set();
+  for (const item of accepted) {
+    const ext = path.posix.extname(item.relativePath.toLowerCase());
+    if (AUDIO_EXTENSIONS.has(ext)) {
+      formats.add(ext.slice(1));
+    }
+  }
+  return [...formats];
 }
 
 function openZip(zipPath) {
@@ -175,7 +192,7 @@ function extractEntries(zipfile, destByRawName) {
   });
 }
 
-export async function extractZipAlbum(zipPath, originalName) {
+export async function extractZipAlbum(zipPath, originalName, { allowMixed = false } = {}) {
   await fsp.mkdir(config.rawDir, { recursive: true });
 
   const scanZip = await openZip(zipPath);
@@ -188,6 +205,17 @@ export async function extractZipAlbum(zipPath, originalName) {
 
   if (scan.accepted.length === 0) {
     throw new ArchiveError('empty_archive', 'The archive contains no supported music, art, or sidecar files.');
+  }
+
+  // Scanning only reads the central directory (no extraction yet), so we can
+  // reject a mixed-format archive before writing anything to disk.
+  const formats = distinctAudioFormats(scan.accepted);
+  if (!allowMixed && formats.length > 1) {
+    throw new ArchiveError(
+      'mixed_formats',
+      `Archive mixes audio formats (${formats.join(', ')}). An album is usually a single format.`,
+      { formats }
+    );
   }
 
   const { album, destByRawName } = planLayout(scan.accepted, originalName);

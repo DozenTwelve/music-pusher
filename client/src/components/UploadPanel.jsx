@@ -94,6 +94,7 @@ export default function UploadPanel({ onUploadDone }) {
   const [isDragging, setIsDragging] = useState(false);
   const [result, setResult] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [archiveMixedFormats, setArchiveMixedFormats] = useState('');
   const folderInputRef = useRef(null);
   const zipInputRef = useRef(null);
   const dragCounter = useRef(0);
@@ -156,12 +157,15 @@ export default function UploadPanel({ onUploadDone }) {
     performUpload();
   }
 
-  async function performUpload() {
+  async function performUpload(allowMixed = false) {
     setConfirmOpen(false);
 
     const body = new FormData();
     if (isArchive) {
       body.append('archive', entries[0].file, entries[0].path);
+      if (allowMixed) {
+        body.append('allowMixed', 'true');
+      }
     } else {
       for (const { file, path } of entries) {
         body.append('files', file, path);
@@ -204,7 +208,15 @@ export default function UploadPanel({ onUploadDone }) {
       );
       onUploadDone();
     } catch (uploadError) {
-      toast.error(errorMessage(uploadError));
+      // Zip contents are only known server-side, so a mixed-format archive is
+      // reported back here — surface the same confirm dialog as folder uploads.
+      const data = uploadError?.response?.data;
+      if (data?.code === 'mixed_formats') {
+        setArchiveMixedFormats((data.formats || []).join(', '));
+        setConfirmOpen(true);
+      } else {
+        toast.error(errorMessage(uploadError));
+      }
     } finally {
       setIsUploading(false);
     }
@@ -363,7 +375,8 @@ export default function UploadPanel({ onUploadDone }) {
           <DialogHeader>
             <DialogTitle>Mixed audio formats</DialogTitle>
             <DialogDescription>
-              This folder mixes audio formats ({formatLabel}). An album is usually a single format.
+              This {isArchive ? 'archive' : 'folder'} mixes audio formats (
+              {isArchive ? archiveMixedFormats : formatLabel}). An album is usually a single format.
               Upload anyway?
             </DialogDescription>
           </DialogHeader>
@@ -373,7 +386,7 @@ export default function UploadPanel({ onUploadDone }) {
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="button" onClick={performUpload}>
+            <Button type="button" onClick={() => performUpload(isArchive)}>
               Upload anyway
             </Button>
           </DialogFooter>
