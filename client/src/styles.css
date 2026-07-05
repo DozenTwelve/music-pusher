@@ -424,16 +424,17 @@ button {
   font-weight: 500;
   padding: 0.35rem 0.75rem;
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: var(--accent-soft);
   color: var(--accent-ink);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--accent);
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
 .dropzone-action-btn:hover {
-  background: var(--accent-soft);
+  background: var(--accent);
   border-color: var(--accent);
+  color: var(--accent-contrast);
 }
 
 .dropzone-actions-or {
