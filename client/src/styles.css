@@ -412,6 +412,22 @@ button {
   margin-top: 0.15rem;
 }
 
+.dropzone-zip-trigger {
+  display: inline;
+  font-size: 0.78rem;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0.15rem 0 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.dropzone-zip-trigger:hover {
+  color: var(--accent-hover);
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

@@ -257,8 +257,22 @@ export default function UploadPanel({ onUploadDone }) {
         </div>
         <span className="dropzone-title">{label}</span>
         <span className="dropzone-hint">
-          {entries.length > 0 ? formatBytes(totalSize) : 'or click to browse'}
+          {entries.length > 0
+            ? formatBytes(totalSize)
+            : 'Click to browse folders'}
         </span>
+        {entries.length === 0 ? (
+          <button
+            type="button"
+            className="dropzone-zip-trigger"
+            onClick={(event) => {
+              event.stopPropagation();
+              archiveInputRef.current?.click();
+            }}
+          >
+            or choose a .zip archive
+          </button>
+        ) : null}
         <input
           id="folder-input"
           ref={inputRef}
