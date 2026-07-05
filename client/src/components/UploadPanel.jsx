@@ -220,11 +220,12 @@ export default function UploadPanel({ onUploadDone }) {
     <div className="upload-block">
       <div
         className={`dropzone${isDragging ? ' dragging' : ''}`}
-        onDragOver={(event) => {
+        onDragEnter={(event) => {
           event.preventDefault();
           dragCounter.current += 1;
           setIsDragging(true);
         }}
+        onDragOver={(event) => event.preventDefault()}
         onDragLeave={() => {
           dragCounter.current -= 1;
           if (dragCounter.current === 0) {

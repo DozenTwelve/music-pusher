@@ -75,7 +75,7 @@ function scanEntries(zipfile) {
         size: entry.uncompressedSize
       });
 
-      if (accepted.length >= config.maxFiles) {
+      if (accepted.length > config.maxFiles) {
         reject(new ArchiveError('too_many_files', 'Archive contains more files than the allowed limit.'));
         return;
       }
