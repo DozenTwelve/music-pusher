@@ -182,15 +182,14 @@ export default function UploadPanel({ onUploadDone }) {
   async function performUpload(allowMixed = false) {
     setConfirmOpen(false);
 
-    const body = new FormData();
+    // Archive is a single .zip, so it stays one request; folder uploads are
+    // fanned out across parallel connections inside uploadAlbum.
+    let archiveBody = null;
     if (isArchive) {
-      body.append('archive', entries[0].file, entries[0].path);
+      archiveBody = new FormData();
+      archiveBody.append('archive', entries[0].file, entries[0].path);
       if (allowMixed) {
-        body.append('allowMixed', 'true');
-      }
-    } else {
-      for (const { file, path } of entries) {
-        body.append('files', file, path);
+        archiveBody.append('allowMixed', 'true');
       }
     }
 
@@ -210,8 +209,8 @@ export default function UploadPanel({ onUploadDone }) {
       };
 
       const data = isArchive
-        ? await uploadArchive(body, onProgress)
-        : await uploadAlbum(body, onProgress);
+        ? await uploadArchive(archiveBody, onProgress)
+        : await uploadAlbum(entries, onProgress);
 
       setResult(data);
       setCoverError(false);

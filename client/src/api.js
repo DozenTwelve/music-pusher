@@ -14,9 +14,75 @@ export async function getAlbums() {
   return data?.albums || [];
 }
 
-export async function uploadAlbum(formData, onUploadProgress) {
-  const { data } = await axios.post('/api/upload', formData, { onUploadProgress });
-  return data;
+// Greedy largest-first bin-packing: distribute entries across `binCount` groups
+// so each carries a roughly equal number of bytes. Keeps the parallel requests
+// finishing around the same time and the aggregate progress bar smooth.
+function packIntoBins(entries, binCount) {
+  const bins = Array.from({ length: binCount }, () => ({ entries: [], bytes: 0 }));
+  const sorted = [...entries].sort((a, b) => (b.file.size || 0) - (a.file.size || 0));
+  for (const entry of sorted) {
+    const bin = bins.reduce((min, b) => (b.bytes < min.bytes ? b : min), bins[0]);
+    bin.entries.push(entry);
+    bin.bytes += entry.file.size || 0;
+  }
+  return bins.filter((bin) => bin.entries.length > 0);
+}
+
+function mergeUploadResults(results) {
+  const albumSet = new Set();
+  const merged = { album: null, albums: [], acceptedCount: 0, skippedCount: 0, totalBytes: 0, skipped: [] };
+  for (const result of results) {
+    merged.acceptedCount += result.acceptedCount || 0;
+    merged.skippedCount += result.skippedCount || 0;
+    merged.totalBytes += result.totalBytes || 0;
+    if (Array.isArray(result.skipped)) {
+      merged.skipped.push(...result.skipped);
+    }
+    for (const album of result.albums || []) {
+      albumSet.add(album);
+    }
+  }
+  merged.albums = [...albumSet];
+  merged.album = merged.albums.length === 1 ? merged.albums[0] : null;
+  return merged;
+}
+
+// A folder upload is split across several concurrent POSTs. One TCP stream is
+// near line-rate on wired gigabit, but WiFi / phone connections leave bandwidth
+// unused on a single socket — parallel connections claim it. The server needs no
+// change: mkdir is recursive/idempotent and each request carries its own files.
+export async function uploadAlbum(entries, onProgress, concurrency = 4) {
+  const bins = packIntoBins(entries, Math.min(concurrency, entries.length) || 1);
+  const totalBytes = entries.reduce((sum, entry) => sum + (entry.file.size || 0), 0) || 1;
+  const loaded = new Array(bins.length).fill(0);
+
+  const emit = () => {
+    if (!onProgress) {
+      return;
+    }
+    const sum = loaded.reduce((acc, n) => acc + n, 0);
+    // event.loaded includes multipart overhead, so it can edge past our
+    // size-only denominator — clamp so the bar never overshoots 100%.
+    onProgress({ loaded: Math.min(sum, totalBytes), total: totalBytes });
+  };
+
+  const requests = bins.map((bin, index) => {
+    const body = new FormData();
+    for (const { file, path } of bin.entries) {
+      body.append('files', file, path);
+    }
+    return axios
+      .post('/api/upload', body, {
+        onUploadProgress: (event) => {
+          loaded[index] = event.loaded;
+          emit();
+        }
+      })
+      .then((response) => response.data);
+  });
+
+  const results = await Promise.all(requests);
+  return mergeUploadResults(results);
 }
 
 export async function uploadArchive(formData, onUploadProgress) {
