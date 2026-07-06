@@ -11,14 +11,11 @@ serves — all while watching the import logs stream live.
 > the glue and the UI — the part that was missing, plus every pitfall we already
 > hit so you don't have to.
 
-<!-- DEMO: video + screenshots go here.
-     Add a walkthrough clip and drop stills in docs/, e.g.:
-     https://user-images.githubusercontent.com/....mp4
-     ![Inspect report](docs/screenshot-inspect.png)
-     ![Live import](docs/screenshot-import.png)
--->
+![Upload an album folder and see it staged](docs/screenshot-upload.png)
 
-_A demo video and screenshots are coming soon._
+![Analyze metadata, fix issues, then import](docs/screenshot-workflow.png)
+
+_A walkthrough video is coming soon._
 
 ---
 
@@ -134,7 +131,7 @@ npm install -g pm2
 ## 2. Install the app
 
 ```bash
-git clone <your-repo-url> music-pusher
+git clone https://github.com/DozenTwelve/music-pusher.git music-pusher
 cd music-pusher
 
 npm install              # server deps
