@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "check": "bash scripts/doctor.sh",
     "dev": "node server/index.js",
     "start": "node server/index.js",
     "build": "npm run client:build",
