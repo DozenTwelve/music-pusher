@@ -1,134 +1,290 @@
 # music-pusher
 
-A tiny **self-hosted web frontend for [beets](https://beets.io)**: pick an album
-folder in your browser, stage it, inspect and fix the tag problems that make
-players split one album into several, then `beet import` it into your library —
-all while watching the import logs stream live.
+**A friendly web front-end that glues [beets](https://beets.io) to
+[Navidrome](https://www.navidrome.org).** Drop an album folder from any device on
+your network, let it catch the tag problems that make players split one album
+into several, fix them in place, then `beet import` into the library Navidrome
+serves — all while watching the import logs stream live.
 
-It is intentionally small. No database, no accounts, no media server. If you
-already curate your music with beets on a home server and just want a friendlier
-"drop a folder, clean it up, import it" workflow from any device on your network,
-this is for you.
+> **We didn't reinvent the heavy lifting.** beets does the importing, ffmpeg
+> rewrites the tags, exiftool reads them, Navidrome plays them. music-pusher is
+> the glue and the UI — the part that was missing, plus every pitfall we already
+> hit so you don't have to.
 
-<!-- Add a screenshot at docs/screenshot.png and uncomment: -->
-<!-- ![Audit + Import console](docs/screenshot.png) -->
+<!-- DEMO: video + screenshots go here.
+     Add a walkthrough clip and drop stills in docs/, e.g.:
+     https://user-images.githubusercontent.com/....mp4
+     ![Inspect report](docs/screenshot-inspect.png)
+     ![Live import](docs/screenshot-import.png)
+-->
 
-## Features
+_A demo video and screenshots are coming soon._
 
-- 📁 **Folder upload from the browser** (`webkitdirectory`) — the whole album
-  tree is reconstructed under a RAW staging directory.
-- 🩺 **Deep tag inspection** (`ffprobe`) — catches the metadata that makes a
-  music player split one album into several: per-track album / album-artist /
-  date drift, multi-disc structure, missing or mis-numbered tracks, corrupted
-  tag text (control-char / invisible-character damage), and apostrophe-mangled
-  filenames (`Don_t` → `Don't`).
-- 🔧 **One-click fixes** (`ffmpeg`, in-place) — unify a field to a single value,
-  renumber tracks per disc, repair confidently-recoverable tag text, and fix
-  filenames; then it re-inspects to confirm the album collapsed to one group.
-- 🖼️ **Cover-art detection & embed** — flags tracks with no embedded picture
-  (a loose `cover.jpg` in the folder is reported but still counts as missing),
-  then embeds an uploaded image into every track in place (`ffmpeg`).
-- 🔎 **Raw tag dump** via `exiftool -r` for a quick eyeball.
-- ⬇️ **One-click `beet import -A`** with logs streamed live over Server-Sent Events.
-- 🧹 **Optional auto-cleanup** of the RAW folder after a successful import.
-- 🛟 **Safe by construction** — path-traversal-checked uploads, `spawn(..., { shell: false })`,
-  a single-active-import lock, and Multer size/count limits.
+---
 
-Supported uploads: audio (`.mp3 .flac .m4a .aac .wav .ogg .alac`),
-artwork (`.jpg .jpeg .png .webp`), sidecars including `.lrc` lyrics
-(`.cue .log .txt .lrc`). Everything else (and system files like `.DS_Store`) is
-skipped and reported.
+## The problem this solves
 
-## Requirements
+You self-host your music. You import an album, open Navidrome, and:
 
-- **Node.js 18+**
-- **[beets](https://beets.io)** installed and configured — imports run *your*
-  beets config, so set that up first.
-- **[ffmpeg](https://ffmpeg.org)** (provides both `ffmpeg` and `ffprobe`) for the
-  inspect and fix steps.
-- **[exiftool](https://exiftool.org)** for the raw tag-dump step.
-- **[PM2](https://pm2.keymetrics.io)** (optional) for the deploy script.
+- The **one album shows up as three** — split by disc, or by a stray "feat."
+  artist, or a release date that differs by one track.
+- The **cover art is missing** on half the tracks, even though there's a
+  perfectly good `cover.jpg` sitting right there in the folder.
+- A track is titled **`Don_t Stop`** because the filename lost its apostrophe.
+- The tags contain **invisible control characters** that quietly break sorting
+  and search.
 
-## Quick start
+All of this is metadata. beets *can* fix it — but you have to know exactly what's
+wrong, which field to touch, and how to verify the fix actually collapsed the
+album back into one. music-pusher is that missing layer: it **finds the specific
+problem, shows it to you, fixes it in place, and re-checks** — from a browser,
+including your phone.
+
+## What it is (and isn't)
+
+- ✅ A thin web UI + API that orchestrates tools you already trust.
+- ✅ Stateless: **no database, no accounts, no media server of its own.**
+- ❌ Not a Navidrome replacement — Navidrome stays your player.
+- ❌ Not a beets replacement — your `beets` config still runs the actual import.
+
+## Pitfalls we already hit for you
+
+Each of these is a real symptom we chased down, root-caused, and turned into a
+one-click fix:
+
+| You see… | The actual cause | What music-pusher does |
+| --- | --- | --- |
+| One album split into several | Per-track drift in `album` / `album-artist` / `date`, or unmarked multi-disc structure | Unifies the field to one value, renumbers tracks per disc, then **re-inspects to confirm it collapsed to a single group** |
+| Cover art missing on some/all tracks | The image is a loose `cover.jpg` in the folder, never embedded into the audio | Embeds an uploaded image into every track in place with ffmpeg |
+| Titles like `Don_t` | Apostrophes mangled in filenames/tags | Repairs the filename and tag text |
+| Broken sorting/search | Control-character / invisible-character damage in tag text | Repairs only the text it can confidently recover |
+| "Did the fix work?" | No easy way to verify after editing | Every fix re-runs the inspection so you see the album is actually whole |
+
+## How it fits together
+
+```
+   Browser (phone / laptop)
+            │  upload folder or .zip
+            ▼
+   ┌──────────────────────┐
+   │     music-pusher     │  Node + Express + React
+   │  (this repo, the UI) │
+   └──────────────────────┘
+       │        │        │
+   ffprobe   ffmpeg   exiftool      ← inspect / fix / raw dump
+       │        │        │
+       ▼        ▼        ▼
+   ┌──────────────────────┐
+   │   RAW staging dir    │  RAW_DIR — where uploads land & get cleaned
+   └──────────────────────┘
+            │  beet import -A
+            ▼
+   ┌──────────────────────┐        ┌──────────────────┐
+   │   beets library dir  │◀───────│     Navidrome    │
+   │ (set in beets config)│  reads │  (your player)   │
+   └──────────────────────┘        └──────────────────┘
+```
+
+The external tools do the work:
+
+| Tool | Role here | `.env` override |
+| --- | --- | --- |
+| **[beets](https://beets.io)** | Runs the real import (`beet import -A`) into your library | `BEET_BIN` |
+| **[ffprobe](https://ffmpeg.org)** | Reads tags for the inspection report | `FFPROBE_BIN` |
+| **[ffmpeg](https://ffmpeg.org)** | Rewrites tags, embeds covers, renumbers tracks, in place | `FFMPEG_BIN` |
+| **[exiftool](https://exiftool.org)** | Raw tag dump for a quick eyeball | `EXIFTOOL_BIN` |
+| **[Navidrome](https://www.navidrome.org)** | Your player — reads the finished library. Not called by this app. | — |
+
+---
+
+## 1. Install the prerequisites on the host
+
+music-pusher shells out to real binaries, so they must exist on the machine
+**before** you start it. On the host:
+
+```bash
+# Node.js 18 or newer
+node --version
+
+# ffmpeg — provides BOTH ffmpeg and ffprobe
+#   Debian/Ubuntu: sudo apt install ffmpeg
+#   macOS:         brew install ffmpeg
+ffmpeg -version && ffprobe -version
+
+# exiftool
+#   Debian/Ubuntu: sudo apt install libimage-exiftool-perl
+#   macOS:         brew install exiftool
+exiftool -ver
+
+# beets — imports run YOUR beets config, so install and configure it first.
+#   A Python venv is the tidy way; note the resulting path for BEET_BIN.
+#   python3 -m venv ~/.venvs/beets && ~/.venvs/beets/bin/pip install beets
+beet version
+
+# PM2 — the supported way to run it in production
+npm install -g pm2
+```
+
+> **Configure beets first.** The import writes to whatever `directory:` your
+> beets `config.yaml` points at (default `~/.config/beets/config.yaml`). That
+> path is the single source of truth for where organized music lands — and it's
+> the exact folder you'll point Navidrome at. Set it up and do one manual
+> `beet import` by hand before wiring up this app.
+
+## 2. Install the app
 
 ```bash
 git clone <your-repo-url> music-pusher
 cd music-pusher
 
-cp .env.example .env          # then edit RAW_DIR / LIBRARY_DIR / bin paths
-npm install                   # server deps
-npm run client:install        # client deps
-npm run build                 # builds the React client into client/dist
-npm start                     # serves API + UI on http://localhost:3000
+npm install              # server deps
+npm run client:install   # client deps
+npm run build            # builds the React client into client/dist
 ```
 
-Open `http://<host>:3000`, drop an album folder, audit, import.
+Then run the doctor to confirm the host has everything (it reads your `.env`, so
+run it after step 3 to check the *actual* binaries the app will use):
 
-### Development
+```bash
+npm run check
+```
+
+It reports exactly what's missing — a bad Node version, an unfound `beet`, an
+unwritable `RAW_DIR` — and exits non-zero until the required items pass.
+
+## 3. Configure `.env`
+
+Copy the example and edit it. Every value has a default, but you'll want to set
+at least the paths:
+
+```bash
+cp .env.example .env
+```
+
+```ini
+# HTTP port for the API + the built client
+PORT=3000
+
+# Where uploads land and get inspected/fixed. This app owns this folder.
+RAW_DIR=/home/you/Music/RAW
+
+# Your beets library target — REPORTED on /api/health for a sanity check.
+# ⚠️ This does NOT decide where files go. beets' own `directory:` does.
+# Set this to the SAME path so health checks stay honest, and point
+# Navidrome's music folder at that same path too.
+LIBRARY_DIR=/home/you/Music/LIBRARY
+
+# Upload limits
+MAX_FILE_SIZE_MB=2048     # per audio file
+MAX_ARCHIVE_SIZE_MB=4096  # per uploaded .zip
+MAX_FILES=2000            # per upload
+MAX_COVER_SIZE_MB=20      # per uploaded cover image
+
+# Absolute paths are safest. If beets lives in a venv, point BEET_BIN at it.
+BEET_BIN=/home/you/.venvs/beets/bin/beet
+EXIFTOOL_BIN=exiftool
+FFMPEG_BIN=ffmpeg
+FFPROBE_BIN=ffprobe
+
+# Delete the RAW album folder after a successful import
+CLEANUP_RAW_AFTER_IMPORT=true
+```
+
+**The one thing people get wrong:** `LIBRARY_DIR` here is only *reported* by the
+health check — it doesn't move a single file. The real destination is set in your
+beets config's `directory:`. Keep all three in sync:
+
+```
+beets config `directory:`   ==   LIBRARY_DIR (.env)   ==   Navidrome music folder
+```
+
+Paths support `~` expansion. Full reference:
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `PORT` | `3000` | HTTP port for API + static client. |
+| `RAW_DIR` | `./data/RAW` | Staging dir uploads land in. |
+| `LIBRARY_DIR` | `./data/LIBRARY` | Reported by `/api/health`; **not** the real import target. |
+| `MAX_FILE_SIZE_MB` | `2048` | Per-file upload limit. |
+| `MAX_ARCHIVE_SIZE_MB` | `4096` | Per-`.zip` upload limit. |
+| `MAX_FILES` | `2000` | Max files per upload. |
+| `MAX_COVER_SIZE_MB` | `20` | Max size for an uploaded cover image. |
+| `BEET_BIN` | `beet` | Path to the `beet` binary (e.g. a venv path). |
+| `EXIFTOOL_BIN` | `exiftool` | Path to `exiftool`. |
+| `FFMPEG_BIN` | `ffmpeg` | Path to `ffmpeg` (rewrites tags). |
+| `FFPROBE_BIN` | `ffprobe` | Path to `ffprobe` (reads tags). |
+| `CLEANUP_RAW_AFTER_IMPORT` | `true` | Remove the RAW album folder after a successful import. |
+
+## 4. Run it with PM2
+
+First start reads `ecosystem.config.js` (process name: `music-pusher`):
+
+```bash
+pm2 start ecosystem.config.js
+pm2 save            # persist across reboots
+pm2 startup         # follow the printed command to enable the boot service
+```
+
+Open `http://<host>:3000` — drop an album folder, inspect, fix, import.
+
+### Updating a running instance
+
+```bash
+npm run deploy
+```
+
+This pulls the latest, reinstalls server + client deps, rebuilds the client, and
+`pm2 reload`s the process (zero-downtime). Override the name if yours differs:
+
+```bash
+PM2_APP_NAME=my-app npm run deploy
+```
+
+### Development (no PM2)
 
 ```bash
 npm run dev                   # API on :3000
 npm --prefix client run dev   # Vite dev server on :5173 (proxies /api to :3000)
 ```
 
-## Configuration
+---
 
-All settings come from `.env` (see `.env.example`):
+## Supported files
 
-| Variable                   | Default          | Description                                             |
-| -------------------------- | ---------------- | ------------------------------------------------------- |
-| `PORT`                     | `3000`           | HTTP port for the API + static client.                  |
-| `RAW_DIR`                  | `./data/RAW`     | Staging directory uploads land in.                      |
-| `LIBRARY_DIR`              | `./data/LIBRARY` | Reported by `/api/health` (your beets library target).  |
-| `MAX_FILE_SIZE_MB`         | `2048`           | Per-file upload limit.                                  |
-| `MAX_FILES`                | `2000`           | Max files per upload.                                   |
-| `MAX_COVER_SIZE_MB`        | `20`             | Max size for an uploaded cover image.                   |
-| `BEET_BIN`                 | `beet`           | Path to the `beet` binary (e.g. a venv path).           |
-| `EXIFTOOL_BIN`             | `exiftool`       | Path to the `exiftool` binary.                          |
-| `FFMPEG_BIN`               | `ffmpeg`         | Path to the `ffmpeg` binary (used to rewrite tags).     |
-| `FFPROBE_BIN`              | `ffprobe`        | Path to the `ffprobe` binary (used to read tags).       |
-| `CLEANUP_RAW_AFTER_IMPORT` | `true`           | Remove the RAW album folder after a successful import.  |
+- **Audio:** `.mp3 .flac .m4a .aac .wav .ogg .alac`
+- **Artwork:** `.jpg .jpeg .png .webp`
+- **Sidecars:** `.cue .log .txt .lrc`
 
-Paths support `~` expansion.
-
-## Deploy
-
-On the server:
-
-```bash
-npm run deploy
-```
-
-This pulls the latest (`git fetch` + fast-forward `pull`), installs server and
-client dependencies, rebuilds the client, and reloads the PM2 process. Override
-the process name if yours differs:
-
-```bash
-PM2_APP_NAME=my-app npm run deploy
-```
+Everything else — and system junk like `.DS_Store` — is skipped and reported.
 
 ## API
 
-| Method | Route                        | Purpose                                  |
-| ------ | ---------------------------- | ---------------------------------------- |
-| `GET`  | `/api/health`               | Liveness + resolved RAW/LIBRARY dirs.    |
-| `POST` | `/api/upload`               | Multipart folder upload → RAW staging.   |
-| `GET`  | `/api/albums`               | List staged albums with size/count.      |
-| `POST` | `/api/audit`                | Run `exiftool -r` on an album (raw dump).|
-| `POST` | `/api/inspect`              | Structured tag/split/track report.       |
-| `POST` | `/api/fix`                  | Apply tag/track/filename fixes in place. |
-| `POST` | `/api/cover`                | Embed an uploaded cover into every track.|
-| `POST` | `/api/import`               | Start a `beet import` job.               |
-| `GET`  | `/api/import/:jobId`        | Job status.                              |
-| `GET`  | `/api/import/:jobId/stream` | Live import logs (SSE).                  |
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/health` | Liveness + resolved RAW/LIBRARY dirs. |
+| `POST` | `/api/upload` | Multipart folder upload → RAW staging. |
+| `GET` | `/api/albums` | List staged albums with size/count. |
+| `POST` | `/api/audit` | Run `exiftool -r` on an album (raw dump). |
+| `POST` | `/api/inspect` | Structured tag/split/track report. |
+| `POST` | `/api/fix` | Apply tag/track/filename fixes in place. |
+| `POST` | `/api/cover` | Embed an uploaded cover into every track. |
+| `POST` | `/api/import` | Start a `beet import` job. |
+| `GET` | `/api/import/:jobId` | Job status. |
+| `GET` | `/api/import/:jobId/stream` | Live import logs (SSE). |
 
 ## Security note
 
-**There is no authentication.** This app spawns `beet`/`exiftool` and deletes
-RAW folders on request, and CORS is open. Run it only on a **trusted LAN** —
-do not expose it directly to the internet. Put it behind a reverse proxy with
-auth if you need remote access.
+**There is no authentication.** This app spawns `beet` / `exiftool` / `ffmpeg`,
+deletes RAW folders on request, and ships with open CORS. Run it only on a
+**trusted LAN** — do not expose it to the internet. If you need remote access,
+put it behind a reverse proxy that handles auth (and a VPN is better still).
+
+Built defensively where it counts: path-traversal-checked uploads,
+`spawn(..., { shell: false })` everywhere, a single-active-import lock, and
+Multer size/count limits.
 
 ## License
 
 [MIT](LICENSE)
+</content>
+</invoke>
