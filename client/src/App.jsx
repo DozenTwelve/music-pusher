@@ -4,7 +4,7 @@ import UploadPanel from './components/UploadPanel.jsx';
 import AlbumList from './components/AlbumList.jsx';
 import WorkflowPanel from './components/WorkflowPanel.jsx';
 import { useToast } from './components/Toast.jsx';
-import { SunIcon, MoonIcon, ImageIcon } from './components/icons.jsx';
+import { SunIcon, MoonIcon } from './components/icons.jsx';
 import { Button } from './components/ui/button.jsx';
 import {
   Dialog,
@@ -82,9 +82,6 @@ export default function App() {
     <main className="app-shell">
       <div className="topbar">
         <div className="brand">
-          <span className="brand-mark">
-            <ImageIcon size={20} />
-          </span>
           <header>
             <h1>Music Pusher</h1>
             <p>Upload album folders, clean up tags, then import into beets.</p>
