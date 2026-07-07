@@ -246,6 +246,62 @@ npm --prefix client run dev   # Vite dev server on :5173 (proxies /api to :3000)
 
 ---
 
+## Run it with Docker (optional)
+
+The app is tiny; its *dependencies* aren't. If you'd rather not install ffmpeg,
+exiftool, and beets on the host, the image bundles all three. It's redundant if
+your host already has them.
+
+**The image is music-pusher only — it does not bundle a media server.** It
+writes the organized library into a shared volume; you point your **existing**
+Navidrome at that same volume.
+
+```bash
+# 1. beets config — `directory:` MUST be /music
+mkdir -p config && cp docker/beets.example.yaml config/config.yaml
+
+# 2. tell it where your library lives on the host (the folder Navidrome reads)
+export MUSIC_LIBRARY=/srv/music
+
+# 3. bring up music-pusher
+docker compose up -d --build
+```
+
+### Where files go (and how the player reaches them)
+
+```
+browser upload ──▶ /data/RAW/<album>      (host ./data — you can see it)
+        beet import, directory: /music
+               ──▶ /music                  (host $MUSIC_LIBRARY)
+Navidrome reads ─── /music ◀───────────────┘  same host folder
+```
+
+- **Uploads land** in `/data/RAW` = host `./data/RAW`. Removed after a successful
+  import (`CLEANUP_RAW_AFTER_IMPORT`).
+- **The finished library lands** in `/music` = host `$MUSIC_LIBRARY` (default
+  `./library`). This is a **host bind mount, not a named Docker volume** — on
+  purpose: a host path is the one thing an external Navidrome can also reach.
+- **Two ways the player reaches it:**
+  1. *Path* — point your existing Navidrome's music folder at that **same host
+     directory** (`$MUSIC_LIBRARY`). A named volume would carry a project prefix
+     (`musicpusher_music`) and stay invisible to a Navidrome in another stack;
+     the host path avoids that.
+  2. *Permissions* — beets writes files as `PUID:PGID`. Navidrome must run as a
+     user that can **read** them. Set `PUID`/`PGID` to the user that owns your
+     media (ideally the same on both sides), or ensure the files are group/
+     world-readable.
+- **The same three-way path rule still holds**, at container paths:
+  ```
+  beets config `directory:`   ==   /music   ==   Navidrome ND_MUSICFOLDER
+  ```
+- Don't run Navidrome yet? `docker-compose.yml` has a commented-out `navidrome`
+  service — uncomment it for a from-scratch demo (adds `:4533`).
+
+The in-image binaries are wired up already (`BEET_BIN=/opt/beets/bin/beet`,
+`BEETSDIR=/config`), so you don't set any `*_BIN` paths for the Docker route.
+
+---
+
 ## Supported files
 
 - **Audio:** `.mp3 .flac .m4a .aac .wav .ogg .alac`
@@ -259,6 +315,7 @@ Everything else — and system junk like `.DS_Store` — is skipped and reported
 | Method | Route | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/health` | Liveness + resolved RAW/LIBRARY dirs. |
+| `GET` | `/api/preflight` | Host-readiness check (tools + paths); powers the homepage banner. |
 | `POST` | `/api/upload` | Multipart folder upload → RAW staging. |
 | `GET` | `/api/albums` | List staged albums with size/count. |
 | `POST` | `/api/audit` | Run `exiftool -r` on an album (raw dump). |

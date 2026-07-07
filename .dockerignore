@@ -1,0 +1,12 @@
+node_modules
+client/node_modules
+client/dist
+data
+config
+navidrome
+.git
+.env
+*.log
+npm-debug.log*
+docs
+plan.md

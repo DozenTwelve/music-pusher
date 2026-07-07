@@ -1,0 +1,45 @@
+# This stack ships ONLY music-pusher. It is not a media server and does not
+# bundle one — the image contains just the glue app plus ffmpeg/exiftool/beets.
+#
+# The organized library lands on a HOST directory (MUSIC_LIBRARY, default
+# ./library) that gets bind-mounted to /music. A host path — not a named volume
+# — is the shareable choice: your EXISTING Navidrome (in another compose stack,
+# a plain `docker run`, or bare metal) can point at that same host directory and
+# see exactly what beets wrote. That host folder is the common ground both sides
+# reach through.
+#
+#   export MUSIC_LIBRARY=/srv/music   # your real media path
+#
+services:
+  music-pusher:
+    build: .
+    # Or use a published image instead of building:
+    # image: ghcr.io/dozentwelve/music-pusher:latest
+    container_name: music-pusher
+    ports:
+      - "3000:3000"
+    environment:
+      # Match these to the user that owns your media so files stay readable
+      # by whatever serves the library.
+      PUID: "1000"
+      PGID: "1000"
+    volumes:
+      - ./data:/data                      # RAW upload staging — this app owns it
+      - ./config:/config                  # beets config.yaml + library db — MUST persist
+      - ${MUSIC_LIBRARY:-./library}:/music # organized library beets writes into (host path)
+    restart: unless-stopped
+
+  # --- OPTIONAL: only if you do NOT already run Navidrome ---------------------
+  # Uncomment for a from-scratch demo. If you already run Navidrome, leave this
+  # off and just mount ${MUSIC_LIBRARY} into your existing Navidrome as /music.
+  # navidrome:
+  #   image: deluan/navidrome:latest
+  #   container_name: navidrome
+  #   ports:
+  #     - "4533:4533"
+  #   environment:
+  #     ND_MUSICFOLDER: /music
+  #   volumes:
+  #     - ${MUSIC_LIBRARY:-./library}:/music:ro  # same host path, read-only
+  #     - ./navidrome:/data                      # Navidrome's own db/cache
+  #   restart: unless-stopped

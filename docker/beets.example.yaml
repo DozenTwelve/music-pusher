@@ -1,0 +1,18 @@
+# Minimal beets config for the Docker setup. Copy to ./config/config.yaml
+# (which mounts to /config, where BEETSDIR points beets):
+#
+#   mkdir -p config && cp docker/beets.example.yaml config/config.yaml
+#
+# The ONE line that matters: `directory` is the real import target. It must be
+# /music so the imported library lands in the volume Navidrome reads.
+directory: /music
+
+# Keep the beets library db on the persisted /config volume, not in the container.
+library: /config/musiclibrary.db
+
+import:
+  move: yes        # move files out of RAW into /music (not copy)
+  write: yes       # write cleaned tags back into the files
+
+# Optional but recommended: fetch cover art and richer metadata.
+# plugins: fetchart embedart
