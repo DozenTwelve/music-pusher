@@ -97,19 +97,27 @@ async function checkLibraryDir() {
   }
 }
 
-// A missing .env means every path/binary is a built-in default — fine for a
-// first look, but almost never what a real install wants, so surface it as warn.
+// Where the config came from. A missing .env normally means built-in defaults —
+// worth a warn on bare metal. But Docker (and any env-first deploy) configures
+// everything through process env and ships no .env at all — the image even
+// excludes it — so a present-but-not-a-file check would nag every correct Docker
+// user forever. Treat the key vars being set in the environment as "configured"
+// and stay quiet.
 async function checkEnvFile() {
+  const configuredViaEnv = Boolean(process.env.RAW_DIR && process.env.BEET_BIN);
   try {
     await fsp.access(path.join(process.cwd(), '.env'), fsConstants.R_OK);
-    return { id: 'env', label: '.env', level: 'ok', detail: 'present' };
+    return { id: 'env', label: 'config', level: 'ok', detail: '.env present' };
   } catch {
+    if (configuredViaEnv) {
+      return { id: 'env', label: 'config', level: 'ok', detail: 'configured via environment' };
+    }
     return {
       id: 'env',
-      label: '.env',
+      label: 'config',
       level: 'warn',
-      detail: 'not found — using built-in defaults',
-      hint: 'cp .env.example .env, then set RAW_DIR / LIBRARY_DIR / BEET_BIN.'
+      detail: 'no .env and key vars unset — using built-in defaults',
+      hint: 'cp .env.example .env (then set RAW_DIR / LIBRARY_DIR / BEET_BIN), or set them in the environment.'
     };
   }
 }
