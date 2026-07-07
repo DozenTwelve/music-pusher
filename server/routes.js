@@ -16,6 +16,7 @@ import {
 import { extractZipAlbum, ArchiveError } from './archive.js';
 import { runAudit, startImport, streamJob, getJob } from './shell.js';
 import { inspectAlbum, fixAlbum, embedCover } from './metadata/index.js';
+import { runPreflight } from './preflight.js';
 
 export const apiRouter = express.Router();
 
@@ -78,6 +79,18 @@ apiRouter.get('/health', async (req, res) => {
       code: 'health_check_failed',
       message: error.message
     });
+  }
+});
+
+// Runtime host check for the UI. Mirrors scripts/doctor.sh but returns JSON so
+// the homepage can warn about missing tools or misconfigured paths. Always 200:
+// the payload's `ok`/`checks` carry the verdict, not the HTTP status.
+apiRouter.get('/preflight', async (req, res) => {
+  try {
+    const report = await runPreflight();
+    res.json(report);
+  } catch (error) {
+    res.status(500).json({ ok: false, code: 'preflight_failed', message: error.message });
   }
 });
 

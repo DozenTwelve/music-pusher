@@ -3,6 +3,7 @@ import { getAlbums, deleteAlbum, errorMessage } from './api.js';
 import UploadPanel from './components/UploadPanel.jsx';
 import AlbumList from './components/AlbumList.jsx';
 import WorkflowPanel from './components/WorkflowPanel.jsx';
+import PreflightBanner from './components/PreflightBanner.jsx';
 import { useToast } from './components/Toast.jsx';
 import { SunIcon, MoonIcon } from './components/icons.jsx';
 import { Button } from './components/ui/button.jsx';
@@ -97,6 +98,8 @@ export default function App() {
           {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
         </button>
       </div>
+
+      <PreflightBanner />
 
       <div className="layout">
         <section className="staging panel">

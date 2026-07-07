@@ -878,3 +878,68 @@ button {
     width: 100%;
   }
 }
+
+/* Preflight banner — host-readiness warnings. Hidden entirely when healthy;
+   only failing or degraded checks ever render. */
+.preflight {
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius);
+  background: var(--warn-soft);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.preflight-fail {
+  border-color: var(--danger-border);
+  background: var(--danger-soft);
+}
+
+.preflight > strong {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--danger);
+}
+
+.preflight-warn > strong {
+  color: var(--warn);
+}
+
+.preflight ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.preflight-item {
+  display: grid;
+  grid-template-columns: minmax(90px, max-content) 1fr;
+  gap: 2px 12px;
+  font-size: 0.9rem;
+}
+
+.preflight-label {
+  grid-row: 1 / span 2;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.preflight-fail .preflight-label {
+  color: var(--danger);
+}
+
+.preflight-warn .preflight-label {
+  color: var(--warn);
+}
+
+.preflight-detail {
+  color: var(--text);
+}
+
+.preflight-hint {
+  color: var(--muted);
+  font-size: 0.82rem;
+}

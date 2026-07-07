@@ -14,6 +14,11 @@ export async function getAlbums() {
   return data?.albums || [];
 }
 
+export async function getPreflight() {
+  const { data } = await axios.get('/api/preflight');
+  return data;
+}
+
 // Greedy largest-first bin-packing: distribute entries across `binCount` groups
 // so each carries a roughly equal number of bytes. Keeps the parallel requests
 // finishing around the same time and the aggregate progress bar smooth.
