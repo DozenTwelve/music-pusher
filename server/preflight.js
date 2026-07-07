@@ -1,8 +1,8 @@
 import fsp from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 import { config } from './config.js';
-import { runProcess } from './metadata/probe.js';
 
 // Runtime counterpart to scripts/doctor.sh: the same host checks, but served to
 // the UI so the homepage can warn when a required tool or path is missing.
@@ -12,50 +12,115 @@ import { runProcess } from './metadata/probe.js';
 //   warn — degraded or unverified; the app may still work.
 //   ok   — verified good. The UI hides the banner only when EVERY check is ok.
 
-// Run a binary's version command. A path with a separator must be executable;
-// a bare name must resolve on PATH. spawn surfaces both as an error (code -1),
-// so a zero exit is the single signal that the tool is present and runnable.
+// Run a binary's version command with a hard timeout. A wedged tool (say a
+// wrapper at BEET_BIN that blocks on stdin) would otherwise hang this endpoint
+// forever, since a probe only settles on close/error. We spawn here rather than
+// reuse the shared runProcess so the timeout stays scoped to preflight and never
+// touches long-running import/fix work. Outcomes are kept distinct so callers can
+// tell "could not launch" (missing/not executable) from "launched but exited
+// non-zero" (present but broken) — collapsing them mislabels a broken tool as
+// absent and sends the user down the wrong fix path.
+const PROBE_TIMEOUT_MS = 5000;
+
+function runVersion(bin, args) {
+  return new Promise((resolve) => {
+    const proc = spawn(bin, args, {
+      shell: false,
+      timeout: PROBE_TIMEOUT_MS,
+      killSignal: 'SIGKILL',
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    let stdout = '';
+    let stderr = '';
+    proc.stdout.on('data', (chunk) => {
+      stdout += chunk;
+    });
+    proc.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+    // 'error' fires when the tool cannot be launched at all (missing binary, no
+    // exec permission) — distinct from a launched process that exits non-zero.
+    proc.on('error', () => resolve({ outcome: 'launch_failed' }));
+    proc.on('close', (code, signal) => {
+      if (signal === 'SIGKILL') {
+        resolve({ outcome: 'timeout' });
+      } else if (code === 0) {
+        const version = String(stdout || stderr).split(/\r?\n/)[0].trim();
+        resolve({ outcome: 'ok', version });
+      } else {
+        resolve({ outcome: 'errored', code });
+      }
+    });
+  });
+}
+
 async function checkBinary({ id, label, bin, args, hintApt, hintBrew }) {
-  const { code, stdout, stderr } = await runProcess(bin, args);
-  if (code === 0) {
-    const version = String(stdout || stderr).split(/\r?\n/)[0].trim();
-    return { id, label, level: 'ok', detail: version || bin };
+  const result = await runVersion(bin, args);
+  const toolHint = `Debian/Ubuntu: ${hintApt}  •  macOS: ${hintBrew}`;
+  const invocation = `${bin} ${args.join(' ')}`;
+  switch (result.outcome) {
+    case 'ok':
+      return { id, label, level: 'ok', detail: result.version || bin };
+    case 'timeout':
+      return {
+        id,
+        label,
+        level: 'fail',
+        detail: `Timed out after ${PROBE_TIMEOUT_MS / 1000}s running '${invocation}' — the binary may be hanging`,
+        hint: toolHint
+      };
+    case 'errored':
+      return {
+        id,
+        label,
+        level: 'fail',
+        detail: `Present but '${invocation}' failed (exit ${result.code})`,
+        hint: toolHint
+      };
+    default: // 'launch_failed'
+      return {
+        id,
+        label,
+        level: 'fail',
+        detail: `Not found or not runnable (looked for: ${bin})`,
+        hint: toolHint
+      };
   }
-  return {
-    id,
-    label,
-    level: 'fail',
-    detail: `Not found or not runnable (looked for: ${bin})`,
-    hint: `Debian/Ubuntu: ${hintApt}  •  macOS: ${hintBrew}`
-  };
 }
 
 // beets is the one tool we invoke as a versioned subcommand; a present-but-broken
 // Python env is common enough to warrant its own warn rather than a hard fail.
 async function checkBeets() {
-  const { code, stdout } = await runProcess(config.beetBin, ['version']);
-  if (code === 0) {
-    const version = String(stdout).split(/\r?\n/)[0].trim();
-    return { id: 'beet', label: 'beets', level: 'ok', detail: version || config.beetBin };
+  const result = await runVersion(config.beetBin, ['version']);
+  const envHint = 'Check your beets install / Python environment.';
+  switch (result.outcome) {
+    case 'ok':
+      return { id: 'beet', label: 'beets', level: 'ok', detail: result.version || config.beetBin };
+    case 'timeout':
+      return {
+        id: 'beet',
+        label: 'beets',
+        level: 'fail',
+        detail: `Timed out running '${config.beetBin} version' — the binary may be hanging`,
+        hint: envHint
+      };
+    case 'errored':
+      return {
+        id: 'beet',
+        label: 'beets',
+        level: 'warn',
+        detail: `Found at ${config.beetBin} but 'beet version' failed (exit ${result.code})`,
+        hint: envHint
+      };
+    default: // 'launch_failed' — could not spawn it at all
+      return {
+        id: 'beet',
+        label: 'beets',
+        level: 'fail',
+        detail: `Not found (looked for: ${config.beetBin})`,
+        hint: 'Install in a venv, then set BEET_BIN in .env: python3 -m venv ~/.venvs/beets && ~/.venvs/beets/bin/pip install beets'
+      };
   }
-  // code -1 means spawn could not launch it at all (missing); any other non-zero
-  // means it launched but errored — usually a busted venv.
-  if (code === -1) {
-    return {
-      id: 'beet',
-      label: 'beets',
-      level: 'fail',
-      detail: `Not found (looked for: ${config.beetBin})`,
-      hint: 'Install in a venv, then set BEET_BIN in .env: python3 -m venv ~/.venvs/beets && ~/.venvs/beets/bin/pip install beets'
-    };
-  }
-  return {
-    id: 'beet',
-    label: 'beets',
-    level: 'warn',
-    detail: `Found at ${config.beetBin} but 'beet version' failed`,
-    hint: 'Check your beets install / Python environment.'
-  };
 }
 
 // RAW_DIR is owned by this app: create it if absent, then confirm it is writable.
@@ -86,12 +151,19 @@ async function checkLibraryDir() {
       throw new Error('exists but is not a directory');
     }
     return { id: 'libraryDir', label: 'LIBRARY_DIR', level: 'ok', detail: config.libraryDir };
-  } catch {
+  } catch (error) {
+    // A plain-missing dir is the common, benign case. Anything else (a
+    // permission error, or the "not a directory" throw above) is a different
+    // problem, so surface its message instead of always claiming it is absent.
+    const detail =
+      error.code === 'ENOENT'
+        ? `${config.libraryDir} does not exist yet`
+        : `${config.libraryDir} — ${error.message}`;
     return {
       id: 'libraryDir',
       label: 'LIBRARY_DIR',
       level: 'warn',
-      detail: `${config.libraryDir} does not exist yet`,
+      detail,
       hint: "Reported only; the real target is beets' `directory:`. Keep beets config, LIBRARY_DIR, and Navidrome's music folder in sync."
     };
   }

@@ -83,8 +83,9 @@ apiRouter.get('/health', async (req, res) => {
 });
 
 // Runtime host check for the UI. Mirrors scripts/doctor.sh but returns JSON so
-// the homepage can warn about missing tools or misconfigured paths. Always 200:
-// the payload's `ok`/`checks` carry the verdict, not the HTTP status.
+// the homepage can warn about missing tools or misconfigured paths. The check
+// result rides in the 200 body (`ok`/`checks`), not the HTTP status — a failing
+// check is still a 200. Only an unexpected error running the checks yields 500.
 apiRouter.get('/preflight', async (req, res) => {
   try {
     const report = await runPreflight();
