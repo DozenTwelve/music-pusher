@@ -142,8 +142,10 @@ async function checkRawDir() {
 }
 
 // LIBRARY_DIR is only reported by /api/health — beets' own `directory:` is the
-// real import target. So a missing one is a warn, not a fail: it usually means
-// nothing has been imported yet, or the three-way path sync is off.
+// real import target. It is the least actionable check, so a plain-missing dir
+// is NOT worth tripping the banner: beets creates it on the first import. Keep it
+// ok in that case and reserve a warn for a genuinely odd state (unreadable, or a
+// non-directory sitting at that path).
 async function checkLibraryDir() {
   try {
     const stat = await fsp.stat(config.libraryDir);
@@ -152,18 +154,21 @@ async function checkLibraryDir() {
     }
     return { id: 'libraryDir', label: 'LIBRARY_DIR', level: 'ok', detail: config.libraryDir };
   } catch (error) {
-    // A plain-missing dir is the common, benign case. Anything else (a
-    // permission error, or the "not a directory" throw above) is a different
-    // problem, so surface its message instead of always claiming it is absent.
-    const detail =
-      error.code === 'ENOENT'
-        ? `${config.libraryDir} does not exist yet`
-        : `${config.libraryDir} — ${error.message}`;
+    if (error.code === 'ENOENT') {
+      return {
+        id: 'libraryDir',
+        label: 'LIBRARY_DIR',
+        level: 'ok',
+        detail: `${config.libraryDir} — not created yet (beets makes it on first import)`
+      };
+    }
+    // A permission error or the "not a directory" throw above is a real problem,
+    // so surface its message rather than staying silent.
     return {
       id: 'libraryDir',
       label: 'LIBRARY_DIR',
       level: 'warn',
-      detail,
+      detail: `${config.libraryDir} — ${error.message}`,
       hint: "Reported only; the real target is beets' `directory:`. Keep beets config, LIBRARY_DIR, and Navidrome's music folder in sync."
     };
   }
