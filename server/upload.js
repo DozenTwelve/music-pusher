@@ -16,6 +16,19 @@ export const COVER_IMAGE_EXTENSIONS = new Set([
 const SIDECAR_EXTENSIONS = new Set(['.cue', '.log', '.txt', '.lrc']);
 const SKIP_FILENAMES = new Set(['.ds_store', 'thumbs.db', 'desktop.ini']);
 
+// Busboy decodes multipart filenames as latin1 unless configured otherwise,
+// but browsers send them as raw UTF-8 bytes — so any non-ASCII name arrives
+// mojibake and gets written to disk double-encoded. Re-decode. A string with
+// any char above U+00FF was already decoded correctly; a re-decode that yields
+// U+FFFD means the bytes weren't UTF-8 after all — keep the original either way.
+export function decodeLatin1Filename(name) {
+  if (typeof name !== 'string' || !/[\u0080-\u00ff]/.test(name) || /[\u0100-\uffff]/.test(name)) {
+    return name;
+  }
+  const decoded = Buffer.from(name, 'latin1').toString('utf8');
+  return decoded.includes('�') ? name : decoded;
+}
+
 export function normalizeRelativePath(inputPath) {
   if (typeof inputPath !== 'string' || inputPath.length === 0) {
     return { ok: false, reason: 'missing_path' };
@@ -26,14 +39,21 @@ export function normalizeRelativePath(inputPath) {
   }
 
   const normalized = inputPath.replace(/\\+/g, '/').replace(/^\/+/, '').replace(/^\.\//, '');
-  const segments = normalized.split('/').filter(Boolean);
+  // NFC + trim must match what sanitizeAlbumName does to lookups, or a name
+  // that only differs by trailing whitespace uploads fine and then 404s on
+  // inspect. A segment that trims to nothing is a whitespace-only name —
+  // rejecting beats silently merging two path levels.
+  const segments = normalized
+    .split('/')
+    .filter(Boolean)
+    .map((segment) => segment.normalize('NFC').trim());
 
   if (segments.length === 0) {
     return { ok: false, reason: 'missing_path' };
   }
 
   for (const segment of segments) {
-    if (segment === '.' || segment === '..') {
+    if (segment === '' || segment === '.' || segment === '..') {
       return { ok: false, reason: 'invalid_path' };
     }
   }
@@ -110,6 +130,7 @@ export const uploadMiddleware = multer({
   },
   fileFilter(req, file, cb) {
     const report = ensureReport(req);
+    file.originalname = decodeLatin1Filename(file.originalname);
     const normalized = normalizeRelativePath(file.originalname || file.fieldname);
 
     if (!normalized.ok) {
@@ -156,6 +177,9 @@ export const archiveUploadMiddleware = multer({
     files: 1
   },
   fileFilter(req, file, cb) {
+    // The archive's basename can become the album folder name (planLayout), so
+    // it needs the same mojibake repair as individual upload filenames.
+    file.originalname = decodeLatin1Filename(file.originalname);
     const extension = path.extname(file.originalname || '').toLowerCase();
     if (extension !== '.zip') {
       req.archiveRejected = 'unsupported_archive';
@@ -180,14 +204,30 @@ export async function listAlbums() {
       continue;
     }
 
-    const albumPath = path.join(config.rawDir, entry.name);
+    // Self-heal albums staged before names were normalized: a folder whose
+    // on-disk name is mojibake (latin1-decoded UTF-8) or differs by NFC/trim
+    // can never match a sanitized lookup, so inspect/delete would 404 forever.
+    // RAW is app-owned, so renaming to the normalized form is safe; if the
+    // rename fails (e.g. the normalized name is taken), keep the old name.
+    let name = entry.name;
+    const healed = sanitizeAlbumName(decodeLatin1Filename(name));
+    if (healed && healed !== name) {
+      try {
+        await fsp.rename(path.join(config.rawDir, name), path.join(config.rawDir, healed));
+        name = healed;
+      } catch {
+        // keep the original name; the album stays listed
+      }
+    }
+
+    const albumPath = path.join(config.rawDir, name);
     const stats = await gatherAlbumStats(albumPath);
     if (stats.fileCount === 0) {
       continue;
     }
 
     albums.push({
-      album: entry.name,
+      album: name,
       fileCount: stats.fileCount,
       totalBytes: stats.totalBytes
     });
@@ -249,7 +289,9 @@ export function sanitizeAlbumName(input) {
     return null;
   }
 
-  const trimmed = input.trim();
+  // NFC to match what normalizeRelativePath did when the album was written —
+  // a macOS browser can send the same name decomposed (NFD) in a later request.
+  const trimmed = input.normalize('NFC').trim();
   if (!trimmed) {
     return null;
   }
