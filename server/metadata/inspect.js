@@ -216,7 +216,13 @@ export async function inspectAlbum(album) {
 
   // Formats present (lossless vs lossy) — informational; mixed sources are a
   // common reason tag drift creeps in, even though format itself rarely splits.
-  const formats = [...new Set(tracks.map((t) => t.formatName).filter(Boolean))];
+  // Label by file extension, not ffprobe's format_name: for MP4-family audio
+  // that is the demuxer alias list ("mov,mp4,m4a,3gp,3g2,mj2"), so an mp3+m4a
+  // mix rendered unreadably instead of "mp3, m4a". Extension is also the same
+  // signal the upload-side mixed-format warning uses.
+  const formats = [
+    ...new Set(tracks.map((t) => path.extname(t.file).slice(1).toLowerCase()).filter(Boolean))
+  ];
 
   // Cover art: embedded-only detection. Any track without an embedded picture is
   // a gap. Loose image files are surfaced for context but never count as present.
