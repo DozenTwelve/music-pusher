@@ -15,7 +15,9 @@ serves — all while watching the import logs stream live.
 
 ![Analyze metadata, fix issues, then import](docs/screenshot-workflow.png)
 
-_A walkthrough video is coming soon._
+[![Watch the walkthrough video](docs/video-thumb.jpg)](https://www.youtube.com/watch?v=PjEiVF6fcls)
+
+_▶ Watch the 5-minute walkthrough: upload → analyze → fix → import._
 
 ---
 
