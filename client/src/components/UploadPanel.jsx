@@ -20,18 +20,9 @@ import {
   AccordionContent
 } from './ui/accordion.jsx';
 
-// Mirrors AUDIO_EXTENSIONS in server/upload.js. Art/sidecar files (cover, lrc,
-// cue, log, txt...) are ignored so they don't count as "mixed formats".
-const AUDIO_EXTENSIONS = new Set(['.mp3', '.flac', '.m4a', '.aac', '.wav', '.ogg', '.alac']);
-
-function audioExtension(name) {
-  const dot = (name || '').lastIndexOf('.');
-  if (dot < 0) {
-    return '';
-  }
-  const extension = name.slice(dot).toLowerCase();
-  return AUDIO_EXTENSIONS.has(extension) ? extension : '';
-}
+// Shared with the server: one definition of what counts as audio, with art and
+// sidecar files (cover, lrc, cue, log, txt...) excluded from "mixed formats".
+import { distinctAudioFormats } from '../../../shared/extensions.js';
 
 // Recursively read a dropped file-system entry into `out` as { file, path },
 // preserving the folder structure (webkitGetAsEntry gives fullPath like
@@ -117,22 +108,13 @@ export default function UploadPanel({ onUploadDone }) {
     !entries[0].path.includes('/') &&
     /\.zip$/i.test(entries[0].path);
 
-  const audioFormats = useMemo(() => {
-    if (isArchive) {
-      return [];
-    }
-    const formats = new Set();
-    for (const entry of entries) {
-      const extension = audioExtension(entry.path);
-      if (extension) {
-        formats.add(extension);
-      }
-    }
-    return Array.from(formats);
-  }, [entries, isArchive]);
+  const audioFormats = useMemo(
+    () => (isArchive ? [] : distinctAudioFormats(entries.map((entry) => entry.path))),
+    [entries, isArchive]
+  );
 
   const mixedFormats = audioFormats.length > 1;
-  const formatLabel = audioFormats.map((ext) => ext.slice(1)).join(', ');
+  const formatLabel = audioFormats.join(', ');
 
   async function handleDrop(event) {
     event.preventDefault();

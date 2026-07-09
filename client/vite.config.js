@@ -12,6 +12,11 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // The client imports ../shared/extensions.js (definitions shared with the
+    // server), which sits outside the Vite root — allow the repo root in dev.
+    fs: {
+      allow: [fileURLToPath(new URL('..', import.meta.url))]
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:3000',

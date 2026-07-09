@@ -222,11 +222,13 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
     );
   }
 
-  const analyzeStatus = report
-    ? report.groupCount > 1
+  const analyzeStatus = !report
+    ? 'Not analyzed yet.'
+    : report.groupCount > 1
       ? `Would split into ${report.groupCount} albums · ${report.trackCount} tracks`
-      : `Stays as 1 album · ${report.trackCount} tracks`
-    : 'Not analyzed yet.';
+      : report.mixedFormats
+        ? `Mixed formats (${report.formats.join(', ')}) — would split · ${report.trackCount} tracks`
+        : `Stays as 1 album · ${report.trackCount} tracks`;
 
   const fixableCount = countFixable(report);
   const fixStatus = !report

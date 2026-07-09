@@ -6,6 +6,8 @@ WORKDIR /app
 COPY client/package.json client/package-lock.json ./client/
 RUN npm --prefix client ci
 COPY client/ ./client/
+# Definitions shared between server and client live outside the client root.
+COPY shared/ ./shared/
 RUN npm --prefix client run build
 
 # ---- stage 2: runtime ----
@@ -33,6 +35,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 COPY server/ ./server/
+COPY shared/ ./shared/
 COPY 1.ico ./
 COPY --from=client /app/client/dist ./client/dist
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh

@@ -2,6 +2,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
 import { ART_EXTENSIONS } from '../upload.js';
+import { distinctAudioFormats } from '../../shared/extensions.js';
 import { listAudioFiles, probeTags, parseNumberPair } from './probe.js';
 import { normalizeTagValue, analyzeText, suggestFilenameFix, TEXT_FIELDS } from './text.js';
 
@@ -214,15 +215,12 @@ export async function inspectAlbum(album) {
     }
   }
 
-  // Formats present (lossless vs lossy) — informational; mixed sources are a
-  // common reason tag drift creeps in, even though format itself rarely splits.
-  // Label by file extension, not ffprobe's format_name: for MP4-family audio
-  // that is the demuxer alias list ("mov,mp4,m4a,3gp,3g2,mj2"), so an mp3+m4a
-  // mix rendered unreadably instead of "mp3, m4a". Extension is also the same
-  // signal the upload-side mixed-format warning uses.
-  const formats = [
-    ...new Set(tracks.map((t) => path.extname(t.file).slice(1).toLowerCase()).filter(Boolean))
-  ];
+  // Audio formats present, from the shared extension classifier — the same
+  // signal every mixed-format check uses. More than one is a failure: mixed
+  // formats cause Navidrome to split the album, and there is no in-place fix
+  // (the odd files must be converted or removed).
+  const formats = distinctAudioFormats(tracks.map((t) => t.file));
+  const mixedFormats = formats.length > 1;
 
   // Cover art: embedded-only detection. Any track without an embedded picture is
   // a gap. Loose image files are surfaced for context but never count as present.
@@ -243,6 +241,7 @@ export async function inspectAlbum(album) {
     splitFields,
     fields,
     formats,
+    mixedFormats,
     multiDisc,
     discs,
     track: {

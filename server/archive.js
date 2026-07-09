@@ -4,7 +4,8 @@ import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import yauzl from 'yauzl';
 import { config } from './config.js';
-import { AUDIO_EXTENSIONS, classifyFile, normalizeRelativePath, sanitizeAlbumName } from './upload.js';
+import { classifyFile, normalizeRelativePath, sanitizeAlbumName } from './upload.js';
+import { distinctAudioFormats } from '../shared/extensions.js';
 
 // Music archives are almost always a single album. We extract a .zip into the
 // RAW staging directory reusing the exact same file classification, path
@@ -18,20 +19,6 @@ class ArchiveError extends Error {
       Object.assign(this, details);
     }
   }
-}
-
-// Distinct audio extensions (without the dot) among accepted entries. A single
-// album is almost always one format, so >1 is worth confirming — mirrors the
-// client-side mixed-format check that folder uploads already do pre-flight.
-function distinctAudioFormats(accepted) {
-  const formats = new Set();
-  for (const item of accepted) {
-    const ext = path.posix.extname(item.relativePath.toLowerCase());
-    if (AUDIO_EXTENSIONS.has(ext)) {
-      formats.add(ext.slice(1));
-    }
-  }
-  return [...formats];
 }
 
 function openZip(zipPath) {
@@ -209,7 +196,7 @@ export async function extractZipAlbum(zipPath, originalName, { allowMixed = fals
 
   // Scanning only reads the central directory (no extraction yet), so we can
   // reject a mixed-format archive before writing anything to disk.
-  const formats = distinctAudioFormats(scan.accepted);
+  const formats = distinctAudioFormats(scan.accepted.map((item) => item.relativePath));
   if (!allowMixed && formats.length > 1) {
     throw new ArchiveError(
       'mixed_formats',

@@ -14,18 +14,20 @@ import {
 
 // Read-only diagnosis: what is wrong with the album (shown under "Analyze").
 export function Diagnosis({ report }) {
-  const splitDanger = report.groupCount > 1;
+  const splitDanger = report.groupCount > 1 || report.mixedFormats;
 
   return (
     <div className="report">
       <div className={`report-banner ${splitDanger ? 'bad' : 'good'}`}>
         {splitDanger ? <AlertIcon /> : <CheckIcon />}
         <span>
-          {splitDanger
+          {report.groupCount > 1
             ? `This album would split into ${report.groupCount} albums. Cause: ${report.splitFields
                 .map((f) => FIELD_LABELS[f] || f)
                 .join(', ')}.`
-            : `Grouping consistent — stays as 1 album (${report.trackCount} tracks).`}
+            : report.mixedFormats
+              ? 'Tags are consistent, but mixed audio formats would still split this album.'
+              : `Grouping consistent — stays as 1 album (${report.trackCount} tracks).`}
         </span>
       </div>
 
@@ -76,8 +78,15 @@ export function Diagnosis({ report }) {
         </p>
       ) : null}
 
-      {report.formats.length > 1 ? (
-        <p className="muted small">Mixed formats present: {report.formats.join(', ')}</p>
+      {report.mixedFormats ? (
+        <div className="report-banner bad">
+          <AlertIcon />
+          <span>
+            Mixed audio formats ({report.formats.join(', ')}) — Navidrome splits an album whose
+            tracks differ in format. Convert the odd files to one format (or remove them) and
+            re-upload; tag fixes cannot repair this.
+          </span>
+        </div>
       ) : null}
 
       {report.textIssues.length || report.filenameIssues.length ? (
