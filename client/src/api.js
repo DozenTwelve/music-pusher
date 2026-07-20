@@ -115,6 +115,13 @@ export async function uploadArchive(formData, onUploadProgress) {
   return data;
 }
 
+// Confirm a mixed-format archive the server kept under a token, so it extracts
+// the already-uploaded .zip instead of making the client re-transfer it.
+export async function confirmArchive(token) {
+  const { data } = await axios.post('/api/upload-archive/confirm', { token });
+  return data;
+}
+
 export async function deleteAlbum(album) {
   const { data } = await axios.delete(`/api/albums/${encodeURIComponent(album)}`);
   return data;

@@ -4,6 +4,7 @@ import express from 'express';
 import multer from 'multer';
 import { config } from './config.js';
 import { createReadStream } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import {
   uploadMiddleware,
   archiveUploadMiddleware,
@@ -113,6 +114,26 @@ apiRouter.post('/upload', uploadMiddleware.any(), async (req, res) => {
   }
 });
 
+// A mixed-format archive is rejected before extraction, but the uploaded .zip
+// (potentially gigabytes) is already staged on disk — deleting it would force a
+// full re-upload just to confirm. Instead keep it briefly under a token so the
+// confirm step can extract from it without re-transferring.
+const pendingArchives = new Map(); // token -> { path, originalName, createdAt }
+const ARCHIVE_TTL_MS = 30 * 60 * 1000;
+
+// ponytail: in-memory + age-swept on each upload. A server crash orphans the
+// temp .zip in os.tmpdir until the OS cleans it; add a startup sweep if that
+// ever matters.
+function sweepPendingArchives() {
+  const now = Date.now();
+  for (const [token, info] of pendingArchives) {
+    if (now - info.createdAt > ARCHIVE_TTL_MS) {
+      pendingArchives.delete(token);
+      fs.rm(info.path, { force: true }).catch(() => {});
+    }
+  }
+}
+
 apiRouter.post('/upload-archive', archiveUploadMiddleware.single('archive'), async (req, res) => {
   if (!req.file) {
     res.status(400).json({
@@ -123,6 +144,8 @@ apiRouter.post('/upload-archive', archiveUploadMiddleware.single('archive'), asy
     return;
   }
 
+  // Keep the staged .zip only when we hand back a token for the confirm step.
+  let keepFile = false;
   try {
     const allowMixed = req.body?.allowMixed === 'true' || req.body?.allowMixed === '1';
     const summary = await extractZipAlbum(req.file.path, req.file.originalname, { allowMixed });
@@ -130,7 +153,15 @@ apiRouter.post('/upload-archive', archiveUploadMiddleware.single('archive'), asy
   } catch (error) {
     if (error instanceof ArchiveError) {
       if (error.code === 'mixed_formats') {
-        res.status(409).json({ ok: false, code: error.code, message: error.message, formats: error.formats });
+        sweepPendingArchives();
+        const token = randomUUID();
+        pendingArchives.set(token, {
+          path: req.file.path,
+          originalName: req.file.originalname,
+          createdAt: Date.now()
+        });
+        keepFile = true;
+        res.status(409).json({ ok: false, code: error.code, message: error.message, formats: error.formats, token });
         return;
       }
       const status = error.code === 'file_too_large' || error.code === 'too_many_files' ? 413 : 422;
@@ -139,7 +170,40 @@ apiRouter.post('/upload-archive', archiveUploadMiddleware.single('archive'), asy
     }
     res.status(500).json({ ok: false, code: 'archive_extract_failed', message: error.message });
   } finally {
-    fs.rm(req.file.path, { force: true }).catch(() => {});
+    if (!keepFile) {
+      fs.rm(req.file.path, { force: true }).catch(() => {});
+    }
+  }
+});
+
+// Extract a previously-staged mixed-format archive the user chose to keep,
+// reusing the already-uploaded .zip so nothing is transferred a second time.
+apiRouter.post('/upload-archive/confirm', async (req, res) => {
+  const token = req.body?.token;
+  const info = typeof token === 'string' ? pendingArchives.get(token) : null;
+  if (!info) {
+    res.status(404).json({
+      ok: false,
+      code: 'archive_expired',
+      message: 'This upload is no longer available to confirm — please upload the archive again.'
+    });
+    return;
+  }
+
+  // One-shot: drop the entry up front so a double-submit cannot extract twice.
+  pendingArchives.delete(token);
+  try {
+    const summary = await extractZipAlbum(info.path, info.originalName, { allowMixed: true });
+    res.json({ ok: true, ...summary });
+  } catch (error) {
+    if (error instanceof ArchiveError) {
+      const status = error.code === 'file_too_large' || error.code === 'too_many_files' ? 413 : 422;
+      res.status(status).json({ ok: false, code: error.code, message: error.message });
+      return;
+    }
+    res.status(500).json({ ok: false, code: 'archive_extract_failed', message: error.message });
+  } finally {
+    fs.rm(info.path, { force: true }).catch(() => {});
   }
 });
 

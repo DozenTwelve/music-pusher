@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { formatBytes } from '../format.js';
-import { uploadAlbum, uploadArchive, albumCoverUrl, errorMessage } from '../api.js';
+import { uploadAlbum, uploadArchive, confirmArchive, albumCoverUrl, errorMessage } from '../api.js';
 import { useToast } from './Toast.jsx';
 import { UploadIcon } from './icons.jsx';
 import { Button } from './ui/button.jsx';
@@ -86,6 +86,7 @@ export default function UploadPanel({ onUploadDone }) {
   const [result, setResult] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [archiveMixedFormats, setArchiveMixedFormats] = useState('');
+  const [archiveToken, setArchiveToken] = useState('');
   const [coverError, setCoverError] = useState(false);
   const folderInputRef = useRef(null);
   const zipInputRef = useRef(null);
@@ -134,6 +135,7 @@ export default function UploadPanel({ onUploadDone }) {
     setEntries([]);
     setResult(null);
     setArchiveMixedFormats('');
+    setArchiveToken('');
     setCoverError(false);
     if (folderInputRef.current) {
       folderInputRef.current.value = '';
@@ -161,7 +163,27 @@ export default function UploadPanel({ onUploadDone }) {
     performUpload();
   }
 
-  async function performUpload(allowMixed = false) {
+  function applyUploadSuccess(data) {
+    setResult(data);
+    setCoverError(false);
+    setProgressKnown(true);
+    setUploadProgress(100);
+    setEntries([]);
+    if (folderInputRef.current) {
+      folderInputRef.current.value = '';
+    }
+    if (zipInputRef.current) {
+      zipInputRef.current.value = '';
+    }
+    toast.success(
+      `Uploaded ${data.acceptedCount} file${data.acceptedCount === 1 ? '' : 's'} to “${
+        data.album || 'staging'
+      }”.`
+    );
+    onUploadDone();
+  }
+
+  async function performUpload() {
     setConfirmOpen(false);
 
     // Archive is a single .zip, so it stays one request; folder uploads are
@@ -170,9 +192,6 @@ export default function UploadPanel({ onUploadDone }) {
     if (isArchive) {
       archiveBody = new FormData();
       archiveBody.append('archive', entries[0].file, entries[0].path);
-      if (allowMixed) {
-        archiveBody.append('allowMixed', 'true');
-      }
     }
 
     setResult(null);
@@ -194,35 +213,49 @@ export default function UploadPanel({ onUploadDone }) {
         ? await uploadArchive(archiveBody, onProgress)
         : await uploadAlbum(entries, onProgress);
 
-      setResult(data);
-      setCoverError(false);
-      setProgressKnown(true);
-      setUploadProgress(100);
-      setEntries([]);
-      if (folderInputRef.current) {
-        folderInputRef.current.value = '';
-      }
-      if (zipInputRef.current) {
-        zipInputRef.current.value = '';
-      }
-      toast.success(
-        `Uploaded ${data.acceptedCount} file${data.acceptedCount === 1 ? '' : 's'} to “${
-          data.album || 'staging'
-        }”.`
-      );
-      onUploadDone();
+      applyUploadSuccess(data);
     } catch (uploadError) {
       // Zip contents are only known server-side, so a mixed-format archive is
-      // reported back here — surface the same confirm dialog as folder uploads.
+      // reported back here with a token: confirming reuses the uploaded zip
+      // instead of transferring it again.
       const data = uploadError?.response?.data;
       if (data?.code === 'mixed_formats') {
         setArchiveMixedFormats((data.formats || []).join(', '));
+        setArchiveToken(data.token || '');
         setConfirmOpen(true);
       } else {
         toast.error(errorMessage(uploadError));
       }
     } finally {
       setIsUploading(false);
+    }
+  }
+
+  // Extract a kept mixed-format archive on the server — no re-transfer.
+  async function confirmArchiveUpload() {
+    setConfirmOpen(false);
+    setResult(null);
+    setIsUploading(true);
+    // Server-side extraction has no client-visible byte progress.
+    setProgressKnown(false);
+    try {
+      const data = await confirmArchive(archiveToken);
+      applyUploadSuccess(data);
+    } catch (confirmError) {
+      toast.error(errorMessage(confirmError));
+    } finally {
+      setIsUploading(false);
+      setArchiveToken('');
+    }
+  }
+
+  // "Upload anyway": a kept archive extracts server-side; a folder (whose mixed
+  // check is purely client-side) just proceeds with the normal upload.
+  function confirmMixed() {
+    if (isArchive && archiveToken) {
+      confirmArchiveUpload();
+    } else {
+      performUpload();
     }
   }
 
@@ -420,7 +453,7 @@ export default function UploadPanel({ onUploadDone }) {
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="button" onClick={() => performUpload(isArchive)}>
+            <Button type="button" onClick={confirmMixed}>
               Upload anyway
             </Button>
           </DialogFooter>
