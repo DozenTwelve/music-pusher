@@ -40,6 +40,18 @@ const GROUPING_FIELDS = ['album', 'album_artist', 'date'];
 // ffprobe normalizes container-specific atoms to these lowercase tag keys.
 const READ_FIELDS = ['album', 'album_artist', 'date', 'disc', 'track', 'genre'];
 
+// The album-artist a player actually groups by. An explicit album_artist wins;
+// with none, the player derives one from each track's artist participants — the
+// multi-valued `artists` tag (feat. guests included), else the single `artist`.
+// When that derived anchor differs across tracks the album fragments, even
+// though `album` and `date` all agree, so grouping must compare THIS, not the
+// raw album_artist (which reads uniformly "" and hides the split). Precedence is
+// per track: a partially-set album_artist mixes with derived values and still
+// flags, which is correct — partial album_artist is itself a split cause.
+function albumArtistAnchor(track) {
+  return track.album_artist || track.artists || track.artist;
+}
+
 // Per field, summarize the distinct values and pick the mode (most frequent
 // non-empty value) as the proposed unified value.
 function summarizeField(values) {
@@ -84,6 +96,7 @@ export async function inspectAlbum(album) {
       hasArt: Boolean(tags.__has_art),
       title: tags.title || '',
       artist: tags.artist || '',
+      artists: tags.artists || '',
       album: tags.album || '',
       album_artist: tags.album_artist || tags.albumartist || '',
       date: tags.date || tags.year || '',
@@ -92,12 +105,16 @@ export async function inspectAlbum(album) {
     });
   }
 
+  // Grouping compares the effective anchor for album_artist; every other field
+  // compares its raw value.
+  const groupValue = (t, field) => (field === 'album_artist' ? albumArtistAnchor(t) : t[field]);
+
   const fields = {};
   for (const field of READ_FIELDS) {
     if (field === 'genre' || field === 'track') {
       continue;
     }
-    fields[field] = summarizeField(tracks.map((t) => t[field]));
+    fields[field] = summarizeField(tracks.map((t) => groupValue(t, field)));
   }
 
   // Disc structure. A genuine multi-disc set legitimately carries >1 disc
@@ -151,7 +168,7 @@ export async function inspectAlbum(album) {
 
   // How many albums would a player create? Distinct combos of grouping fields.
   const groupKeys = new Set(
-    tracks.map((t) => GROUPING_FIELDS.map((f) => t[f] || '∅').join(' ¦ '))
+    tracks.map((t) => GROUPING_FIELDS.map((f) => groupValue(t, f) || '∅').join(' ¦ '))
   );
   const splitFields = GROUPING_FIELDS.filter((f) => !fields[f].consistent);
 
