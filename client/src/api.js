@@ -86,8 +86,28 @@ export async function uploadAlbum(entries, onProgress, concurrency = 4) {
       .then((response) => response.data);
   });
 
-  const results = await Promise.all(requests);
-  return mergeUploadResults(results);
+  // A folder is fanned out across parallel POSTs; if one bin fails the siblings
+  // have already written their files, leaving a partial album staged. Remove
+  // every album this upload touched before surfacing the error, so a retry
+  // starts clean instead of importing an incomplete album.
+  // ponytail: a retry into a pre-existing same-named album would also delete
+  // that album — acceptable, RAW is app-owned and same-name re-drops are rare.
+  const settled = await Promise.allSettled(requests);
+  const fulfilled = settled.filter((s) => s.status === 'fulfilled').map((s) => s.value);
+  const failed = settled.find((s) => s.status === 'rejected');
+
+  if (failed) {
+    const albums = new Set();
+    for (const result of fulfilled) {
+      for (const album of result.albums || []) {
+        albums.add(album);
+      }
+    }
+    await Promise.all([...albums].map((album) => deleteAlbum(album).catch(() => {})));
+    throw failed.reason;
+  }
+
+  return mergeUploadResults(fulfilled);
 }
 
 export async function uploadArchive(formData, onUploadProgress) {
