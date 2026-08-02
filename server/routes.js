@@ -452,26 +452,21 @@ apiRouter.post('/import', async (req, res) => {
 
   // Guard: import rewrites nothing, so split-causing tags pass straight to beets
   // (which clusters a directory by album + album_artist) and fragment the album
-  // in the library. Refuse when it would split, pointing at Fix — this is the
-  // gap that let variant album names (e.g. "… [Explicit]" vs "…") slip through.
+  // in the library. Block only the tag split, which the Fix step can repair.
+  // Mixed formats / audio quality are advisory, not blocking: they don't always
+  // split (a single odd track often stays merged) and there is no in-place fix,
+  // so we surface them in Analyze and let the user decide.
   let report;
   try {
     report = await inspectAlbum(album);
   } catch {
     report = null;
   }
-  if (report?.ok && (report.groupCount > 1 || report.mixedFormats || report.mixedQuality)) {
-    const cause = report.mixedFormats
-      ? `mixed formats: ${report.formats.join(', ')}`
-      : report.mixedQuality
-        ? `mixed audio quality: ${report.qualities
-            .map((q) => `${q.sampleRate ? q.sampleRate / 1000 + 'kHz' : '?'}/${q.bitDepth || '?'}-bit`)
-            .join(', ')}`
-        : `differing ${report.splitFields.join(', ')}`;
+  if (report?.ok && report.groupCount > 1) {
     res.status(409).json({
       ok: false,
       code: 'would_split',
-      message: `Not imported — this album would split in the library (${cause}). Run Fix first, then import.`,
+      message: `Not imported — this album would split in the library (differing ${report.splitFields.join(', ')}). Run Fix first, then import.`,
       report
     });
     return;

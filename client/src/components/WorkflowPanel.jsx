@@ -229,9 +229,9 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
     : report.groupCount > 1
       ? `Would split into ${report.groupCount} albums · ${report.trackCount} tracks`
       : report.mixedFormats
-        ? `Mixed formats (${report.formats.join(', ')}) — would split · ${report.trackCount} tracks`
+        ? `Mixed formats (${report.formats.join(', ')}) — may split, import allowed · ${report.trackCount} tracks`
         : report.mixedQuality
-          ? `Mixed audio quality — would split · ${report.trackCount} tracks`
+          ? `Mixed audio quality — may split, import allowed · ${report.trackCount} tracks`
           : `Stays as 1 album · ${report.trackCount} tracks`;
 
   const fixableCount = countFixable(report);

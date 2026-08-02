@@ -14,23 +14,27 @@ import {
 
 // Read-only diagnosis: what is wrong with the album (shown under "Analyze").
 export function Diagnosis({ report }) {
-  const splitDanger = report.groupCount > 1 || report.mixedFormats || report.mixedQuality;
+  // Hard split = a tag split beets will actually create (blocks import, fixable
+  // in step 2). Soft = mixed format/quality: advisory only, import still allowed.
+  const hardSplit = report.groupCount > 1;
+  const softSplit = report.mixedFormats || report.mixedQuality;
+  const bannerClass = hardSplit ? 'bad' : softSplit ? 'warn' : 'good';
   const fmtQuality = (q) =>
     `${q.sampleRate ? `${q.sampleRate / 1000}kHz` : '?'}/${q.bitDepth || '?'}-bit ×${q.count}`;
 
   return (
     <div className="report">
-      <div className={`report-banner ${splitDanger ? 'bad' : 'good'}`}>
-        {splitDanger ? <AlertIcon /> : <CheckIcon />}
+      <div className={`report-banner ${bannerClass}`}>
+        {hardSplit || softSplit ? <AlertIcon /> : <CheckIcon />}
         <span>
           {report.groupCount > 1
             ? `This album would split into ${report.groupCount} albums. Cause: ${report.splitFields
                 .map((f) => FIELD_LABELS[f] || f)
                 .join(', ')}.`
             : report.mixedFormats
-              ? 'Tags are consistent, but mixed audio formats would still split this album.'
+              ? 'Tags are consistent, but mixed audio formats could split this album — import allowed, see below.'
               : report.mixedQuality
-                ? 'Tags are consistent, but mixed audio quality (sample rate / bit depth) would still split this album.'
+                ? 'Tags are consistent, but mixed audio quality (sample rate / bit depth) could split this album — import allowed, see below.'
                 : `Grouping consistent — stays as 1 album (${report.trackCount} tracks).`}
         </span>
       </div>
@@ -63,13 +67,14 @@ export function Diagnosis({ report }) {
       ) : null}
 
       {report.mixedQuality ? (
-        <div className="report-banner bad">
+        <div className="report-banner warn">
           <AlertIcon />
           <span>
             Mixed audio quality ({report.qualities.map(fmtQuality).join(', ')}) — same .flac
-            extension, but different sample rate / bit depth. Navidrome splits an album whose tracks
-            differ in quality. Re-download the odd tracks at the album's quality, or resample the
-            whole album to one spec; tag fixes cannot repair this.
+            extension, but different sample rate / bit depth. This can make Navidrome split the album
+            (though a single odd track often stays merged). You can still import; to be safe,
+            re-download the odd tracks at the album's quality or resample to one spec. No tag fix
+            repairs this.
           </span>
         </div>
       ) : null}
@@ -95,12 +100,12 @@ export function Diagnosis({ report }) {
       ) : null}
 
       {report.mixedFormats ? (
-        <div className="report-banner bad">
+        <div className="report-banner warn">
           <AlertIcon />
           <span>
-            Mixed audio formats ({report.formats.join(', ')}) — Navidrome splits an album whose
-            tracks differ in format. Convert the odd files to one format (or remove them) and
-            re-upload; tag fixes cannot repair this.
+            Mixed audio formats ({report.formats.join(', ')}) — this can make Navidrome split the
+            album. You can still import; to be safe, convert the odd files to one format (or remove
+            them) and re-upload. No tag fix repairs this.
           </span>
         </div>
       ) : null}
