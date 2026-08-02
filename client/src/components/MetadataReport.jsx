@@ -163,6 +163,22 @@ export function FixForm({ report, draft, onDraftChange }) {
                     placeholder={info.proposed || '(leave blank to skip)'}
                     onChange={(event) => onDraftChange(field, event.target.value)}
                   />
+                  {info.variantOnly ? (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {info.distinct.map((d) => (
+                        <Button
+                          key={d.value}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => onDraftChange(field, d.value)}
+                        >
+                          {d.value}
+                        </Button>
+                      ))}
+                    </div>
+                  ) : null}
                 </td>
               </tr>
             );
