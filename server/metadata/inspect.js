@@ -33,10 +33,14 @@ async function listFolderImages(albumPath) {
   return found;
 }
 
-// Tags that, when they disagree between tracks, cause a music library to split
-// one album into several. `date` is the usual culprit (per-single release dates),
-// followed by album / album_artist text drift.
-const GROUPING_FIELDS = ['album', 'album_artist', 'date'];
+// Tags that, when they disagree between tracks, cause THIS pipeline (beets
+// album clustering, then Navidrome) to split one album into several. beets
+// groups a directory's tracks by album + album_artist, so those two are the
+// real split causes. `date` is deliberately excluded: per-single release dates
+// differ constantly yet beets keeps them in one album, so treating date as a
+// split cause only produces false "would split" noise. It stays unifiable and
+// is still shown — it is just not a grouping key.
+const GROUPING_FIELDS = ['album', 'album_artist'];
 // ffprobe normalizes container-specific atoms to these lowercase tag keys.
 const READ_FIELDS = ['album', 'album_artist', 'date', 'disc', 'track', 'genre'];
 

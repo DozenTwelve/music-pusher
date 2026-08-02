@@ -450,6 +450,29 @@ apiRouter.post('/import', async (req, res) => {
     return;
   }
 
+  // Guard: import rewrites nothing, so split-causing tags pass straight to beets
+  // (which clusters a directory by album + album_artist) and fragment the album
+  // in the library. Refuse when it would split, pointing at Fix — this is the
+  // gap that let variant album names (e.g. "… [Explicit]" vs "…") slip through.
+  let report;
+  try {
+    report = await inspectAlbum(album);
+  } catch {
+    report = null;
+  }
+  if (report?.ok && (report.groupCount > 1 || report.mixedFormats)) {
+    const cause = report.mixedFormats
+      ? `mixed formats: ${report.formats.join(', ')}`
+      : `differing ${report.splitFields.join(', ')}`;
+    res.status(409).json({
+      ok: false,
+      code: 'would_split',
+      message: `Not imported — this album would split in the library (${cause}). Run Fix first, then import.`,
+      report
+    });
+    return;
+  }
+
   const result = startImport(album);
   if (!result.ok) {
     res.status(409).json({
