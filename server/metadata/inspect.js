@@ -111,6 +111,8 @@ export async function inspectAlbum(album) {
     tracks.push({
       file: path.relative(albumPath, absPath),
       formatName: tags.__format_name || '',
+      sampleRate: tags.__sample_rate ?? null,
+      bitDepth: tags.__bit_depth ?? null,
       hasArt: Boolean(tags.__has_art),
       title: tags.title || '',
       artist: tags.artist || '',
@@ -272,6 +274,24 @@ export async function inspectAlbum(album) {
   const formats = distinctAudioFormats(tracks.map((t) => t.file));
   const mixedFormats = formats.length > 1;
 
+  // Mixed audio quality: identical container/extension but differing sample rate
+  // or bit depth (e.g. a 16-bit/44.1kHz single dropped into a 24-bit/96kHz
+  // album). Navidrome treats each quality as a separate release and splits the
+  // album — and, like mixed formats, no tag edit repairs it: the odd tracks must
+  // be re-downloaded at the album's quality or the album resampled to one spec.
+  const qualityCounts = new Map();
+  for (const t of tracks) {
+    const key = `${t.sampleRate ?? '?'}/${t.bitDepth ?? '?'}`;
+    if (!qualityCounts.has(key)) {
+      qualityCounts.set(key, { sampleRate: t.sampleRate, bitDepth: t.bitDepth, count: 0, files: [] });
+    }
+    const entry = qualityCounts.get(key);
+    entry.count += 1;
+    entry.files.push(t.file);
+  }
+  const qualities = [...qualityCounts.values()].sort((a, b) => b.count - a.count);
+  const mixedQuality = qualities.length > 1;
+
   // Cover art: embedded-only detection. Any track without an embedded picture is
   // a gap. Loose image files are surfaced for context but never count as present.
   const withArt = tracks.filter((t) => t.hasArt).length;
@@ -292,6 +312,8 @@ export async function inspectAlbum(album) {
     fields,
     formats,
     mixedFormats,
+    qualities,
+    mixedQuality,
     multiDisc,
     discs,
     track: {

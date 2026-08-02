@@ -460,10 +460,14 @@ apiRouter.post('/import', async (req, res) => {
   } catch {
     report = null;
   }
-  if (report?.ok && (report.groupCount > 1 || report.mixedFormats)) {
+  if (report?.ok && (report.groupCount > 1 || report.mixedFormats || report.mixedQuality)) {
     const cause = report.mixedFormats
       ? `mixed formats: ${report.formats.join(', ')}`
-      : `differing ${report.splitFields.join(', ')}`;
+      : report.mixedQuality
+        ? `mixed audio quality: ${report.qualities
+            .map((q) => `${q.sampleRate ? q.sampleRate / 1000 + 'kHz' : '?'}/${q.bitDepth || '?'}-bit`)
+            .join(', ')}`
+        : `differing ${report.splitFields.join(', ')}`;
     res.status(409).json({
       ok: false,
       code: 'would_split',

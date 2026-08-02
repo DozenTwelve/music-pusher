@@ -66,7 +66,7 @@ export async function probeTags(absPath) {
     '-v',
     'error',
     '-show_entries',
-    'format=format_name:format_tags:stream=codec_type:stream_disposition=attached_pic',
+    'format=format_name:format_tags:stream=codec_type,sample_rate,bits_per_raw_sample,bits_per_sample:stream_disposition=attached_pic',
     '-of',
     'json',
     absPath
@@ -86,6 +86,11 @@ export async function probeTags(absPath) {
       tags.__has_art = streams.some(
         (stream) => stream?.codec_type === 'video' && stream?.disposition?.attached_pic === 1
       );
+      // Audio quality: same .flac extension can still hide a 16/44 CD rip mixed
+      // with a 24/96 hi-res master — Navidrome splits the album on that.
+      const audio = streams.find((stream) => stream?.codec_type === 'audio');
+      tags.__sample_rate = audio?.sample_rate ? Number(audio.sample_rate) : null;
+      tags.__bit_depth = Number(audio?.bits_per_raw_sample || audio?.bits_per_sample) || null;
     } catch {
       // leave tags empty on parse failure
     }

@@ -14,7 +14,9 @@ import {
 
 // Read-only diagnosis: what is wrong with the album (shown under "Analyze").
 export function Diagnosis({ report }) {
-  const splitDanger = report.groupCount > 1 || report.mixedFormats;
+  const splitDanger = report.groupCount > 1 || report.mixedFormats || report.mixedQuality;
+  const fmtQuality = (q) =>
+    `${q.sampleRate ? `${q.sampleRate / 1000}kHz` : '?'}/${q.bitDepth || '?'}-bit ×${q.count}`;
 
   return (
     <div className="report">
@@ -27,7 +29,9 @@ export function Diagnosis({ report }) {
                 .join(', ')}.`
             : report.mixedFormats
               ? 'Tags are consistent, but mixed audio formats would still split this album.'
-              : `Grouping consistent — stays as 1 album (${report.trackCount} tracks).`}
+              : report.mixedQuality
+                ? 'Tags are consistent, but mixed audio quality (sample rate / bit depth) would still split this album.'
+                : `Grouping consistent — stays as 1 album (${report.trackCount} tracks).`}
         </span>
       </div>
 
@@ -54,6 +58,18 @@ export function Diagnosis({ report }) {
               ? ` A cover file is in the folder (${report.art.folderImages.join(', ')}) but not embedded.`
               : ''}{' '}
             Upload one in step 2 to embed it into every track.
+          </span>
+        </div>
+      ) : null}
+
+      {report.mixedQuality ? (
+        <div className="report-banner bad">
+          <AlertIcon />
+          <span>
+            Mixed audio quality ({report.qualities.map(fmtQuality).join(', ')}) — same .flac
+            extension, but different sample rate / bit depth. Navidrome splits an album whose tracks
+            differ in quality. Re-download the odd tracks at the album's quality, or resample the
+            whole album to one spec; tag fixes cannot repair this.
           </span>
         </div>
       ) : null}
