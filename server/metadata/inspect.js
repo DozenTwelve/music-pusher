@@ -52,6 +52,20 @@ function albumArtistAnchor(track) {
   return track.album_artist || track.artists || track.artist;
 }
 
+// Strip trailing bracketed markers ("[Explicit]", "(Deluxe Edition)", …) and
+// normalize, yielding the album's base name. Amazon/Lucida singles tag some
+// tracks with the marker and some without, so the same album arrives under two
+// names and splits — comparing the base tells us they are one album.
+export function albumBase(value) {
+  let base = normalizeTagValue(String(value ?? ''));
+  let previous;
+  do {
+    previous = base;
+    base = base.replace(/\s*[[(][^\][()]*[\])]\s*$/, '').trim();
+  } while (base !== previous);
+  return base;
+}
+
 // Per field, summarize the distinct values and pick the mode (most frequent
 // non-empty value) as the proposed unified value.
 function summarizeField(values) {
@@ -163,6 +177,21 @@ export async function inspectAlbum(album) {
     if (norms.size === 1) {
       info.whitespaceOnly = true;
       info.proposed = [...norms][0];
+    }
+  }
+
+  // Album-name variants (same album with/without a trailing "[Explicit]"-style
+  // marker) are one album. Propose the most descriptive form — the longest
+  // normalized value keeps the marker — so the merge is correct no matter which
+  // variant happens to be the majority.
+  const albumInfo = fields.album;
+  if (albumInfo && !albumInfo.consistent && albumInfo.missing === 0 && !albumInfo.whitespaceOnly) {
+    const bases = new Set(albumInfo.distinct.map((d) => albumBase(d.value)));
+    if (bases.size === 1 && [...bases][0] !== '') {
+      albumInfo.variantOnly = true;
+      albumInfo.proposed = albumInfo.distinct
+        .map((d) => d.value)
+        .sort((a, b) => normalizeTagValue(b).length - normalizeTagValue(a).length || a.localeCompare(b))[0];
     }
   }
 

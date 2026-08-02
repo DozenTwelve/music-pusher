@@ -52,8 +52,10 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
     // Pre-fill drafts with the mode for each inconsistent field (override-able).
     const hasConfidentText = (data.textIssues || []).some((i) => i.confident);
     const next = {
-      // Renumbering rewrites every file, so leave it opt-in even when needed.
-      normalizeTracks: false,
+      // Renumbering rewrites every file, so default it on only when track
+      // numbers are actually missing (the later-download case) — a plain
+      // total-mismatch stays opt-in.
+      normalizeTracks: (data.track?.missingNumbers || 0) > 0,
       fixFilenames: data.filenameIssues.length > 0,
       repairText: hasConfidentText
     };

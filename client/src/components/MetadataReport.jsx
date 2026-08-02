@@ -153,7 +153,7 @@ export function FixForm({ report, draft, onDraftChange }) {
             return (
               <tr key={field} className={info.consistent ? '' : 'row-bad'}>
                 <td>{FIELD_LABELS[field]}</td>
-                <td>{info.consistent ? 'OK' : `${info.distinct.length || 0} values${info.missing ? `, ${info.missing} missing` : ''}`}</td>
+                <td>{info.consistent ? 'OK' : info.variantOnly ? 'variant — safe merge' : `${info.distinct.length || 0} values${info.missing ? `, ${info.missing} missing` : ''}`}</td>
                 <td className="value-cell">{valueSummary}</td>
                 <td>
                   <Input
