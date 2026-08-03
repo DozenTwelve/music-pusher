@@ -33,6 +33,9 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
   const [fixSummary, setFixSummary] = useState('');
   const [importLogs, setImportLogs] = useState([]);
   const [importStatus, setImportStatus] = useState('idle');
+  // Split fields the server refused the import on, or null when not blocked.
+  // Non-null also arms the next Import press to send `force`.
+  const [splitBlock, setSplitBlock] = useState(null);
   const eventSourceRef = useRef(null);
   const toast = useToast();
 
@@ -45,10 +48,14 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
     setFixSummary('');
     setImportLogs([]);
     setImportStatus('idle');
+    setSplitBlock(null);
   }, [selectedAlbum]);
 
   function applyReport(data) {
     setReport(data);
+    // A fresh report supersedes any earlier refusal, so the next Import goes
+    // back through the guard instead of silently carrying `force` along.
+    setSplitBlock(null);
     // Pre-fill drafts with the mode for each inconsistent field (override-able).
     const hasConfidentText = (data.textIssues || []).some((i) => i.confident);
     const next = {
@@ -154,7 +161,7 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
     }
   }
 
-  async function importAlbum() {
+  async function importAlbum(force = false) {
     if (!selectedAlbum || importStatus === 'running') {
       return;
     }
@@ -163,7 +170,7 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
     setImportStatus('starting');
 
     try {
-      const data = await startImport(selectedAlbum);
+      const data = await startImport(selectedAlbum, { force });
       const jobId = data?.job?.id;
       if (!jobId) {
         throw new Error('Missing job id from server.');
@@ -207,6 +214,19 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
         toast.error('Lost connection to import log stream.');
       };
     } catch (requestError) {
+      const refusal = requestError?.response?.data;
+      if (refusal?.code === 'would_split') {
+        // The server ran a full inspect to reach this verdict and sent it back.
+        // Use it, so steps 1 and 2 show the cause and the pre-filled fix rather
+        // than the user having to press Analyze again to see what happened.
+        if (refusal.report) {
+          applyReport(refusal.report);
+        }
+        setSplitBlock(refusal.report?.splitFields || []);
+        setImportStatus('blocked');
+        toast.error(refusal.message);
+        return;
+      }
       setImportStatus('failed');
       toast.error(errorMessage(requestError));
     }
@@ -244,11 +264,17 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
   const importStepState =
     importStatus === 'done'
       ? 'done'
-      : importStatus === 'failed'
+      : importStatus === 'failed' || importStatus === 'blocked'
         ? 'failed'
         : importStatus === 'running' || importStatus === 'starting'
           ? 'active'
           : 'todo';
+
+  const importBlockReason = splitBlock
+    ? splitBlock.length
+      ? ` — would split on ${splitBlock.map((f) => FIELD_LABELS[f] || f).join(', ')}. Fix in step 2, or press Import anyway.`
+      : ' — would split in the library. Fix in step 2, or press Import anyway.'
+    : '';
 
   return (
     <section className="workflow panel">
@@ -301,11 +327,19 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
           <div className="step-body">
             <div className="step-head">
               <strong>Import to library</strong>
-              <Button type="button" size="sm" onClick={importAlbum} disabled={importStatus === 'running'}>
-                {importStatus === 'running' ? 'Importing…' : 'Import'}
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => importAlbum(Boolean(splitBlock))}
+                disabled={importStatus === 'running'}
+              >
+                {importStatus === 'running' ? 'Importing…' : splitBlock ? 'Import anyway' : 'Import'}
               </Button>
             </div>
-            <p className="step-status">Status: {importStatus}</p>
+            <p className="step-status">
+              Status: {importStatus}
+              {importBlockReason}
+            </p>
             <div className="step-detail">
               <pre className="terminal">
                 {importLogs.length === 0

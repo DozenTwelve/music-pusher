@@ -145,8 +145,10 @@ export async function embedCover(album, file) {
   return data;
 }
 
-export async function startImport(album) {
-  const { data } = await axios.post('/api/import', { album });
+// `force` skips the server's would-split guard, for when the user has seen the
+// predicted cause and wants the import anyway.
+export async function startImport(album, { force = false } = {}) {
+  const { data } = await axios.post('/api/import', { album, force });
   return data;
 }
 

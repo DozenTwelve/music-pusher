@@ -450,26 +450,34 @@ apiRouter.post('/import', async (req, res) => {
     return;
   }
 
-  // Guard: import rewrites nothing, so split-causing tags pass straight to beets
-  // (which clusters a directory by album + album_artist) and fragment the album
-  // in the library. Block only the tag split, which the Fix step can repair.
-  // Mixed formats / audio quality are advisory, not blocking: they don't always
-  // split (a single odd track often stays merged) and there is no in-place fix,
-  // so we surface them in Analyze and let the user decide.
-  let report;
-  try {
-    report = await inspectAlbum(album);
-  } catch {
-    report = null;
-  }
-  if (report?.ok && report.groupCount > 1) {
-    res.status(409).json({
-      ok: false,
-      code: 'would_split',
-      message: `Not imported — this album would split in the library (differing ${report.splitFields.join(', ')}). Run Fix first, then import.`,
-      report
-    });
-    return;
+  // Guard: import rewrites nothing, so split-causing tags reach the library
+  // as-is and fragment the album there. Block only the tag split, which the Fix
+  // step can repair; mixed format / audio quality stay advisory because no
+  // in-place fix exists for them.
+  //
+  // `force` exists because this is a prediction, not a fact. When it is wrong —
+  // and it has been wrong before, on files ffprobe could not read — a hard
+  // block with no way past it makes the album permanently unimportable through
+  // this app. The user has already seen the cause in step 1 by the time they
+  // press it. Same reason inspect failing outright does not block.
+  if (!req.body?.force) {
+    let report;
+    try {
+      report = await inspectAlbum(album);
+    } catch {
+      report = null;
+    }
+    if (report?.ok && report.groupCount > 1) {
+      // The full report rides along: the client renders the cause from it
+      // rather than re-running an inspect this request already paid for.
+      res.status(409).json({
+        ok: false,
+        code: 'would_split',
+        message: `Not imported — this album would split into ${report.groupCount} albums in the library. Run Fix first, or import anyway.`,
+        report
+      });
+      return;
+    }
   }
 
   const result = startImport(album);
