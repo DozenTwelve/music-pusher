@@ -87,10 +87,23 @@ export async function probeTags(absPath) {
         (stream) => stream?.codec_type === 'video' && stream?.disposition?.attached_pic === 1
       );
       // Audio quality: same .flac extension can still hide a 16/44 CD rip mixed
-      // with a 24/96 hi-res master — Navidrome splits the album on that.
+      // with a 24/96 hi-res master.
       const audio = streams.find((stream) => stream?.codec_type === 'audio');
-      tags.__sample_rate = audio?.sample_rate ? Number(audio.sample_rate) : null;
-      tags.__bit_depth = Number(audio?.bits_per_raw_sample || audio?.bits_per_sample) || null;
+      // ffprobe types these inconsistently — sample_rate and bits_per_raw_sample
+      // arrive as strings ("44100", "16"), bits_per_sample as a number (0 for
+      // every compressed codec). Coerce each before the `||` fallback: a truthy
+      // string "0" would otherwise win and swallow the field holding the real
+      // value.
+      const sampleRate = Number(audio?.sample_rate) || null;
+      tags.__sample_rate = sampleRate;
+      tags.__bit_depth =
+        Number(audio?.bits_per_raw_sample) || Number(audio?.bits_per_sample) || null;
+      // A truncated or corrupt download is NOT an ffprobe failure: the container
+      // header still parses, so ffprobe exits 0 and reports one audio stream
+      // with sample_rate "0" and no tags at all. Exit status therefore cannot
+      // tell a broken file from a good one — a positive sample rate can. Callers
+      // must not read a file without one as "a track whose tags are empty".
+      tags.__ok = sampleRate != null;
     } catch {
       // leave tags empty on parse failure
     }

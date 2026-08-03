@@ -110,6 +110,7 @@ export async function inspectAlbum(album) {
     const tags = await probeTags(absPath);
     tracks.push({
       file: path.relative(albumPath, absPath),
+      readable: Boolean(tags.__ok),
       formatName: tags.__format_name || '',
       sampleRate: tags.__sample_rate ?? null,
       bitDepth: tags.__bit_depth ?? null,
@@ -125,6 +126,16 @@ export async function inspectAlbum(album) {
     });
   }
 
+  // A file ffprobe cannot read (truncated download, wrong extension on a
+  // non-audio file) comes back with no tags at all. Treating that as "every tag
+  // is empty" invents a grouping value and an audio quality the file never had,
+  // which then surfaces as a phantom split with no fixable cause — and no tag
+  // rewrite can repair it, because ffmpeg cannot read the file either. So every
+  // tag-derived signal runs on the readable tracks; the broken files are
+  // reported separately as the thing they actually are.
+  const readable = tracks.filter((t) => t.readable);
+  const unreadable = tracks.filter((t) => !t.readable).map((t) => t.file);
+
   // Grouping compares the effective anchor for album_artist; every other field
   // compares its raw value.
   const groupValue = (t, field) => (field === 'album_artist' ? albumArtistAnchor(t) : t[field]);
@@ -134,7 +145,7 @@ export async function inspectAlbum(album) {
     if (field === 'genre' || field === 'track') {
       continue;
     }
-    fields[field] = summarizeField(tracks.map((t) => groupValue(t, field)));
+    fields[field] = summarizeField(readable.map((t) => groupValue(t, field)));
   }
 
   // Disc structure. A genuine multi-disc set legitimately carries >1 disc
@@ -203,7 +214,7 @@ export async function inspectAlbum(album) {
 
   // How many albums would a player create? Distinct combos of grouping fields.
   const groupKeys = new Set(
-    tracks.map((t) => GROUPING_FIELDS.map((f) => groupValue(t, f) || '∅').join(' ¦ '))
+    readable.map((t) => GROUPING_FIELDS.map((f) => groupValue(t, f) || '∅').join(' ¦ '))
   );
   const splitFields = GROUPING_FIELDS.filter((f) => !fields[f].consistent);
 
@@ -280,7 +291,7 @@ export async function inspectAlbum(album) {
   // album — and, like mixed formats, no tag edit repairs it: the odd tracks must
   // be re-downloaded at the album's quality or the album resampled to one spec.
   const qualityCounts = new Map();
-  for (const t of tracks) {
+  for (const t of readable) {
     const key = `${t.sampleRate ?? '?'}/${t.bitDepth ?? '?'}`;
     if (!qualityCounts.has(key)) {
       qualityCounts.set(key, { sampleRate: t.sampleRate, bitDepth: t.bitDepth, count: 0, files: [] });
@@ -314,6 +325,7 @@ export async function inspectAlbum(album) {
     mixedFormats,
     qualities,
     mixedQuality,
+    unreadable,
     multiDisc,
     discs,
     track: {

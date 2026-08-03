@@ -39,6 +39,18 @@ export function Diagnosis({ report }) {
         </span>
       </div>
 
+      {report.unreadable?.length ? (
+        <div className="report-banner bad">
+          <AlertIcon />
+          <span>
+            {report.unreadable.length} file{report.unreadable.length > 1 ? 's' : ''} could not be
+            read ({report.unreadable.join(', ')}) — usually a truncated or corrupt download. They
+            are left out of the tag and quality checks here, and no fix can repair them: re-download
+            them before importing.
+          </span>
+        </div>
+      ) : null}
+
       {report.incomplete ? (
         <div className="report-banner bad">
           <AlertIcon />
