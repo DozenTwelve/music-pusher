@@ -5,8 +5,9 @@
 // AUDIO_EXTENSIONS defines what counts as "audio" everywhere: upload
 // classification, album scanning, and every mixed-format check. An album whose
 // audio files span more than one of these extensions is flagged — mixed formats
-// cause Navidrome to split the album. Lyrics (.lrc), artwork, and other
-// sidecars are deliberately NOT in this set so they never count toward a mix.
+// may split the album in Navidrome (a warning, not a blocker: see inspect.js).
+// Lyrics (.lrc), artwork, and other sidecars are deliberately NOT in this set so
+// they never count toward a mix.
 export const AUDIO_EXTENSIONS = new Set(['.mp3', '.flac', '.m4a', '.aac', '.wav', '.ogg', '.alac']);
 
 export const ART_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);

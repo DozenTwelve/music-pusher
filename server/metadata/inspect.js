@@ -289,17 +289,19 @@ export async function inspectAlbum(album) {
   }
 
   // Audio formats present, from the shared extension classifier — the same
-  // signal every mixed-format check uses. More than one is a failure: mixed
-  // formats cause Navidrome to split the album, and there is no in-place fix
-  // (the odd files must be converted or removed).
+  // signal every mixed-format check uses. More than one is a warning, not a
+  // failure: it does not reliably split the album (4ec2764 downgraded it after
+  // mixed-format albums imported fine), and no tag rewrite repairs it either
+  // way — the odd files have to be converted or removed.
   const formats = distinctAudioFormats(tracks.map((t) => t.file));
   const mixedFormats = formats.length > 1;
 
   // Mixed audio quality: identical container/extension but differing sample rate
   // or bit depth (e.g. a 16-bit/44.1kHz single dropped into a 24-bit/96kHz
-  // album). Navidrome treats each quality as a separate release and splits the
-  // album — and, like mixed formats, no tag edit repairs it: the odd tracks must
-  // be re-downloaded at the album's quality or the album resampled to one spec.
+  // album). Reported at the same warning level as mixed formats, and for the
+  // same reason: it may split the album, it is not confirmed to always do so,
+  // and no tag edit repairs it — the odd tracks must be re-downloaded at the
+  // album's quality or the album resampled to one spec.
   const qualityCounts = new Map();
   for (const t of readable) {
     const key = `${t.sampleRate ?? '?'}/${t.bitDepth ?? '?'}`;

@@ -17,8 +17,17 @@ function countFixable(report) {
   if (!report) {
     return 0;
   }
+  // Every field the Fix form offers to unify, not just the ones that would
+  // split the album. Since dbda359 dropped `date` from the split causes, an
+  // album whose only problem is drifting release dates has no split fields —
+  // but the form right below this line still shows Date as a red row with a
+  // pre-filled value, so counting split fields made the status contradict it.
+  const inconsistentFields = Object.keys(FIELD_LABELS).filter(
+    (field) => report.fields[field] && !report.fields[field].consistent
+  ).length;
+
   return (
-    report.splitFields.length +
+    inconsistentFields +
     report.textIssues.length +
     report.filenameIssues.length +
     (report.track.needsNormalize ? 1 : 0) +

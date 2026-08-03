@@ -21,6 +21,11 @@ export function Diagnosis({ report }) {
   const bannerClass = hardSplit ? 'bad' : softSplit ? 'warn' : 'good';
   const fmtQuality = (q) =>
     `${q.sampleRate ? `${q.sampleRate / 1000}kHz` : '?'}/${q.bitDepth || '?'}-bit ×${q.count}`;
+  // Qualities arrive sorted by track count, so everything after the first is the
+  // minority — the tracks to actually re-download.
+  const oddQualityFiles = (report.qualities || []).slice(1).flatMap((q) => q.files || []);
+  // "same extension" only reads correctly when there is exactly one.
+  const singleFormat = report.formats?.length === 1 ? `.${report.formats[0]}` : null;
 
   return (
     <div className="report">
@@ -82,11 +87,12 @@ export function Diagnosis({ report }) {
         <div className="report-banner warn">
           <AlertIcon />
           <span>
-            Mixed audio quality ({report.qualities.map(fmtQuality).join(', ')}) — same .flac
-            extension, but different sample rate / bit depth. This can make Navidrome split the album
-            (though a single odd track often stays merged). You can still import; to be safe,
-            re-download the odd tracks at the album's quality or resample to one spec. No tag fix
-            repairs this.
+            Mixed audio quality ({report.qualities.map(fmtQuality).join(', ')})
+            {singleFormat ? ` — same ${singleFormat} extension, but` : ' —'} different sample rate /
+            bit depth. This can make Navidrome split the album (though a single odd track often stays
+            merged). You can still import; to be safe, re-download the odd tracks at the album's
+            quality or resample to one spec. No tag fix repairs this.
+            {oddQualityFiles.length ? ` Odd tracks: ${oddQualityFiles.join(', ')}.` : ''}
           </span>
         </div>
       ) : null}
