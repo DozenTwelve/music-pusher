@@ -3,6 +3,7 @@ import { getAlbums, deleteAlbum, errorMessage } from './api.js';
 import UploadPanel from './components/UploadPanel.jsx';
 import AlbumList from './components/AlbumList.jsx';
 import WorkflowPanel from './components/WorkflowPanel.jsx';
+import LibraryPanel from './components/LibraryPanel.jsx';
 import PreflightBanner from './components/PreflightBanner.jsx';
 import { useToast } from './components/Toast.jsx';
 import { SunIcon, MoonIcon } from './components/icons.jsx';
@@ -132,6 +133,8 @@ export default function App() {
         </section>
 
         <WorkflowPanel selectedAlbum={selectedAlbum} onImportDone={loadAlbums} />
+
+        <LibraryPanel />
       </div>
 
       <Dialog open={pendingDelete !== null} onOpenChange={(open) => !open && setPendingDelete(null)}>

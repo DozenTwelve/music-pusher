@@ -152,6 +152,12 @@ export async function startImport(album, { force = false } = {}) {
   return data;
 }
 
+// Read-only reconciliation of the beets database against the filesystem.
+export async function getLibraryHealth() {
+  const { data } = await axios.get('/api/library/health');
+  return data;
+}
+
 export function importStreamUrl(jobId) {
   return `/api/import/${jobId}/stream`;
 }

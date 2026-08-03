@@ -26,7 +26,7 @@ function parseBoolean(value, fallback) {
   return fallback;
 }
 
-function expandHome(inputPath) {
+export function expandHome(inputPath) {
   if (typeof inputPath !== 'string') {
     return inputPath;
   }

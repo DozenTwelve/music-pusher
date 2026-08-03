@@ -18,6 +18,7 @@ import { extractZipAlbum, ArchiveError } from './archive.js';
 import { runAudit, startImport, streamJob, getJob } from './shell.js';
 import { inspectAlbum, fixAlbum, embedCover } from './metadata/index.js';
 import { runPreflight } from './preflight.js';
+import { checkLibraryHealth } from './library.js';
 
 export const apiRouter = express.Router();
 
@@ -93,6 +94,22 @@ apiRouter.get('/preflight', async (req, res) => {
     res.json(report);
   } catch (error) {
     res.status(500).json({ ok: false, code: 'preflight_failed', message: error.message });
+  }
+});
+
+// Read-only reconciliation of the beets database against the filesystem. It
+// reports only — nothing here repairs anything, because every repair (beet
+// update / beet remove / re-import) is destructive in a different way and has
+// to be chosen per album.
+apiRouter.get('/library/health', async (req, res) => {
+  try {
+    res.json(await checkLibraryHealth());
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      code: 'library_health_failed',
+      message: error.message
+    });
   }
 });
 
