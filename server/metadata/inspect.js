@@ -43,6 +43,8 @@ async function listFolderImages(albumPath) {
 const GROUPING_FIELDS = ['album', 'album_artist'];
 // ffprobe normalizes container-specific atoms to these lowercase tag keys.
 const READ_FIELDS = ['album', 'album_artist', 'date', 'disc', 'track', 'genre'];
+// How many ffprobe processes may run at once while scanning an album.
+const PROBE_CONCURRENCY = 8;
 
 // The album-artist a player actually groups by. An explicit album_artist wins;
 // with none, the player derives one from each track's artist participants — the
@@ -105,10 +107,9 @@ export async function inspectAlbum(album) {
     return { ok: false, code: 'no_audio_files', message: 'No audio files found in album folder.' };
   }
 
-  const tracks = [];
-  for (const absPath of files) {
+  async function readTrack(absPath) {
     const tags = await probeTags(absPath);
-    tracks.push({
+    return {
       file: path.relative(albumPath, absPath),
       readable: Boolean(tags.__ok),
       formatName: tags.__format_name || '',
@@ -123,7 +124,16 @@ export async function inspectAlbum(album) {
       date: tags.date || tags.year || '',
       disc: tags.disc || tags.disk || tags.discnumber || '',
       track: tags.track || tags.tracknumber || ''
-    });
+    };
+  }
+
+  // One ffprobe process per track, and /import runs a whole inspect before it
+  // starts, so serializing this put a visible stall in front of every import.
+  // Batched rather than one flat Promise.all: a 100-track box set would
+  // otherwise fork 100 processes at once on a small box.
+  const tracks = [];
+  for (let i = 0; i < files.length; i += PROBE_CONCURRENCY) {
+    tracks.push(...(await Promise.all(files.slice(i, i + PROBE_CONCURRENCY).map(readTrack))));
   }
 
   // A file ffprobe cannot read (truncated download, wrong extension on a

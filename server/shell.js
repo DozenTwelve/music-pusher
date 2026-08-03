@@ -3,6 +3,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { config } from './config.js';
+import { acquireAlbum, releaseAlbum, albumBusyMessage } from './metadata/lock.js';
 
 const jobs = new Map();
 let activeJobId = null;
@@ -117,6 +118,18 @@ export function startImport(album) {
     }
   }
 
+  // beets is configured with `move: yes`, so an import relocates the very files
+  // a tag fix or cover embed renames its temp file over. Hold the album lock for
+  // the whole beets run, not just this call — it is released in the `close`
+  // handler below.
+  if (!acquireAlbum(album)) {
+    return {
+      ok: false,
+      error: 'import_busy',
+      message: albumBusyMessage(album)
+    };
+  }
+
   const albumPath = path.join(config.rawDir, album);
   const id = randomUUID();
   const job = {
@@ -170,6 +183,10 @@ export function startImport(album) {
         pushLine(job, 'stderr', `Cleanup failed for RAW folder '${album}': ${error.message}`);
       }
     }
+
+    // Released only here: the cleanup above still deletes the album's RAW
+    // folder, so the lock has to outlive it too.
+    releaseAlbum(album);
 
     const payload = {
       status: job.status,
