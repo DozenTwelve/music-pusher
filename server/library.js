@@ -138,9 +138,49 @@ async function listLibraryFiles(rootBuffer) {
   return found;
 }
 
+// beets colours its output when it detects a terminal, and spawning it without
+// one is not enough — it still emits SGR codes here. Strip them so the text can
+// be rendered and pattern-matched.
+function stripAnsi(value) {
+  // Anchored on an explicit ESC escape rather than a literal control byte:
+  // album names in this library really do contain things like
+  // `Ellington Uptown [14]`, and a pattern that starts at the bracket eats them.
+  return value.replace(/\x1b\[[0-9;]*m/g, '');
+}
+
+// The repair, and it is one command: `beet update`. beets already does both
+// halves in a single pass — rows whose file is gone are dropped from the
+// database, and, because the beets config sets `move: yes`, every surviving
+// file is relocated onto the current path template. Doing either by hand here
+// would mean re-implementing that template and keeping the copy in agreement
+// with beets forever, which is the failure this whole module exists to report.
+//
+// Defaults to a pretend run. `beet update --pretend` prints the identical
+// change list and touches nothing, so the preview and the apply can never
+// disagree about what is going to happen.
+export async function repairLibrary({ pretend = true } = {}) {
+  const args = ['update', ...(pretend ? ['--pretend'] : [])];
+  const { code, stdout, stderr } = await runProcess(config.beetBin, args);
+  if (code !== 0) {
+    throw new Error(`'${config.beetBin} ${args.join(' ')}' failed (exit ${code}): ${stderr.trim()}`);
+  }
+
+  const output = stripAnsi(stdout).trim();
+  return {
+    ok: true,
+    pretend,
+    // ponytail: scraped from beets' human-readable output, which is not a stable
+    // interface. The full text ships alongside the count, so a beets format
+    // change surfaces as a wrong number next to visibly right output rather than
+    // as a silent zero. Move to a parsable `--format` if this ever misleads.
+    deleted: (output.match(/^ *deleted$/gm) || []).length,
+    output
+  };
+}
+
 // Reconcile the beets database against the filesystem, in both directions:
 // rows whose file is gone, and audio files sitting in the library that beets
-// has never seen. Read-only — it reports, it does not repair.
+// has never seen. Read-only — repairing is `repairLibrary`, above.
 // `paths` is optional; without it the locations come from beets itself.
 export async function checkLibraryHealth(paths) {
   const resolved = paths || (await beetsPaths());

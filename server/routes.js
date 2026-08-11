@@ -18,7 +18,8 @@ import { extractZipAlbum, ArchiveError } from './archive.js';
 import { runAudit, startImport, streamJob, getJob } from './shell.js';
 import { inspectAlbum, fixAlbum, embedCover } from './metadata/index.js';
 import { runPreflight } from './preflight.js';
-import { checkLibraryHealth } from './library.js';
+import { checkLibraryHealth, repairLibrary } from './library.js';
+import { acquireLibrary, releaseLibrary, libraryBusyMessage } from './metadata/lock.js';
 
 export const apiRouter = express.Router();
 
@@ -97,10 +98,7 @@ apiRouter.get('/preflight', async (req, res) => {
   }
 });
 
-// Read-only reconciliation of the beets database against the filesystem. It
-// reports only — nothing here repairs anything, because every repair (beet
-// update / beet remove / re-import) is destructive in a different way and has
-// to be chosen per album.
+// Read-only reconciliation of the beets database against the filesystem.
 apiRouter.get('/library/health', async (req, res) => {
   try {
     res.json(await checkLibraryHealth());
@@ -110,6 +108,36 @@ apiRouter.get('/library/health', async (req, res) => {
       code: 'library_health_failed',
       message: error.message
     });
+  }
+});
+
+// The repair for what /library/health reports, delegated to `beet update`.
+// Defaults to a pretend run: an apply has to send `pretend: false`, so a bare
+// POST can never move a file.
+//
+// Only the apply takes the library lock. A pretend run reads and prints, which
+// is safe next to a fix in flight — and locking it would make the preview fail
+// exactly when the user most wants to look.
+apiRouter.post('/library/repair', async (req, res) => {
+  const pretend = req.body?.pretend !== false;
+
+  if (!pretend && !acquireLibrary()) {
+    res.status(409).json({ ok: false, code: 'library_busy', message: libraryBusyMessage() });
+    return;
+  }
+
+  try {
+    res.json(await repairLibrary({ pretend }));
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      code: 'library_repair_failed',
+      message: error.message
+    });
+  } finally {
+    if (!pretend) {
+      releaseLibrary();
+    }
   }
 });
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getLibraryHealth, errorMessage } from '../api.js';
+import { getLibraryHealth, repairLibrary, errorMessage } from '../api.js';
 import { CheckIcon, AlertIcon } from './icons.jsx';
 import { Button } from './ui/button.jsx';
 import { useToast } from './Toast.jsx';
@@ -10,19 +10,49 @@ import {
   AccordionContent
 } from './ui/accordion.jsx';
 
-// The imported library, as beets sees it. This first pass only reconciles the
-// beets database against the filesystem — it reports, it never repairs, because
-// each repair (beet update / beet remove / re-import) destroys something
-// different and has to be picked per album.
+// The imported library, as beets sees it: reconcile the beets database against
+// the filesystem, then repair it with `beet update`.
+//
+// Applying is gated behind a preview rather than a confirm dialog. The repair
+// renames files — beets runs with `move: yes`, so it relocates everything onto
+// its path template — and a yes/no prompt cannot say which files. The preview
+// is the same command with `--pretend`, so it lists exactly that.
 export default function LibraryPanel() {
   const [health, setHealth] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState(null);
   const toast = useToast();
 
   async function runCheck() {
     setBusy(true);
     try {
       setHealth(await getLibraryHealth());
+      // A fresh reading of disk invalidates any change list taken against the
+      // old one; never leave a stale preview arming the apply button.
+      setPreview(null);
+    } catch (requestError) {
+      toast.error(errorMessage(requestError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runRepair(pretend) {
+    setBusy(true);
+    try {
+      const result = await repairLibrary(pretend);
+      if (pretend) {
+        setPreview(result);
+        if (!result.output) {
+          toast.success('Nothing to repair — beets and disk already agree.');
+        }
+      } else {
+        setPreview(null);
+        toast.success(
+          `Repaired: ${result.deleted} stale row${result.deleted === 1 ? '' : 's'} dropped, surviving files moved onto the beets path template.`
+        );
+        setHealth(await getLibraryHealth());
+      }
     } catch (requestError) {
       toast.error(errorMessage(requestError));
     } finally {
@@ -150,6 +180,43 @@ export default function LibraryPanel() {
                 </AccordionItem>
               ) : null}
             </Accordion>
+          ) : null}
+
+          {!healthy ? (
+            <div>
+              <div className="flex flex-wrap items-center gap-2 pt-2">
+                <Button type="button" size="sm" onClick={() => runRepair(true)} disabled={busy}>
+                  {busy ? 'Working…' : preview ? 'Refresh preview' : 'Preview repair'}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => runRepair(false)}
+                  disabled={busy || !preview?.output}
+                >
+                  Apply repair
+                </Button>
+                <span className="muted small flex-1 basis-full">
+                  {preview?.output
+                    ? 'Applying runs the same command for real: stale rows are dropped and surviving files are renamed onto the beets path template.'
+                    : 'Preview first — the repair renames files, and the preview is the only place that lists which.'}
+                </span>
+              </div>
+
+              {preview?.output ? (
+                <Accordion type="single" collapsible className="border-t border-border">
+                  <AccordionItem value="preview" className="border-b-0">
+                    <AccordionTrigger>
+                      Preview — {preview.deleted} row{preview.deleted === 1 ? '' : 's'} to drop
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <pre className="terminal">{preview.output}</pre>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              ) : null}
+            </div>
           ) : null}
 
           <p className="muted small">

@@ -158,6 +158,13 @@ export async function getLibraryHealth() {
   return data;
 }
 
+// Repair what getLibraryHealth reports, via `beet update`. `pretend` returns the
+// same change list without touching anything, so it doubles as the preview.
+export async function repairLibrary(pretend) {
+  const { data } = await axios.post('/api/library/repair', { pretend });
+  return data;
+}
+
 export function importStreamUrl(jobId) {
   return `/api/import/${jobId}/stream`;
 }
