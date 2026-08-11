@@ -8,7 +8,13 @@ import { apiRouter } from './routes.js';
 
 const app = express();
 
-app.use(cors());
+// No cross-origin access. The client is served by this same app, so it never
+// needs CORS, while the API is unauthenticated and now carries a route that
+// rewrites the entire library: with the default `cors()` any page in the user's
+// browser could POST /api/library/repair and relocate every file beets tracks.
+// Same-origin requests are unaffected; the Vite dev server proxies /api, so it
+// is same-origin too.
+app.use(cors({ origin: false }));
 app.use(express.json({ limit: '1mb' }));
 
 app.use('/api', apiRouter);

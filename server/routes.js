@@ -526,12 +526,27 @@ apiRouter.post('/import', async (req, res) => {
       } catch {
         existing = [];
       }
-      if (existing.length > 0) {
+      // Ghost matches — every file gone from disk — do not block. Those rows are
+      // exactly what /library/health reports as "missing, outside the library",
+      // and re-importing is their documented repair; refusing it would leave
+      // them permanently unfixable.
+      const present = existing.filter((entry) => entry.presentFiles > 0);
+      if (present.length > 0) {
+        // The split verdict rides along even though the duplicate is what
+        // refused. `force` overrides every guard at once, so a refusal that
+        // mentioned only one of them would have the user waive a warning they
+        // never saw.
+        const alsoSplits = report.groupCount > 1;
         res.status(409).json({
           ok: false,
           code: 'already_imported',
-          message: `Not imported — beets already has ${existing.length === 1 ? 'this album' : `${existing.length} copies of this album`}. Importing again adds another copy rather than replacing it. Import anyway to keep both.`,
-          existing,
+          message:
+            `Not imported — beets already has ${present.length === 1 ? 'this album' : `${present.length} copies of this album`}. ` +
+            'Importing again adds another copy rather than replacing it.' +
+            (alsoSplits ? ' It would also split into separate albums in the library.' : '') +
+            ' Import anyway to accept both.',
+          existing: present,
+          ghosts: existing.length - present.length,
           report
         });
         return;

@@ -151,6 +151,17 @@ async function listLibraryFiles(rootBuffer) {
 // Matching is on the album *base* name — the same normalization the inspect step
 // uses to merge "[Explicit]"-style variants — because a re-download under the
 // other variant of the name is exactly how the second copy tends to arrive.
+// That normalization is deliberately blunt: albumBase strips *any* trailing
+// bracket group, so `Greatest Hits (Deluxe Edition)` matches `Greatest Hits` by
+// the same artist, and an album with no album artist at all matches on name
+// alone. Both are over-matches by design — every match is reported for the user
+// to look at and one press overrides it, so the cost of being wrong is a glance
+// while the cost of missing a duplicate is another stranded copy.
+//
+// Each match carries how many of its files are still on disk. A match with none
+// left is a ghost: rows whose album was moved or deleted out from under beets,
+// which is precisely the case whose documented repair is to re-import. Blocking
+// that would leave the row unfixable, so callers are expected to ignore ghosts.
 // `paths` is optional; without it the locations come from beets itself.
 export async function findExistingAlbums({ album, albumartist }, paths) {
   const wanted = albumBase(album || '').toLowerCase();
@@ -161,21 +172,30 @@ export async function findExistingAlbums({ album, albumartist }, paths) {
 
   const db = await openLibraryDb(paths);
   try {
-    return db
+    const matches = db
       .prepare('select id, album, albumartist from albums')
       .all()
       .filter((row) => {
         if (albumBase(String(row.album ?? '')).toLowerCase() !== wanted) {
           return false;
         }
-        // With no album artist on the incoming album there is nothing to
-        // compare, so the name alone decides. The matches are reported to the
-        // user rather than acted on, so a loose match costs a glance.
         if (!wantedArtist) {
           return true;
         }
         return normalizeTagValue(String(row.albumartist ?? '')).toLowerCase() === wantedArtist;
       });
+
+    const countFiles = db.prepare('select path from items where album_id = ?');
+    return matches.map((row) => {
+      const items = countFiles.all(row.id);
+      return {
+        ...row,
+        trackCount: items.length,
+        // Buffers, not strings: a decode/re-encode round trip can differ from the
+        // real name and would report a present file as missing.
+        presentFiles: items.filter((item) => fs.existsSync(toPathBuffer(item.path))).length
+      };
+    });
   } finally {
     db.close();
   }
@@ -191,17 +211,37 @@ function stripAnsi(value) {
   return value.replace(/\x1b\[[0-9;]*m/g, '');
 }
 
-// The repair, and it is one command: `beet update`. beets already does both
-// halves in a single pass — rows whose file is gone are dropped from the
-// database, and, because the beets config sets `move: yes`, every surviving
-// file is relocated onto the current path template. Doing either by hand here
-// would mean re-implementing that template and keeping the copy in agreement
-// with beets forever, which is the failure this whole module exists to report.
+// The repair, and it is one command: `beet update`. Three effects, not two:
+// it re-reads the on-disk tags of every surviving file into the database, drops
+// rows whose file is gone, and — because the beets config sets `move: yes` —
+// relocates what remains onto the current path template. Doing any of that by
+// hand would mean re-implementing the template here and keeping the copy in
+// agreement with beets forever, which is the drift this module exists to report.
+//
+// The tag re-read is the one to remember when anything starts editing the
+// library: `beet update` takes the file's tags as the truth, so a change written
+// only to the beets database is reverted the next time a repair runs. Library
+// edits have to reach the files, which is `beet modify` (it writes tags), not a
+// direct database write.
 //
 // Defaults to a pretend run. `beet update --pretend` prints the identical
 // change list and touches nothing, so the preview and the apply can never
 // disagree about what is going to happen.
-export async function repairLibrary({ pretend = true } = {}) {
+export async function repairLibrary({ pretend = true } = {}, paths) {
+  // An absent library directory is indistinguishable, to beets, from every file
+  // having been deleted: it would drop the entire database in one pass. The
+  // preview shows that, but the preview is one click from the apply, so refuse
+  // outright rather than relying on someone reading a 700-line change list.
+  if (!pretend) {
+    const { libraryDir } = paths || (await beetsPaths());
+    if (!fs.existsSync(libraryDir)) {
+      throw new Error(
+        `The beets library directory '${libraryDir}' does not exist. Refusing to repair: ` +
+          'every tracked file would look deleted and the whole database would be dropped.'
+      );
+    }
+  }
+
   const args = ['update', ...(pretend ? ['--pretend'] : [])];
   const { code, stdout, stderr } = await runProcess(config.beetBin, args);
   if (code !== 0) {

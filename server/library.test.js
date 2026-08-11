@@ -4,7 +4,12 @@ import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { checkLibraryHealth, parseBeetsConfig, findExistingAlbums } from './library.js';
+import {
+  checkLibraryHealth,
+  parseBeetsConfig,
+  findExistingAlbums,
+  repairLibrary
+} from './library.js';
 
 // Trimmed from the real `beet config` output on the deployment box (beets
 // 2.5.1). The nested `directory:` under a plugin is the trap: only the
@@ -128,8 +133,24 @@ async function buildAlbums(rows) {
              year integer, genre text, artpath blob)`);
   db.exec(`create table items (id integer primary key, album_id integer, path blob, title text,
              artist text, track integer, format text, samplerate integer, bitdepth integer)`);
-  const insert = db.prepare('insert into albums (id, album, albumartist) values (?, ?, ?)');
-  rows.forEach((row, index) => insert.run(index + 1, row.album, row.albumartist));
+  const insertAlbum = db.prepare('insert into albums (id, album, albumartist) values (?, ?, ?)');
+  const insertItem = db.prepare('insert into items (id, album_id, path, title) values (?, ?, ?, ?)');
+
+  let itemId = 0;
+  for (const [index, row] of rows.entries()) {
+    const albumId = index + 1;
+    insertAlbum.run(albumId, row.album, row.albumartist);
+    // Default to one track that exists: the common case is an album whose files
+    // are really there, and `onDisk: false` is how a ghost is spelled.
+    for (let n = 0; n < (row.tracks ?? 1); n += 1) {
+      itemId += 1;
+      const file = path.join(root, `${albumId}-${n}.flac`);
+      insertItem.run(itemId, albumId, Buffer.from(file), `track ${n}`);
+      if (row.onDisk !== false) {
+        await fsp.writeFile(file, 'x');
+      }
+    }
+  }
   db.close();
   return { root, paths: { dbPath, libraryDir: root } };
 }
@@ -168,6 +189,45 @@ test('a re-download under the other name variant still matches the album beets h
 
     const nameless = await findExistingAlbums({ album: '' }, paths);
     assert.deepEqual(nameless, [], 'no album name means nothing to match on, not everything');
+  } finally {
+    await fsp.rm(root, { recursive: true, force: true });
+  }
+});
+
+// The rows /library/health calls "missing, outside the library" are repaired by
+// re-importing. If a duplicate match counted those, the guard would refuse the
+// one action that fixes them and the row could never be cleared.
+test('a match whose files are all gone is reported as a ghost, not a live copy', async () => {
+  const { root, paths } = await buildAlbums([
+    { album: 'Quarks', albumartist: 'Timothée Robert', tracks: 3, onDisk: false },
+    { album: 'Modal Soul', albumartist: 'Nujabes', tracks: 2 }
+  ]);
+
+  try {
+    const [ghost] = await findExistingAlbums(
+      { album: 'Quarks', albumartist: 'Timothée Robert' },
+      paths
+    );
+    assert.equal(ghost.trackCount, 3);
+    assert.equal(ghost.presentFiles, 0, 'nothing left on disk — re-import is the repair');
+
+    const [live] = await findExistingAlbums({ album: 'Modal Soul', albumartist: 'Nujabes' }, paths);
+    assert.equal(live.presentFiles, 2, 'a real copy still blocks');
+  } finally {
+    await fsp.rm(root, { recursive: true, force: true });
+  }
+});
+
+// beets cannot tell an unmounted library from one whose every file was deleted;
+// it would answer by dropping the whole database.
+test('applying a repair refuses when the library directory is not there', async () => {
+  const { root, paths } = await buildAlbums([{ album: 'Modal Soul', albumartist: 'Nujabes' }]);
+
+  try {
+    await assert.rejects(
+      repairLibrary({ pretend: false }, { ...paths, libraryDir: path.join(root, 'not-mounted') }),
+      /does not exist. Refusing to repair/
+    );
   } finally {
     await fsp.rm(root, { recursive: true, force: true });
   }

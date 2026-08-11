@@ -182,7 +182,11 @@ export default function LibraryPanel() {
             </Accordion>
           ) : null}
 
-          {!healthy ? (
+          {/* Gated on missing rows, not on `healthy`. `beet update` never imports
+              files beets has not seen, so on an orphans-only library it has
+              nothing to do: the preview would come back empty and report that
+              database and disk agree, directly under a banner counting orphans. */}
+          {totals.missing > 0 ? (
             <div>
               <div className="flex flex-wrap items-center gap-2 pt-2">
                 <Button type="button" size="sm" onClick={() => runRepair(true)} disabled={busy}>

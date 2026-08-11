@@ -235,6 +235,12 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
           applyReport(refusal.report);
         }
         setDuplicateBlock(refusal.existing || []);
+        // applyReport just cleared the split state, but `force` waives every
+        // guard at once — so an album that is both a duplicate and a split has
+        // to show both, or Import anyway silently accepts the unseen one.
+        if (refusal.report?.groupCount > 1) {
+          setSplitBlock(refusal.report.splitFields || []);
+        }
         setImportStatus('blocked');
         toast.error(refusal.message);
         return;
@@ -294,12 +300,22 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
           ? 'active'
           : 'todo';
 
-  const importBlockReason = duplicateBlock
-    ? ` — beets already has ${duplicateBlock.map((a) => `${a.albumartist || '(no album artist)'} — ${a.album}`).join('; ')}. Importing again adds a second copy; press Import anyway to keep both.`
-    : splitBlock
-    ? splitBlock.length
-      ? ` — would split on ${splitBlock.map((f) => FIELD_LABELS[f] || f).join(', ')}. Fix in step 2, or press Import anyway.`
-      : ' — would split in the library. Fix in step 2, or press Import anyway.'
+  // Both reasons, not the first one: Import anyway waives every guard, so the
+  // status line has to list everything it is about to waive.
+  const blockReasons = [
+    duplicateBlock?.length
+      ? `beets already has ${duplicateBlock
+          .map((a) => `${a.albumartist || '(no album artist)'} — ${a.album}`)
+          .join('; ')}, and importing again adds another copy`
+      : null,
+    splitBlock
+      ? splitBlock.length
+        ? `it would split on ${splitBlock.map((f) => FIELD_LABELS[f] || f).join(', ')} (fix in step 2)`
+        : 'it would split in the library (fix in step 2)'
+      : null
+  ].filter(Boolean);
+  const importBlockReason = blockReasons.length
+    ? ` — ${blockReasons.join('; and ')}. Press Import anyway to accept ${blockReasons.length > 1 ? 'both' : 'it'}.`
     : '';
 
   return (
