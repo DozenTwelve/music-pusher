@@ -18,7 +18,7 @@ import { extractZipAlbum, ArchiveError } from './archive.js';
 import { runAudit, startImport, streamJob, getJob } from './shell.js';
 import { inspectAlbum, fixAlbum, embedCover } from './metadata/index.js';
 import { runPreflight } from './preflight.js';
-import { checkLibraryHealth, repairLibrary } from './library.js';
+import { checkLibraryHealth, repairLibrary, findExistingAlbums } from './library.js';
 import { acquireLibrary, releaseLibrary, libraryBusyMessage } from './metadata/lock.js';
 
 export const apiRouter = express.Router();
@@ -512,6 +512,32 @@ apiRouter.post('/import', async (req, res) => {
     } catch {
       report = null;
     }
+    // Checked before the split guard: if the library already holds this album,
+    // whether the incoming copy would also fragment is beside the point. The
+    // library read is best-effort — beets being unreachable must not be able to
+    // block an import, same posture as inspect failing above.
+    if (report?.ok) {
+      let existing = [];
+      try {
+        existing = await findExistingAlbums({
+          album: report.fields.album.proposed,
+          albumartist: report.fields.album_artist.proposed
+        });
+      } catch {
+        existing = [];
+      }
+      if (existing.length > 0) {
+        res.status(409).json({
+          ok: false,
+          code: 'already_imported',
+          message: `Not imported — beets already has ${existing.length === 1 ? 'this album' : `${existing.length} copies of this album`}. Importing again adds another copy rather than replacing it. Import anyway to keep both.`,
+          existing,
+          report
+        });
+        return;
+      }
+    }
+
     if (report?.ok && report.groupCount > 1) {
       // The full report rides along: the client renders the cause from it
       // rather than re-running an inspect this request already paid for.

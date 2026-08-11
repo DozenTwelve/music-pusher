@@ -4,7 +4,7 @@ import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { checkLibraryHealth, parseBeetsConfig } from './library.js';
+import { checkLibraryHealth, parseBeetsConfig, findExistingAlbums } from './library.js';
 
 // Trimmed from the real `beet config` output on the deployment box (beets
 // 2.5.1). The nested `directory:` under a plugin is the trap: only the
@@ -113,6 +113,61 @@ test('a clean library reports nothing to fix', async () => {
     assert.equal(health.totals.missing, 0);
     assert.equal(health.totals.orphans, 0);
     assert.deepEqual(health.albums, []);
+  } finally {
+    await fsp.rm(root, { recursive: true, force: true });
+  }
+});
+
+// Only the albums table matters here, so build it directly rather than dragging
+// in buildLibrary's item/disk machinery.
+async function buildAlbums(rows) {
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'beetsdup-'));
+  const dbPath = path.join(root, 'musiclibrary.db');
+  const db = new DatabaseSync(dbPath);
+  db.exec(`create table albums (id integer primary key, album text, albumartist text,
+             year integer, genre text, artpath blob)`);
+  db.exec(`create table items (id integer primary key, album_id integer, path blob, title text,
+             artist text, track integer, format text, samplerate integer, bitdepth integer)`);
+  const insert = db.prepare('insert into albums (id, album, albumartist) values (?, ?, ?)');
+  rows.forEach((row, index) => insert.run(index + 1, row.album, row.albumartist));
+  db.close();
+  return { root, paths: { dbPath, libraryDir: root } };
+}
+
+test('a re-download under the other name variant still matches the album beets has', async () => {
+  const { root, paths } = await buildAlbums([
+    { album: 'The Scholars', albumartist: 'Car Seat Headrest' },
+    { album: 'Ellington Uptown', albumartist: 'Duke Ellington' }
+  ]);
+
+  try {
+    // The real duplicates in this library arrived exactly like this: the same
+    // album re-downloaded with a trailing "[Explicit]" marker, which beets then
+    // filed as a second album and disambiguated with its album id.
+    const variant = await findExistingAlbums(
+      { album: 'The Scholars [Explicit]', albumartist: 'Car Seat Headrest' },
+      paths
+    );
+    assert.equal(variant.length, 1);
+    assert.equal(variant[0].album, 'The Scholars');
+
+    const spaced = await findExistingAlbums(
+      { album: '  the   scholars ', albumartist: 'car seat headrest' },
+      paths
+    );
+    assert.equal(spaced.length, 1, 'case and whitespace drift is not a different album');
+
+    const otherArtist = await findExistingAlbums(
+      { album: 'The Scholars', albumartist: 'Someone Else' },
+      paths
+    );
+    assert.deepEqual(otherArtist, [], 'same album name under a different artist is not a duplicate');
+
+    const unknown = await findExistingAlbums({ album: 'Not In The Library' }, paths);
+    assert.deepEqual(unknown, []);
+
+    const nameless = await findExistingAlbums({ album: '' }, paths);
+    assert.deepEqual(nameless, [], 'no album name means nothing to match on, not everything');
   } finally {
     await fsp.rm(root, { recursive: true, force: true });
   }

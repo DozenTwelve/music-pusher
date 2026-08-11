@@ -45,6 +45,10 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
   // Split fields the server refused the import on, or null when not blocked.
   // Non-null also arms the next Import press to send `force`.
   const [splitBlock, setSplitBlock] = useState(null);
+  // beets albums matching this one, when the server refused as a duplicate.
+  // Arms `force` the same way — one override for both guards, because from
+  // here it is the same press: "I have read the warning, import anyway."
+  const [duplicateBlock, setDuplicateBlock] = useState(null);
   const eventSourceRef = useRef(null);
   const toast = useToast();
 
@@ -58,6 +62,7 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
     setImportLogs([]);
     setImportStatus('idle');
     setSplitBlock(null);
+    setDuplicateBlock(null);
   }, [selectedAlbum]);
 
   function applyReport(data) {
@@ -65,6 +70,7 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
     // A fresh report supersedes any earlier refusal, so the next Import goes
     // back through the guard instead of silently carrying `force` along.
     setSplitBlock(null);
+    setDuplicateBlock(null);
     // Pre-fill drafts with the mode for each inconsistent field (override-able).
     const hasConfidentText = (data.textIssues || []).some((i) => i.confident);
     const next = {
@@ -224,6 +230,15 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
       };
     } catch (requestError) {
       const refusal = requestError?.response?.data;
+      if (refusal?.code === 'already_imported') {
+        if (refusal.report) {
+          applyReport(refusal.report);
+        }
+        setDuplicateBlock(refusal.existing || []);
+        setImportStatus('blocked');
+        toast.error(refusal.message);
+        return;
+      }
       if (refusal?.code === 'would_split') {
         // The server ran a full inspect to reach this verdict and sent it back.
         // Use it, so steps 1 and 2 show the cause and the pre-filled fix rather
@@ -279,7 +294,9 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
           ? 'active'
           : 'todo';
 
-  const importBlockReason = splitBlock
+  const importBlockReason = duplicateBlock
+    ? ` — beets already has ${duplicateBlock.map((a) => `${a.albumartist || '(no album artist)'} — ${a.album}`).join('; ')}. Importing again adds a second copy; press Import anyway to keep both.`
+    : splitBlock
     ? splitBlock.length
       ? ` — would split on ${splitBlock.map((f) => FIELD_LABELS[f] || f).join(', ')}. Fix in step 2, or press Import anyway.`
       : ' — would split in the library. Fix in step 2, or press Import anyway.'
@@ -339,10 +356,14 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
               <Button
                 type="button"
                 size="sm"
-                onClick={() => importAlbum(Boolean(splitBlock))}
+                onClick={() => importAlbum(Boolean(splitBlock || duplicateBlock))}
                 disabled={importStatus === 'running'}
               >
-                {importStatus === 'running' ? 'Importing…' : splitBlock ? 'Import anyway' : 'Import'}
+                {importStatus === 'running'
+                  ? 'Importing…'
+                  : splitBlock || duplicateBlock
+                    ? 'Import anyway'
+                    : 'Import'}
               </Button>
             </div>
             <p className="step-status">

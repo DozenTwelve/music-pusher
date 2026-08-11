@@ -14,6 +14,8 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { config, expandHome } from './config.js';
 import { runProcess } from './metadata/probe.js';
+import { albumBase } from './metadata/inspect.js';
+import { normalizeTagValue } from './metadata/text.js';
 import { AUDIO_EXTENSIONS } from '../shared/extensions.js';
 
 // Columns this module reads. Checked on open so a beets schema change fails
@@ -136,6 +138,47 @@ async function listLibraryFiles(rootBuffer) {
   }
 
   return found;
+}
+
+// The duplicate import is what creates the stale rows repairLibrary cleans up,
+// so this is the cheaper end of the same problem. beets accepts an album it
+// already holds without complaint: it writes a second album row, and because two
+// rows now share albumartist + album, `$album%aunique{}` disambiguates the
+// newcomer's folder with its own album id. Every `[8]` / `[57]` suffix in this
+// library is that, and when the older copy's files are later replaced its rows
+// are stranded.
+//
+// Matching is on the album *base* name — the same normalization the inspect step
+// uses to merge "[Explicit]"-style variants — because a re-download under the
+// other variant of the name is exactly how the second copy tends to arrive.
+// `paths` is optional; without it the locations come from beets itself.
+export async function findExistingAlbums({ album, albumartist }, paths) {
+  const wanted = albumBase(album || '').toLowerCase();
+  if (!wanted) {
+    return [];
+  }
+  const wantedArtist = normalizeTagValue(albumartist || '').toLowerCase();
+
+  const db = await openLibraryDb(paths);
+  try {
+    return db
+      .prepare('select id, album, albumartist from albums')
+      .all()
+      .filter((row) => {
+        if (albumBase(String(row.album ?? '')).toLowerCase() !== wanted) {
+          return false;
+        }
+        // With no album artist on the incoming album there is nothing to
+        // compare, so the name alone decides. The matches are reported to the
+        // user rather than acted on, so a loose match costs a glance.
+        if (!wantedArtist) {
+          return true;
+        }
+        return normalizeTagValue(String(row.albumartist ?? '')).toLowerCase() === wantedArtist;
+      });
+  } finally {
+    db.close();
+  }
 }
 
 // beets colours its output when it detects a terminal, and spawning it without
