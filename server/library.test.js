@@ -9,7 +9,8 @@ import {
   parseBeetsConfig,
   findExistingAlbums,
   repairLibrary,
-  countLibraryItems
+  maxItemId,
+  itemsAddedSince
 } from './library.js';
 
 // Trimmed from the real `beet config` output on the deployment box (beets
@@ -234,18 +235,30 @@ test('applying a repair refuses when the library directory is not there', async 
   }
 });
 
-// The import verification subtracts one of these from another, so a wrong count
-// silently turns a healthy import into a "partial" one, or the reverse.
-test('the item count is the number of tracks beets holds', async () => {
+// The import verification compares these two against the number of files handed
+// to beets, and a retry removes exactly the rows itemsAddedSince names. Getting
+// either wrong turns a healthy import into a "partial" one, or — worse — points
+// a removal at rows the import did not create.
+test('the added rows are the ones past the high-water mark, and nothing else', async () => {
   const { root, paths } = await buildAlbums([
     { album: 'Modal Soul', albumartist: 'Nujabes', tracks: 14 },
+    // Rows, not files: a row whose file is gone is still a row, which is what
+    // keeps the before/after comparison equal to what an import actually added.
     { album: 'Quarks', albumartist: 'Timothée Robert', tracks: 11, onDisk: false }
   ]);
 
   try {
-    // Rows, not files: a row whose file is gone is still a row, which is what
-    // makes the before/after difference equal to what an import actually added.
-    assert.equal(await countLibraryItems(paths), 25);
+    const high = await maxItemId(paths);
+    assert.equal(high, 25, 'ids are dense in the fixture, so the max is the count');
+
+    assert.deepEqual(await itemsAddedSince(high, paths), [], 'nothing added yet');
+
+    const added = await itemsAddedSince(20, paths);
+    assert.deepEqual(
+      added.map((row) => row.id),
+      [21, 22, 23, 24, 25]
+    );
+    assert.ok(Buffer.isBuffer(added[0].path), 'paths stay Buffers for filesystem use');
   } finally {
     await fsp.rm(root, { recursive: true, force: true });
   }

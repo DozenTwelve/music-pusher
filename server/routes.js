@@ -15,7 +15,7 @@ import {
   COVER_IMAGE_EXTENSIONS
 } from './upload.js';
 import { extractZipAlbum, ArchiveError } from './archive.js';
-import { runAudit, startImport, streamJob, getJob } from './shell.js';
+import { runAudit, startImport, retryImport, streamJob, getJob } from './shell.js';
 import { inspectAlbum, fixAlbum, embedCover } from './metadata/index.js';
 import { runPreflight } from './preflight.js';
 import { checkLibraryHealth, repairLibrary, findExistingAlbums } from './library.js';
@@ -577,6 +577,28 @@ apiRouter.post('/import', async (req, res) => {
   }
 
   res.status(202).json({ ok: true, job: result.job });
+});
+
+// Undo a partial import and run it again. Only reachable after a verification
+// failure — there is nothing to undo otherwise, and the handler says so rather
+// than silently importing.
+apiRouter.post('/import/retry', async (req, res) => {
+  const album = await resolveAlbum(req, res);
+  if (!album) {
+    return;
+  }
+
+  const result = await retryImport(album);
+  if (!result.ok) {
+    res.status(result.error === 'nothing_to_retry' ? 404 : 409).json({
+      ok: false,
+      code: result.error,
+      message: result.message
+    });
+    return;
+  }
+
+  res.status(202).json({ ok: true, job: result.job, undo: result.undo });
 });
 
 apiRouter.get('/import/:jobId', (req, res) => {

@@ -165,6 +165,13 @@ export async function repairLibrary(pretend) {
   return data;
 }
 
+// Undo a partial import (remove the rows it added, put the files back in RAW)
+// and import again.
+export async function retryImport(album) {
+  const { data } = await axios.post('/api/import/retry', { album });
+  return data;
+}
+
 export function importStreamUrl(jobId) {
   return `/api/import/${jobId}/stream`;
 }

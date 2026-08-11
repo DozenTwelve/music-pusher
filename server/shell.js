@@ -4,8 +4,8 @@ import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { config } from './config.js';
 import { acquireAlbum, releaseAlbum, albumBusyMessage } from './metadata/lock.js';
-import { listAudioFiles } from './metadata/probe.js';
-import { countLibraryItems } from './library.js';
+import { listAudioFiles, runProcess } from './metadata/probe.js';
+import { maxItemId, itemsAddedSince } from './library.js';
 
 const jobs = new Map();
 let activeJobId = null;
@@ -167,7 +167,7 @@ export async function startImport(album) {
   let before = null;
   try {
     expected = (await listAudioFiles(albumPath)).length;
-    before = await countLibraryItems();
+    before = await maxItemId();
   } catch (error) {
     // Verification is a safety net, not a precondition: if beets is unreachable
     // the import still runs, it just goes unchecked — and says so.
@@ -197,8 +197,14 @@ export async function startImport(album) {
 
     if (job.status === 'done' && before !== null) {
       try {
-        const imported = (await countLibraryItems()) - before;
-        job.verification = { expected, imported };
+        const added = await itemsAddedSince(before);
+        job.verification = {
+          expected,
+          imported: added.length,
+          // Kept so a retry can undo exactly this run — see retryImport.
+          added: added.map((row) => ({ id: row.id, path: row.path.toString('utf8') }))
+        };
+        const imported = added.length;
         if (imported !== expected) {
           job.status = 'partial';
           pushLine(
@@ -264,6 +270,90 @@ export async function startImport(album) {
       createdAt: job.createdAt
     }
   };
+}
+
+// Undo a partial import, then run it again.
+//
+// A partial leaves the album split across two places: the tracks beets accepted
+// were moved into the library (`move: yes`), and the ones it skipped are still
+// in the RAW folder, which the verification deliberately did not delete.
+// Importing RAW again as-is would file the leftovers as an album of their own,
+// so the two halves have to be reunited first.
+//
+// Every step is chosen so that a failure part-way cannot lose audio: rows are
+// removed without `-d`, so files survive as orphans that /library/health will
+// report; the moves are into the RAW folder, which is never deleted except after
+// a verified-complete import; and a name already taken in RAW is left alone
+// rather than overwritten.
+export async function retryImport(album) {
+  const job = [...jobs.values()]
+    .filter((candidate) => candidate.album === album && candidate.status === 'partial')
+    .sort((a, b) => b.finishedAt - a.finishedAt)[0];
+
+  if (!job) {
+    return {
+      ok: false,
+      error: 'nothing_to_retry',
+      message: `No partial import is on record for album '${album}'.`
+    };
+  }
+
+  const added = job.verification?.added ?? [];
+  const albumPath = path.join(config.rawDir, album);
+
+  if (!acquireAlbum(album)) {
+    return { ok: false, error: 'import_busy', message: albumBusyMessage(album) };
+  }
+
+  const undo = { removed: 0, movedBack: 0, skipped: [] };
+  try {
+    if (added.length > 0) {
+      // `id:1 , id:2 , …` — a comma is beets' OR between query terms. Without
+      // `-d` this drops the rows and leaves every file where it is.
+      const args = ['remove', '-f'];
+      added.forEach((row, index) => {
+        if (index > 0) {
+          args.push(',');
+        }
+        args.push(`id:${row.id}`);
+      });
+      const { code, stderr } = await runProcess(config.beetBin, args);
+      if (code !== 0) {
+        throw new Error(`'beet remove' failed (exit ${code}): ${stderr.trim()}`);
+      }
+      undo.removed = added.length;
+    }
+
+    await fsp.mkdir(albumPath, { recursive: true });
+    for (const row of added) {
+      const destination = path.join(albumPath, path.basename(row.path));
+      if (row.path === destination) {
+        continue; // never moved out of RAW in the first place
+      }
+      try {
+        await fsp.access(destination);
+        undo.skipped.push(destination); // something is already there; do not clobber
+        continue;
+      } catch {
+        // free to take the name
+      }
+      await fsp.rename(row.path, destination);
+      undo.movedBack += 1;
+    }
+  } catch (error) {
+    releaseAlbum(album);
+    return {
+      ok: false,
+      error: 'retry_undo_failed',
+      message: `Could not undo the partial import: ${error.message}. Nothing was deleted; run a library check to see the current state.`
+    };
+  }
+
+  // startImport takes the lock itself, and holds it past its own cleanup.
+  releaseAlbum(album);
+
+  const result = await startImport(album);
+  return result.ok ? { ...result, undo } : result;
 }
 
 export function getJob(id) {

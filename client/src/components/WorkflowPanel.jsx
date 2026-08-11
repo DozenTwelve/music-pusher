@@ -5,6 +5,7 @@ import {
   fixAlbum,
   embedCover,
   startImport,
+  retryImport,
   importStreamUrl,
   errorMessage
 } from '../api.js';
@@ -176,7 +177,16 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
     }
   }
 
-  async function importAlbum(force = false) {
+  function importAlbum(force = false) {
+    // Both entry points follow the same job stream; only the request differs.
+    return runImport(() => startImport(selectedAlbum, { force }));
+  }
+
+  function retryPartialImport() {
+    return runImport(() => retryImport(selectedAlbum));
+  }
+
+  async function runImport(start) {
     if (!selectedAlbum || importStatus === 'running') {
       return;
     }
@@ -185,7 +195,7 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
     setImportStatus('starting');
 
     try {
-      const data = await startImport(selectedAlbum, { force });
+      const data = await start();
       const jobId = data?.job?.id;
       if (!jobId) {
         throw new Error('Missing job id from server.');
@@ -388,6 +398,20 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
                     ? 'Import anyway'
                     : 'Import'}
               </Button>
+              {/* Only after a verification failure. The RAW folder was kept
+                  precisely so this is possible, and the retry undoes the half
+                  that landed before running again. */}
+              {importStatus === 'partial' ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={retryPartialImport}
+                  disabled={importStatus === 'running'}
+                >
+                  Undo and retry
+                </Button>
+              ) : null}
             </div>
             <p className="step-status">
               Status: {importStatus}

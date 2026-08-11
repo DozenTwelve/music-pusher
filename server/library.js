@@ -140,14 +140,30 @@ async function listLibraryFiles(rootBuffer) {
   return found;
 }
 
-// Total tracks beets holds. Sampled either side of an import to check that the
-// album actually landed: beets exits 0 having imported some, all or none of what
-// it was handed, so the exit code alone says nothing about how much arrived.
+// The high-water mark of beets' item ids, sampled before an import so that
+// itemsAddedSince can name exactly what the run added. beets exits 0 having
+// imported some, all or none of what it was handed, so the exit code alone says
+// nothing about how much arrived.
 // `paths` is optional; without it the locations come from beets itself.
-export async function countLibraryItems(paths) {
+export async function maxItemId(paths) {
   const db = await openLibraryDb(paths);
   try {
-    return db.prepare('select count(*) as n from items').get().n;
+    return db.prepare('select coalesce(max(id), 0) as n from items').get().n;
+  } finally {
+    db.close();
+  }
+}
+
+// The rows an import added, by id and path. Ids rather than a plain count,
+// because undoing a partial import has to name the rows it removes — and beets
+// picks the imported album's name itself, so there is nothing else to match on.
+export async function itemsAddedSince(sinceId, paths) {
+  const db = await openLibraryDb(paths);
+  try {
+    return db
+      .prepare('select id, path from items where id > ? order by id')
+      .all(sinceId)
+      .map((row) => ({ id: row.id, path: toPathBuffer(row.path) }));
   } finally {
     db.close();
   }
