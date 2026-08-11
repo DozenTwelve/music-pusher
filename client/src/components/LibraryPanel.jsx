@@ -216,7 +216,7 @@ export default function LibraryPanel() {
                 </Button>
                 <span className="muted small flex-1 basis-full">
                   {preview?.output
-                    ? 'Applying runs the same command for real: stale rows are dropped and surviving files are renamed onto the beets path template.'
+                    ? 'Applying runs the same two commands for real: `beet update` drops rows whose file is gone, then `beet move` renames what no longer matches the beets path template.'
                     : 'Preview first — the repair renames files, and the preview is the only place that lists which.'}
                 </span>
               </div>
@@ -224,8 +224,13 @@ export default function LibraryPanel() {
               {preview?.output ? (
                 <Accordion type="single" collapsible className="border-t border-border">
                   <AccordionItem value="preview" className="border-b-0">
+                    {/* Both numbers. Labelling this with the drop count alone hid
+                        the only pending work whenever a library had files to
+                        relocate and no dead rows left — which is the state a
+                        library lands in after its first repair. */}
                     <AccordionTrigger>
-                      Preview — {preview.deleted} row{preview.deleted === 1 ? '' : 's'} to drop
+                      Preview — {preview.deleted} row{preview.deleted === 1 ? '' : 's'} to drop,{' '}
+                      {preview.moved} file{preview.moved === 1 ? '' : 's'} to move
                     </AccordionTrigger>
                     <AccordionContent>
                       <pre className="terminal">{preview.output}</pre>
