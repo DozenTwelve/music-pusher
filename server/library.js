@@ -263,7 +263,16 @@ export async function repairLibrary({ pretend = true } = {}, paths) {
     if (code !== 0) {
       throw new Error(`'${config.beetBin} ${args.join(' ')}' failed (exit ${code}): ${stderr.trim()}`);
     }
-    sections.push({ command, text: stripAnsi(stdout).trim() });
+    // beets does not agree with itself about which stream to use: `update`
+    // writes its change list to stdout and logs the same lines to stderr, while
+    // `move` reports only through the logger, so its stdout is empty. Reading
+    // stdout alone silently dropped everything `move` had to say — both the
+    // preview text and the moved count. Preferring stdout and falling back to
+    // stderr covers both without printing the update list twice.
+    // ponytail: a split across both streams in one command would lose the
+    // smaller half. Neither of these two does that today.
+    const text = stripAnsi(stdout).trim() || stripAnsi(stderr).trim();
+    sections.push({ command, text });
   }
 
   const byCommand = Object.fromEntries(sections.map((s) => [s.command, s.text]));

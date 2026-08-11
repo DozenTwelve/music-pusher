@@ -43,7 +43,9 @@ export default function LibraryPanel() {
       const result = await repairLibrary(pretend);
       if (pretend) {
         setPreview(result);
-        if (!result.output) {
+        // Judged on the counts, not on whether beets printed anything: `beet
+        // move` always reports, even when it is "Moving 0 items".
+        if (!result.deleted && !result.moved) {
           toast.success('Nothing to repair — beets and disk already agree.');
         }
       } else {
@@ -62,6 +64,9 @@ export default function LibraryPanel() {
 
   const totals = health?.totals;
   const healthy = totals && totals.missing === 0 && totals.orphans === 0;
+  // A preview that found nothing must not arm Apply. beets still prints a line
+  // in that case ("Moving 0 items"), so the counts are the only honest signal.
+  const hasRepairWork = Boolean(preview && (preview.deleted || preview.moved));
 
   return (
     <section className="library panel">
@@ -210,12 +215,12 @@ export default function LibraryPanel() {
                   size="sm"
                   variant="destructive"
                   onClick={() => runRepair(false)}
-                  disabled={busy || !preview?.output}
+                  disabled={busy || !hasRepairWork}
                 >
                   Apply repair
                 </Button>
                 <span className="muted small flex-1 basis-full">
-                  {preview?.output
+                  {hasRepairWork
                     ? 'Applying runs the same two commands for real: `beet update` drops rows whose file is gone, then `beet move` renames what no longer matches the beets path template.'
                     : 'Preview first — the repair renames files, and the preview is the only place that lists which.'}
                 </span>
