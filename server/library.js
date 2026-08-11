@@ -211,12 +211,21 @@ function stripAnsi(value) {
   return value.replace(/\x1b\[[0-9;]*m/g, '');
 }
 
-// The repair, and it is one command: `beet update`. Three effects, not two:
-// it re-reads the on-disk tags of every surviving file into the database, drops
-// rows whose file is gone, and — because the beets config sets `move: yes` —
-// relocates what remains onto the current path template. Doing any of that by
-// hand would mean re-implementing the template here and keeping the copy in
-// agreement with beets forever, which is the drift this module exists to report.
+// The repair is two beets commands, and it needs both.
+//
+// `beet update` re-reads the on-disk tags of every surviving file into the
+// database and drops rows whose file is gone. With `move: yes` in the beets
+// config it also relocates files onto the path template — but only the items it
+// actually changed. An album whose tags were already correct keeps its old
+// folder, which is precisely the album left holding a stale `%aunique{}`
+// suffix once the duplicate row it was disambiguating against is deleted.
+// Observed: after a full update this library still had four `[N]` folders and
+// `beet move --pretend` reported "Moving 45 items (433 already in place)".
+//
+// `beet move` closes that: it re-renders the template for every item and moves
+// what no longer matches. Doing this by hand would mean re-implementing the
+// template here and keeping the copy in agreement with beets forever, which is
+// the drift this module exists to report.
 //
 // The tag re-read is the one to remember when anything starts editing the
 // library: `beet update` takes the file's tags as the truth, so a change written
@@ -242,22 +251,35 @@ export async function repairLibrary({ pretend = true } = {}, paths) {
     }
   }
 
-  const args = ['update', ...(pretend ? ['--pretend'] : [])];
-  const { code, stdout, stderr } = await runProcess(config.beetBin, args);
-  if (code !== 0) {
-    throw new Error(`'${config.beetBin} ${args.join(' ')}' failed (exit ${code}): ${stderr.trim()}`);
+  const flag = pretend ? ['--pretend'] : [];
+  const sections = [];
+
+  // Order matters: update first, so that the rows whose files are gone are out
+  // of the database before move re-renders the path template. Running move
+  // first would relocate files to a name that update is about to change.
+  for (const command of ['update', 'move']) {
+    const args = [command, ...flag];
+    const { code, stdout, stderr } = await runProcess(config.beetBin, args);
+    if (code !== 0) {
+      throw new Error(`'${config.beetBin} ${args.join(' ')}' failed (exit ${code}): ${stderr.trim()}`);
+    }
+    sections.push({ command, text: stripAnsi(stdout).trim() });
   }
 
-  const output = stripAnsi(stdout).trim();
+  const byCommand = Object.fromEntries(sections.map((s) => [s.command, s.text]));
   return {
     ok: true,
     pretend,
-    // ponytail: scraped from beets' human-readable output, which is not a stable
-    // interface. The full text ships alongside the count, so a beets format
-    // change surfaces as a wrong number next to visibly right output rather than
-    // as a silent zero. Move to a parsable `--format` if this ever misleads.
-    deleted: (output.match(/^ *deleted$/gm) || []).length,
-    output
+    // ponytail: both counts are scraped from beets' human-readable output, which
+    // is not a stable interface. The full text ships alongside them, so a beets
+    // format change surfaces as a wrong number next to visibly right output
+    // rather than as a silent zero. Move to a parsable `--format` if it misleads.
+    deleted: (byCommand.update.match(/^ *deleted$/gm) || []).length,
+    moved: Number(byCommand.move.match(/^Moving (\d+) items?/m)?.[1] ?? 0),
+    output: sections
+      .filter((s) => s.text)
+      .map((s) => `$ beet ${s.command}${pretend ? ' --pretend' : ''}\n${s.text}`)
+      .join('\n\n')
   };
 }
 

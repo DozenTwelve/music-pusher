@@ -11,7 +11,7 @@ import {
 } from './ui/accordion.jsx';
 
 // The imported library, as beets sees it: reconcile the beets database against
-// the filesystem, then repair it with `beet update`.
+// the filesystem, then repair it with `beet update` followed by `beet move`.
 //
 // Applying is gated behind a preview rather than a confirm dialog. The repair
 // renames files — beets runs with `move: yes`, so it relocates everything onto
@@ -49,7 +49,7 @@ export default function LibraryPanel() {
       } else {
         setPreview(null);
         toast.success(
-          `Repaired: ${result.deleted} stale row${result.deleted === 1 ? '' : 's'} dropped, surviving files moved onto the beets path template.`
+          `Repaired: ${result.deleted} stale row${result.deleted === 1 ? '' : 's'} dropped, ${result.moved} file${result.moved === 1 ? '' : 's'} moved onto the beets path template.`
         );
         setHealth(await getLibraryHealth());
       }
@@ -86,12 +86,17 @@ export default function LibraryPanel() {
         </p>
       ) : (
         <div className="report">
-          <div className={`report-banner ${healthy ? 'good' : 'bad'}`}>
+          {/* Three states, not two. Orphans alone used to fall through to the
+              "missing files" wording and render it with zeroes: "0 of 478 tracks
+              point at files that no longer exist, across 0 albums." */}
+          <div className={`report-banner ${totals.missing > 0 ? 'bad' : healthy ? 'good' : 'warn'}`}>
             {healthy ? <CheckIcon /> : <AlertIcon />}
             <span>
-              {healthy
-                ? `Database and disk agree — all ${totals.items} tracks accounted for.`
-                : `${totals.missing} of ${totals.items} tracks point at files that no longer exist, across ${totals.albumsAffected} album${totals.albumsAffected === 1 ? '' : 's'}.`}
+              {totals.missing > 0
+                ? `${totals.missing} of ${totals.items} tracks point at files that no longer exist, across ${totals.albumsAffected} album${totals.albumsAffected === 1 ? '' : 's'}.`
+                : healthy
+                  ? `Database and disk agree — all ${totals.items} tracks accounted for.`
+                  : `Every one of the ${totals.items} tracks beets knows about is present. What is left is the other direction: audio on disk beets has never seen.`}
             </span>
           </div>
 
@@ -129,38 +134,43 @@ export default function LibraryPanel() {
             </div>
           ) : null}
 
-          {health.albums.length ? (
+          {/* Both sections are independent: a library can have orphans and no
+              missing rows, which used to hide the orphan list entirely because
+              the whole accordion hung off `albums.length`. */}
+          {health.albums.length || health.orphans.length ? (
             <Accordion type="single" collapsible className="border-t border-border">
-              <AccordionItem value="missing">
-                <AccordionTrigger>
-                  Albums with missing files ({totals.albumsAffected})
-                </AccordionTrigger>
-                <AccordionContent>
-                  <table className="field-table">
-                    <thead>
-                      <tr>
-                        <th>Album</th>
-                        <th>Album artist</th>
-                        <th>Missing</th>
-                        <th>Where</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {health.albums.map((entry) => (
-                        <tr key={entry.albumId ?? entry.album} className="row-bad">
-                          <td>{entry.album}</td>
-                          <td>{entry.albumartist || '—'}</td>
-                          <td>{entry.missing}</td>
-                          <td>{entry.outside ? 'old library path' : 'current library'}</td>
+              {health.albums.length ? (
+                <AccordionItem value="missing">
+                  <AccordionTrigger>
+                    Albums with missing files ({totals.albumsAffected})
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <table className="field-table">
+                      <thead>
+                        <tr>
+                          <th>Album</th>
+                          <th>Album artist</th>
+                          <th>Missing</th>
+                          <th>Where</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {health.albumsTruncated ? (
-                    <p className="muted small">…and {health.albumsTruncated} more.</p>
-                  ) : null}
-                </AccordionContent>
-              </AccordionItem>
+                      </thead>
+                      <tbody>
+                        {health.albums.map((entry) => (
+                          <tr key={entry.albumId ?? entry.album} className="row-bad">
+                            <td>{entry.album}</td>
+                            <td>{entry.albumartist || '—'}</td>
+                            <td>{entry.missing}</td>
+                            <td>{entry.outside ? 'old library path' : 'current library'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {health.albumsTruncated ? (
+                      <p className="muted small">…and {health.albumsTruncated} more.</p>
+                    ) : null}
+                  </AccordionContent>
+                </AccordionItem>
+              ) : null}
 
               {health.orphans.length ? (
                 <AccordionItem value="orphans" className="border-b-0">
@@ -182,12 +192,15 @@ export default function LibraryPanel() {
             </Accordion>
           ) : null}
 
-          {/* Gated on missing rows, not on `healthy`. `beet update` never imports
-              files beets has not seen, so on an orphans-only library it has
-              nothing to do: the preview would come back empty and report that
-              database and disk agree, directly under a banner counting orphans. */}
-          {totals.missing > 0 ? (
-            <div>
+          {/* Always offered, because only the preview can tell whether there is
+              work to do. Gating on `totals.missing` was wrong in both
+              directions: the repair also relocates files whose path no longer
+              matches the template, which happens with zero missing rows — an
+              album left holding a stale `%aunique{}` suffix after the duplicate
+              it was disambiguating against was dropped. The preview is
+              read-only and Apply stays disabled until it comes back with
+              something, so an empty one costs a click. */}
+          <div>
               <div className="flex flex-wrap items-center gap-2 pt-2">
                 <Button type="button" size="sm" onClick={() => runRepair(true)} disabled={busy}>
                   {busy ? 'Working…' : preview ? 'Refresh preview' : 'Preview repair'}
@@ -220,8 +233,7 @@ export default function LibraryPanel() {
                   </AccordionItem>
                 </Accordion>
               ) : null}
-            </div>
-          ) : null}
+          </div>
 
           <p className="muted small">
             beets database: <code>{health.dbPath}</code> · library: <code>{health.libraryDir}</code>
