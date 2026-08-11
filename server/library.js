@@ -140,6 +140,19 @@ async function listLibraryFiles(rootBuffer) {
   return found;
 }
 
+// Total tracks beets holds. Sampled either side of an import to check that the
+// album actually landed: beets exits 0 having imported some, all or none of what
+// it was handed, so the exit code alone says nothing about how much arrived.
+// `paths` is optional; without it the locations come from beets itself.
+export async function countLibraryItems(paths) {
+  const db = await openLibraryDb(paths);
+  try {
+    return db.prepare('select count(*) as n from items').get().n;
+  } finally {
+    db.close();
+  }
+}
+
 // The duplicate import is what creates the stale rows repairLibrary cleans up,
 // so this is the cheaper end of the same problem. beets accepts an album it
 // already holds without complaint: it writes a second album row, and because two

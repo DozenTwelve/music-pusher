@@ -4,6 +4,8 @@ import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { config } from './config.js';
 import { acquireAlbum, releaseAlbum, albumBusyMessage } from './metadata/lock.js';
+import { listAudioFiles } from './metadata/probe.js';
+import { countLibraryItems } from './library.js';
 
 const jobs = new Map();
 let activeJobId = null;
@@ -106,7 +108,9 @@ export function runAudit(album) {
   });
 }
 
-export function startImport(album) {
+// Async only for the pre-import measurements below; it still returns as soon as
+// beets is spawned, and the job is followed over SSE.
+export async function startImport(album) {
   if (activeJobId) {
     const activeJob = jobs.get(activeJobId);
     if (activeJob && activeJob.status === 'running') {
@@ -137,6 +141,7 @@ export function startImport(album) {
     album,
     status: 'running',
     cleanup: null,
+    verification: null,
     createdAt: Date.now(),
     finishedAt: null,
     logs: [],
@@ -146,6 +151,30 @@ export function startImport(album) {
 
   jobs.set(id, job);
   activeJobId = id;
+
+  // Measured before the run so the close handler can tell how much of the album
+  // actually landed. beets exits 0 whether it imported all of the files, some of
+  // them or none, and this app then deletes the RAW folder on that exit code —
+  // which is how an 8-track album came to be represented in the library by a
+  // single track, with its source already gone.
+  //
+  // Counting rows either side beats matching on the album name: beets decides
+  // the imported album's name itself, and matching would have to agree with that
+  // decision forever. Only one import runs at a time (activeJobId above) and a
+  // library repair cannot overlap one (the album lock), so nothing else moves
+  // the total in between.
+  let expected = null;
+  let before = null;
+  try {
+    expected = (await listAudioFiles(albumPath)).length;
+    before = await countLibraryItems();
+  } catch (error) {
+    // Verification is a safety net, not a precondition: if beets is unreachable
+    // the import still runs, it just goes unchecked — and says so.
+    pushLine(job, 'stderr', `Could not measure the library before importing: ${error.message}`);
+    expected = null;
+    before = null;
+  }
 
   const processRef = spawn(config.beetBin, ['import', '-A', albumPath], {
     shell: false
@@ -166,7 +195,29 @@ export function startImport(album) {
     job.finishedAt = Date.now();
     activeJobId = null;
 
-    if (code === 0 && config.cleanupRawAfterImport) {
+    if (job.status === 'done' && before !== null) {
+      try {
+        const imported = (await countLibraryItems()) - before;
+        job.verification = { expected, imported };
+        if (imported !== expected) {
+          job.status = 'partial';
+          pushLine(
+            job,
+            'stderr',
+            `Only ${imported} of ${expected} tracks reached the library. The RAW folder is kept ` +
+              'so nothing is lost — check the log above for what beets skipped.'
+          );
+        }
+      } catch (error) {
+        job.status = 'partial';
+        pushLine(job, 'stderr', `Could not verify the import: ${error.message}`);
+      }
+    }
+
+    // Cleanup is gated on the verified status, not on the exit code. Deleting
+    // the source of a partial import is the one mistake there is no recovering
+    // from.
+    if (job.status === 'done' && config.cleanupRawAfterImport) {
       try {
         await fsp.rm(albumPath, { recursive: true, force: true });
         job.cleanup = {
@@ -191,7 +242,8 @@ export function startImport(album) {
     const payload = {
       status: job.status,
       code,
-      cleanup: job.cleanup
+      cleanup: job.cleanup,
+      verification: job.verification ?? null
     };
 
     for (const client of job.clients) {

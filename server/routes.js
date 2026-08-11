@@ -566,7 +566,7 @@ apiRouter.post('/import', async (req, res) => {
     }
   }
 
-  const result = startImport(album);
+  const result = await startImport(album);
   if (!result.ok) {
     res.status(409).json({
       ok: false,

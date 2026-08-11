@@ -8,7 +8,8 @@ import {
   checkLibraryHealth,
   parseBeetsConfig,
   findExistingAlbums,
-  repairLibrary
+  repairLibrary,
+  countLibraryItems
 } from './library.js';
 
 // Trimmed from the real `beet config` output on the deployment box (beets
@@ -228,6 +229,23 @@ test('applying a repair refuses when the library directory is not there', async 
       repairLibrary({ pretend: false }, { ...paths, libraryDir: path.join(root, 'not-mounted') }),
       /does not exist. Refusing to repair/
     );
+  } finally {
+    await fsp.rm(root, { recursive: true, force: true });
+  }
+});
+
+// The import verification subtracts one of these from another, so a wrong count
+// silently turns a healthy import into a "partial" one, or the reverse.
+test('the item count is the number of tracks beets holds', async () => {
+  const { root, paths } = await buildAlbums([
+    { album: 'Modal Soul', albumartist: 'Nujabes', tracks: 14 },
+    { album: 'Quarks', albumartist: 'Timothée Robert', tracks: 11, onDisk: false }
+  ]);
+
+  try {
+    // Rows, not files: a row whose file is gone is still a row, which is what
+    // makes the before/after difference equal to what an import actually added.
+    assert.equal(await countLibraryItems(paths), 25);
   } finally {
     await fsp.rm(root, { recursive: true, force: true });
   }

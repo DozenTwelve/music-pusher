@@ -216,6 +216,13 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
         }
         if (status === 'done') {
           toast.success(`Import finished for “${selectedAlbum}”.`);
+        } else if (status === 'partial') {
+          const v = payload.verification;
+          toast.error(
+            v
+              ? `Only ${v.imported} of ${v.expected} tracks reached the library. The RAW folder was kept — see the log.`
+              : `Could not verify the import for “${selectedAlbum}” — the RAW folder was kept.`
+          );
         } else {
           toast.error(`Import failed for “${selectedAlbum}” — see the log.`);
         }
@@ -294,7 +301,7 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
   const importStepState =
     importStatus === 'done'
       ? 'done'
-      : importStatus === 'failed' || importStatus === 'blocked'
+      : importStatus === 'failed' || importStatus === 'blocked' || importStatus === 'partial'
         ? 'failed'
         : importStatus === 'running' || importStatus === 'starting'
           ? 'active'
