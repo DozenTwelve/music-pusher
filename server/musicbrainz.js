@@ -10,6 +10,21 @@
 // Only the search endpoint is used. Applying the release is still beets' job,
 // via `--search-id` — nothing here writes a tag.
 
+import net from 'node:net';
+
+// The deployment box resolves musicbrainz.org to both an A and a AAAA record but
+// has no working route to the IPv6 one, so a connection that starts there stalls
+// until it times out. Node already runs Happy Eyeballs by default, but its
+// 250ms head start is not enough here — the IPv4 attempt never gets going and
+// `fetch` fails with ETIMEDOUT while curl on the same host succeeds. 500ms is.
+//
+// Set globally because `fetch` takes no per-request connection options: Node
+// does not expose undici's dispatcher, so this setter is the only reachable
+// knob. It is also the right shape of fix — raising the fallback delay keeps
+// IPv6 preferred where it works, unlike pinning the family to IPv4.
+net.setDefaultAutoSelectFamily(true);
+net.setDefaultAutoSelectFamilyAttemptTimeout(500);
+
 const MB_ENDPOINT = 'https://musicbrainz.org/ws/2/release';
 // MusicBrainz requires a contactable User-Agent and throttles to ~1 req/s. This
 // runs once per button press, so the rate limit needs no client-side pacing.
