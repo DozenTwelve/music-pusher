@@ -11,6 +11,13 @@ import { maxItemId, itemsAddedSince } from './library.js';
 const jobs = new Map();
 let activeJobId = null;
 
+// Every status a finished job can hold. Named because it was previously spelled
+// out inline as `done || failed`, which silently omitted `partial` — so a client
+// reconnecting to a finished partial import was never sent an `end` event and
+// waited on a job that had already stopped. Anything that assigns a new terminal
+// status has to appear here too.
+export const TERMINAL_STATUSES = new Set(['done', 'failed', 'partial']);
+
 const MAX_RETAINED_JOBS = 20;
 
 function sendEvent(response, eventName, payload) {
@@ -446,11 +453,17 @@ export function streamJob(id, response) {
     sendEvent(response, 'log', entry);
   }
 
-  if (job.status === 'done' || job.status === 'failed') {
+  // The same shape the live run sends, verification included. Without it a
+  // client that connects after the job finished — a page refresh during a long
+  // import is enough — is told the import could not be verified, when in fact
+  // it was verified and found short. The count is the one thing that says how
+  // much of the album is actually there.
+  if (TERMINAL_STATUSES.has(job.status)) {
     sendEvent(response, 'end', {
       status: job.status,
-      code: job.status === 'done' ? 0 : 1,
-      cleanup: job.cleanup
+      code: job.status === 'failed' ? 1 : 0,
+      cleanup: job.cleanup,
+      verification: job.verification ?? null
     });
     response.end();
     return { ok: true };

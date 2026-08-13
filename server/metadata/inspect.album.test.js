@@ -179,6 +179,16 @@ test('a track with no readable length is reported and repaired losslessly', asyn
   }
 });
 
+test('a partial import counts as finished, so a reconnecting client is released', async () => {
+  const { TERMINAL_STATUSES } = await import('../shell.js');
+  // The status the whole verification safety net exists to produce. Leaving it
+  // out here does not fail loudly — the stream simply never ends, and the UI
+  // sits on "running" for a job that stopped, with the retry button it needs
+  // still hidden.
+  assert.ok(TERMINAL_STATUSES.has('partial'));
+  assert.deepEqual([...TERMINAL_STATUSES].sort(), ['done', 'failed', 'partial']);
+});
+
 test('a bogus release id is refused before beets is ever spawned', async () => {
   const { startImport } = await import('../shell.js');
   const result = await startImport('anything', { releaseId: '; rm -rf /' });

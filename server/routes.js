@@ -666,7 +666,13 @@ apiRouter.get('/import/:jobId', (req, res) => {
       album: job.album,
       status: job.status,
       createdAt: job.createdAt,
-      finishedAt: job.finishedAt
+      finishedAt: job.finishedAt,
+      // Both already on the job; they were simply never copied out. Without
+      // them a caller polling this route can see `partial` but not how short
+      // the import fell, nor whether the RAW folder is still there to retry
+      // from — the two facts that decide what to do about it.
+      verification: job.verification ?? null,
+      cleanup: job.cleanup ?? null
     }
   });
 });
