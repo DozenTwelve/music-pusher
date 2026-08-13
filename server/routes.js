@@ -16,7 +16,8 @@ import {
 } from './upload.js';
 import { extractZipAlbum, ArchiveError } from './archive.js';
 import { runAudit, startImport, retryImport, streamJob, getJob } from './shell.js';
-import { inspectAlbum, fixAlbum, embedCover } from './metadata/index.js';
+import { searchReleases } from './musicbrainz.js';
+import { inspectAlbum, albumBase, fixAlbum, embedCover } from './metadata/index.js';
 import { runPreflight } from './preflight.js';
 import { checkLibraryHealth, repairLibrary, findExistingAlbums } from './library.js';
 import { acquireLibrary, releaseLibrary, libraryBusyMessage } from './metadata/lock.js';
@@ -422,6 +423,43 @@ apiRouter.post('/inspect', async (req, res) => {
   }
 });
 
+// MusicBrainz releases this album could be, for the user to choose from when
+// beets will not choose on its own. Read-only: picking one changes nothing until
+// they import with it.
+apiRouter.post('/releases', async (req, res) => {
+  const album = await resolveAlbum(req, res);
+  if (!album) {
+    return;
+  }
+
+  let report;
+  try {
+    report = await inspectAlbum(album);
+  } catch (error) {
+    res.status(500).json({ ok: false, code: 'inspect_failed', message: error.message });
+    return;
+  }
+  if (!report.ok) {
+    res.status(422).json(report);
+    return;
+  }
+
+  // Search on the album's own tags. These are the two fields the app has
+  // already unified by this point, so they are the most reliable thing it
+  // knows — and when they are wrong, the user sees it in the candidate list
+  // and can fix them in step 2 before searching again.
+  // Search on the base name. A trailing "[Explicit]"-style marker comes from the
+  // downloader, not the release, and MusicBrainz matches the phrase literally —
+  // so leaving it on turns a findable album into zero results.
+  const result = await searchReleases({
+    artist: report.fields.album_artist.proposed,
+    album: albumBase(report.fields.album.proposed),
+    tracks: report.trackCount
+  });
+
+  res.status(result.ok ? 200 : 502).json(result);
+});
+
 apiRouter.post('/fix', async (req, res) => {
   const album = await resolveAlbum(req, res);
   if (!album) {
@@ -433,7 +471,8 @@ apiRouter.post('/fix', async (req, res) => {
       set: req.body?.set || {},
       normalizeTracks: Boolean(req.body?.normalizeTracks),
       fixFilenames: Boolean(req.body?.fixFilenames),
-      repairText: Boolean(req.body?.repairText)
+      repairText: Boolean(req.body?.repairText),
+      repairDuration: Boolean(req.body?.repairDuration)
     });
     // A fix that ran is a 200 even with per-file errors (a partial success the
     // client renders from result.errors); reserve 4xx for not-run outcomes.
@@ -495,6 +534,9 @@ apiRouter.post('/import', async (req, res) => {
     return;
   }
 
+  // Validated in startImport, which is the only thing that acts on it.
+  const releaseId = typeof req.body?.releaseId === 'string' ? req.body.releaseId : null;
+
   // Guard: import rewrites nothing, so split-causing tags reach the library
   // as-is and fragment the album there. Block only the tag split, which the Fix
   // step can repair; mixed format / audio quality stay advisory because no
@@ -553,7 +595,12 @@ apiRouter.post('/import', async (req, res) => {
       }
     }
 
-    if (report?.ok && report.groupCount > 1) {
+    // The split guard predicts what the album's own tags would do to the
+    // library. A chosen release makes that prediction moot: beets overwrites
+    // album and album artist with the release's, so every track lands under one
+    // name whatever the files disagreed about. Blocking on it would refuse the
+    // import precisely when the fix is already in hand.
+    if (report?.ok && report.groupCount > 1 && !releaseId) {
       // The full report rides along: the client renders the cause from it
       // rather than re-running an inspect this request already paid for.
       res.status(409).json({
@@ -566,7 +613,7 @@ apiRouter.post('/import', async (req, res) => {
     }
   }
 
-  const result = await startImport(album);
+  const result = await startImport(album, { releaseId });
   if (!result.ok) {
     res.status(409).json({
       ok: false,

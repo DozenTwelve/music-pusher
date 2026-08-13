@@ -69,6 +69,41 @@ export function Diagnosis({ report }) {
         </div>
       ) : null}
 
+      {report.noDuration?.length ? (
+        <div className="report-banner bad">
+          <AlertIcon />
+          <span>
+            {report.noDuration.length} of {report.trackCount} tracks report no length. The audio
+            plays, but nothing downstream can read how long it is: Navidrome draws a dead progress
+            bar, and beets scores the track at maximum length distance and gives up on matching the
+            album. Usually a transcode from a stream whose length was unknown at the time.{' '}
+            {report.durationRepairable?.length
+              ? 'Tick “Restore missing track length” in step 2 — the re-encode is lossless.'
+              : 'Not repairable here without re-encoding a lossy format, which would cost quality.'}
+          </span>
+        </div>
+      ) : null}
+
+      {report.missingRequired?.length ? (
+        <div className="report-banner warn">
+          <AlertIcon />
+          <span>
+            {report.missingRequired
+              .map(
+                (m) =>
+                  `${m.files.length} track${m.files.length > 1 ? 's' : ''} with no ${
+                    m.field === 'album_artist' ? 'album artist' : m.field
+                  }`
+              )
+              .join(', ')}
+            . Step 2 cannot fill these in — the values are not in the files. The import can:
+            beets matches the album online and writes back what it finds. Import and check the
+            result; if the tracks still land blank, beets found no match and they need tagging
+            by hand.
+          </span>
+        </div>
+      ) : null}
+
       {report.art?.hasMissing ? (
         <div className="report-banner warn">
           <ImageIcon />
@@ -232,6 +267,23 @@ export function FixForm({ report, draft, onDraftChange }) {
             {report.filenameIssues.length ? ` (${report.filenameIssues.length})` : ' — none found'}
           </Label>
         </div>
+        {report.noDuration?.length ? (
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="repairDuration"
+              disabled={!report.durationRepairable?.length}
+              checked={draft.repairDuration}
+              onCheckedChange={(value) => onDraftChange('repairDuration', value === true)}
+            />
+            <Label htmlFor="repairDuration" className="cursor-pointer font-normal">
+              Restore missing track length ({report.durationRepairable.length} of{' '}
+              {report.noDuration.length})
+              {report.durationRepairable.length < report.noDuration.length
+                ? ' — the rest are not FLAC, and re-encoding them would cost quality'
+                : ' — re-encodes the audio, losslessly'}
+            </Label>
+          </div>
+        ) : null}
         <div className="flex items-center gap-2">
           <Checkbox
             id="repairText"
@@ -244,6 +296,79 @@ export function FixForm({ report, draft, onDraftChange }) {
           </Label>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Pick the MusicBrainz release to import as.
+//
+// beets scores a candidate mostly on how well the track titles line up, so the
+// albums that most need correct titles are the ones it refuses to match: an
+// album with none scores far past the auto-apply threshold against its own
+// exact release. Naming the release is the way past that, and it has to be a
+// person doing the naming — the whole reason beets declined is that the
+// evidence in the files is too thin to decide on.
+export function ReleasePicker({ report, releases, chosen, onSearch, onChoose, busy }) {
+  if (!report) {
+    return null;
+  }
+
+  const chosenRelease = releases?.find((r) => r.id === chosen) || null;
+
+  return (
+    <div className="report">
+      <div className="cover-controls">
+        <Button type="button" size="sm" variant="secondary" onClick={onSearch} disabled={Boolean(busy)}>
+          {busy === 'releases' ? 'Searching…' : releases ? 'Search again' : 'Find on MusicBrainz'}
+        </Button>
+        {chosen ? (
+          <Button type="button" size="sm" variant="secondary" onClick={() => onChoose(null)}>
+            Clear choice
+          </Button>
+        ) : null}
+      </div>
+
+      <p className="step-status">
+        {chosenRelease
+          ? `Importing as “${chosenRelease.title}” (${chosenRelease.date || 'no date'}) — beets will overwrite the tags with this release's.`
+          : releases
+            ? 'Pick the release this album is, or leave unpicked to let beets decide.'
+            : 'Optional. Use this when beets imports the album as-is instead of correcting it — usually because the tracks have no titles to match on.'}
+      </p>
+
+      {releases?.length ? (
+        <ul className="list-disc space-y-1 pl-5">
+          {releases.map((r) => (
+            <li key={r.id}>
+              <label className="cursor-pointer">
+                <input
+                  type="radio"
+                  name="release"
+                  className="mr-2"
+                  checked={chosen === r.id}
+                  onChange={() => onChoose(r.id)}
+                />
+                <strong>{r.artist || '(unknown artist)'}</strong> — {r.title}
+                {r.disambiguation ? ` (${r.disambiguation})` : ''}
+                <span className="muted small">
+                  {' · '}
+                  {[
+                    r.date || 'no date',
+                    r.country,
+                    r.format,
+                    `${r.trackCount} tracks`,
+                    r.label,
+                    r.catalogNumber
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  {r.matchesTrackCount ? '' : ' · ⚠ track count differs'}
+                </span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }

@@ -145,10 +145,18 @@ export async function embedCover(album, file) {
   return data;
 }
 
+// MusicBrainz releases this album could be. Read-only — nothing is applied
+// until one is passed back to startImport.
+export async function searchReleases(album) {
+  const { data } = await axios.post('/api/releases', { album });
+  return data;
+}
+
 // `force` skips the server's would-split guard, for when the user has seen the
-// predicted cause and wants the import anyway.
-export async function startImport(album, { force = false } = {}) {
-  const { data } = await axios.post('/api/import', { album, force });
+// predicted cause and wants the import anyway. `releaseId` names the release to
+// import as, for the albums whose tags are too thin for beets to decide.
+export async function startImport(album, { force = false, releaseId = null } = {}) {
+  const { data } = await axios.post('/api/import', { album, force, releaseId });
   return data;
 }
 

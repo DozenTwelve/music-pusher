@@ -66,7 +66,7 @@ export async function probeTags(absPath) {
     '-v',
     'error',
     '-show_entries',
-    'format=format_name:format_tags:stream=codec_type,sample_rate,bits_per_raw_sample,bits_per_sample:stream_disposition=attached_pic',
+    'format=format_name,duration:format_tags:stream=codec_type,sample_rate,bits_per_raw_sample,bits_per_sample:stream_disposition=attached_pic',
     '-of',
     'json',
     absPath
@@ -82,6 +82,13 @@ export async function probeTags(absPath) {
         tags[key.toLowerCase()] = value;
       }
       tags.__format_name = parsed?.format?.format_name || '';
+      // Missing on a FLAC whose STREAMINFO carries total_samples=0 — what ffmpeg
+      // writes when it transcodes from a stream whose length it does not know
+      // yet, and never goes back to fill in. The audio plays, but every consumer
+      // downstream sees a track of no length: beets scores it at maximum length
+      // distance and gives up on matching the album, and Navidrome draws a dead
+      // progress bar.
+      tags.__duration = Number(parsed?.format?.duration) || null;
       const streams = Array.isArray(parsed?.streams) ? parsed.streams : [];
       tags.__has_art = streams.some(
         (stream) => stream?.codec_type === 'video' && stream?.disposition?.attached_pic === 1

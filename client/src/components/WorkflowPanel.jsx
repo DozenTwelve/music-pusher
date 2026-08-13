@@ -5,11 +5,12 @@ import {
   fixAlbum,
   embedCover,
   startImport,
+  searchReleases,
   retryImport,
   importStreamUrl,
   errorMessage
 } from '../api.js';
-import { Diagnosis, FixForm, CoverArtFix } from './MetadataReport.jsx';
+import { Diagnosis, FixForm, CoverArtFix, ReleasePicker } from './MetadataReport.jsx';
 import { useToast } from './Toast.jsx';
 import { Button } from './ui/button.jsx';
 
@@ -32,6 +33,7 @@ function countFixable(report) {
     report.textIssues.length +
     report.filenameIssues.length +
     (report.track.needsNormalize ? 1 : 0) +
+    (report.durationRepairable?.length ? 1 : 0) +
     (report.art?.hasMissing ? 1 : 0)
   );
 }
@@ -50,6 +52,11 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
   // Arms `force` the same way — one override for both guards, because from
   // here it is the same press: "I have read the warning, import anyway."
   const [duplicateBlock, setDuplicateBlock] = useState(null);
+  // MusicBrainz candidates, and the one the user picked to import as. Kept
+  // across a re-analyze on purpose: which release this *is* does not change
+  // because its tags were tidied up.
+  const [releases, setReleases] = useState(null);
+  const [chosenRelease, setChosenRelease] = useState(null);
   const eventSourceRef = useRef(null);
   const toast = useToast();
 
@@ -64,6 +71,8 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
     setImportStatus('idle');
     setSplitBlock(null);
     setDuplicateBlock(null);
+    setReleases(null);
+    setChosenRelease(null);
   }, [selectedAlbum]);
 
   function applyReport(data) {
@@ -80,7 +89,11 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
       // total-mismatch stays opt-in.
       normalizeTracks: (data.track?.missingNumbers || 0) > 0,
       fixFilenames: data.filenameIssues.length > 0,
-      repairText: hasConfidentText
+      repairText: hasConfidentText,
+      // Default on: the re-encode is lossless, and a track with no length is
+      // broken in both directions — beets cannot match it and no player can
+      // seek it.
+      repairDuration: (data.durationRepairable?.length || 0) > 0
     };
     for (const field of Object.keys(FIELD_LABELS)) {
       const info = data.fields[field];
@@ -126,7 +139,8 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
         set,
         normalizeTracks: Boolean(draft.normalizeTracks),
         fixFilenames: Boolean(draft.fixFilenames),
-        repairText: Boolean(draft.repairText)
+        repairText: Boolean(draft.repairText),
+        repairDuration: Boolean(draft.repairDuration)
       });
       const parts = [
         `Tagged ${data.changes.length} files`,
@@ -177,9 +191,27 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
     }
   }
 
+  async function findReleases() {
+    if (!selectedAlbum) {
+      return;
+    }
+    setBusy('releases');
+    try {
+      const data = await searchReleases(selectedAlbum);
+      setReleases(data.candidates || []);
+      if (!data.candidates?.length) {
+        toast.error('No MusicBrainz release matched this album’s tags.');
+      }
+    } catch (requestError) {
+      toast.error(errorMessage(requestError));
+    } finally {
+      setBusy('');
+    }
+  }
+
   function importAlbum(force = false) {
     // Both entry points follow the same job stream; only the request differs.
-    return runImport(() => startImport(selectedAlbum, { force }));
+    return runImport(() => startImport(selectedAlbum, { force, releaseId: chosenRelease }));
   }
 
   function retryPartialImport() {
@@ -417,6 +449,15 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
               Status: {importStatus}
               {importBlockReason}
             </p>
+
+            <ReleasePicker
+              report={report}
+              releases={releases}
+              chosen={chosenRelease}
+              onSearch={findReleases}
+              onChoose={setChosenRelease}
+              busy={busy}
+            />
             <div className="step-detail">
               <pre className="terminal">
                 {importLogs.length === 0

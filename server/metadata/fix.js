@@ -40,12 +40,23 @@ function metadataKeyFor(field, ext) {
   return field;
 }
 
-async function rewriteTags(absPath, fields) {
+// Containers where restoring a missing duration costs nothing but time. A FLAC
+// re-encode is bit-exact — verified on the album that prompted this: decoded
+// audio md5 identical, file byte-for-byte the same size, embedded art intact.
+// A lossy container has no such pass, so it never gets one.
+const DURATION_REPAIRABLE = new Set(['.flac']);
+
+// `reencode` re-derives the audio stream instead of copying it. Needed because
+// the broken length lives in the FLAC STREAMINFO header, which `-c copy`
+// reproduces verbatim: a stream copy leaves total_samples=0 exactly as it found
+// it. Only the audio is re-encoded — the attached picture is still copied.
+async function rewriteTags(absPath, fields, reencode = false) {
   const ext = path.extname(absPath).toLowerCase();
   const dir = path.dirname(absPath);
   const tmpPath = path.join(dir, `${TEMP_PREFIX}${path.basename(absPath)}`);
 
-  const args = ['-v', 'error', '-i', absPath, '-map', '0', '-c', 'copy', '-map_metadata', '0'];
+  const codecArgs = reencode ? ['-c:a', 'flac', '-c:v', 'copy'] : ['-c', 'copy'];
+  const args = ['-v', 'error', '-i', absPath, '-map', '0', ...codecArgs, '-map_metadata', '0'];
   for (const [field, value] of fields) {
     args.push('-metadata', `${metadataKeyFor(field, ext)}=${value}`);
   }
@@ -76,7 +87,13 @@ function currentFieldValue(tags, field) {
 }
 
 async function runFix(album, options = {}) {
-  const { set = {}, normalizeTracks = false, fixFilenames = false, repairText = false } = options;
+  const {
+    set = {},
+    normalizeTracks = false,
+    fixFilenames = false,
+    repairText = false,
+    repairDuration = false
+  } = options;
   const albumPath = path.join(config.rawDir, album);
   const files = await listAudioFiles(albumPath);
 
@@ -98,7 +115,7 @@ async function runFix(album, options = {}) {
 
   // Disc-aware track normalization and text repair both need the existing tags,
   // so scan every file once up front (also gives each disc's track count).
-  const needScan = normalizeTracks || repairText;
+  const needScan = normalizeTracks || repairText || repairDuration;
   const scan = new Map();
   if (needScan) {
     for (const absPath of files) {
@@ -152,15 +169,22 @@ async function runFix(album, options = {}) {
       }
     }
 
-    if (fields.length === 0) {
+    // A file can need the re-encode with no tag change of its own, so this is
+    // checked alongside `fields` rather than after the early-continue below.
+    const reencode =
+      repairDuration &&
+      DURATION_REPAIRABLE.has(path.extname(absPath).toLowerCase()) &&
+      !scan.get(absPath).__duration;
+
+    if (fields.length === 0 && !reencode) {
       continue;
     }
 
     try {
-      await rewriteTags(absPath, fields);
+      await rewriteTags(absPath, fields, reencode);
       changes.push({
         file: path.relative(albumPath, absPath),
-        applied: fields.map(([k, v]) => `${k}=${v}`)
+        applied: [...fields.map(([k, v]) => `${k}=${v}`), ...(reencode ? ['duration restored'] : [])]
       });
     } catch (error) {
       errors.push({ file: path.relative(albumPath, absPath), message: error.message });
@@ -199,7 +223,7 @@ async function runFix(album, options = {}) {
   return {
     ok: errors.length === 0,
     album,
-    applied: { unify, normalizeTracks, fixFilenames, repairText },
+    applied: { unify, normalizeTracks, fixFilenames, repairText, repairDuration },
     changes,
     renames,
     errors,

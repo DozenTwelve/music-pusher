@@ -1,4 +1,5 @@
 import fsp from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
@@ -108,9 +109,44 @@ export function runAudit(album) {
   });
 }
 
+const RELEASE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// A per-run beets config that accepts a match the default thresholds reject.
+//
+// This is only ever combined with `--search-id`, and that pairing is what makes
+// it safe: the candidate set is one release a human has just confirmed by name,
+// date and track count, so "accept the best candidate" means "accept the one
+// they picked". Raising the threshold in the real config would instead apply to
+// every album forever, silently accepting mediocre matches nobody looked at —
+// which is the opposite of the point.
+//
+// It has to be a file: beets takes an overlay config with `-c` and has no
+// command-line equivalent for a single setting.
+const FORCED_MATCH_CONFIG = path.join(os.tmpdir(), 'music-pusher-forced-match.yaml');
+let forcedMatchConfigWritten = false;
+
+async function forcedMatchConfigPath() {
+  if (!forcedMatchConfigWritten) {
+    // 1.0 is the maximum distance, so this accepts whatever the single
+    // candidate scores rather than guessing a cutoff that would reject the
+    // badly-tagged albums this exists for.
+    await fsp.writeFile(FORCED_MATCH_CONFIG, 'match:\n  strong_rec_thresh: 1.0\n');
+    forcedMatchConfigWritten = true;
+  }
+  return FORCED_MATCH_CONFIG;
+}
+
 // Async only for the pre-import measurements below; it still returns as soon as
 // beets is spawned, and the job is followed over SSE.
-export async function startImport(album) {
+export async function startImport(album, { releaseId = null } = {}) {
+  if (releaseId != null && !RELEASE_ID_RE.test(releaseId)) {
+    return {
+      ok: false,
+      error: 'bad_release_id',
+      message: 'That is not a MusicBrainz release ID.'
+    };
+  }
+
   if (activeJobId) {
     const activeJob = jobs.get(activeJobId);
     if (activeJob && activeJob.status === 'running') {
@@ -176,7 +212,31 @@ export async function startImport(album) {
     before = null;
   }
 
-  const processRef = spawn(config.beetBin, ['import', '-A', albumPath], {
+  // `-q` (non-interactive), not `-A` (no autotag). `-A` told beets to take the
+  // files' own tags as final, so an album that arrived with no titles landed in
+  // the library with no titles — which is how `空洞です` became eight blank rows
+  // and one track numbered 00. Dropping it lets beets match against MusicBrainz
+  // and, via the chroma plugin already enabled in its config, fingerprint the
+  // tracks that carry nothing to match on.
+  //
+  // `-q` is required, not stylistic: without `-A` an unmatched album prompts,
+  // and there is no terminal on the other end of these pipes to answer it.
+  //
+  // This pairs with `import.quiet_fallback: asis` in the beets config. Under
+  // `skip` — its previous value — a quiet run drops every album it cannot match,
+  // exits 0, and reproduces exactly the partial import 12ab309 exists to catch.
+  // With `asis` an unmatched album imports on its own tags, which is what `-A`
+  // did for every album; matched ones are corrected. Neither is worse than
+  // before.
+  // `-c` is a global beets option and has to precede the subcommand.
+  const beetArgs = releaseId
+    ? ['-c', await forcedMatchConfigPath(), 'import', '-q', '--search-id', releaseId, albumPath]
+    : ['import', '-q', albumPath];
+  if (releaseId) {
+    pushLine(job, 'stdout', `Importing as MusicBrainz release ${releaseId}.`);
+  }
+
+  const processRef = spawn(config.beetBin, beetArgs, {
     shell: false
   });
 

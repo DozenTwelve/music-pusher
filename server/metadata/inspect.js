@@ -43,6 +43,12 @@ async function listFolderImages(albumPath) {
 const GROUPING_FIELDS = ['album', 'album_artist'];
 // ffprobe normalizes container-specific atoms to these lowercase tag keys.
 const READ_FIELDS = ['album', 'album_artist', 'date', 'disc', 'track', 'genre'];
+// Tags every track needs on its own, which is a different question from the
+// cross-track agreement READ_FIELDS asks about. An album whose tracks all lack a
+// title is perfectly consistent and splits into nothing, so every check above
+// passes it — and it still reaches the library as a column of blank names, which
+// is what `空洞です` did with eight of its ten tracks.
+const REQUIRED_FIELDS = ['title', 'artist'];
 // How many ffprobe processes may run at once while scanning an album.
 const PROBE_CONCURRENCY = 8;
 
@@ -116,6 +122,7 @@ export async function inspectAlbum(album) {
       sampleRate: tags.__sample_rate ?? null,
       bitDepth: tags.__bit_depth ?? null,
       hasArt: Boolean(tags.__has_art),
+      duration: tags.__duration ?? null,
       title: tags.title || '',
       artist: tags.artist || '',
       artists: tags.artists || '',
@@ -269,6 +276,26 @@ export async function inspectAlbum(album) {
     }
   }
 
+  // Tracks whose length is unreadable. Repairable, but only by re-encoding, so
+  // it is reported apart from the tag problems the Fix step handles with a
+  // metadata-only pass — and only for the containers where re-encoding is
+  // lossless. Anything else would have to be traded for quality, which this app
+  // will not do behind the user's back.
+  const noDuration = readable.filter((t) => !t.duration).map((t) => t.file);
+  const durationRepairable = noDuration.filter((f) => path.extname(f).toLowerCase() === '.flac');
+
+  // Per-track presence of the fields a player has nothing to show without.
+  // Reported, deliberately not a blocker: beets now autotags, so the usual cure
+  // for a missing title is the import itself, and refusing it would leave the
+  // album stuck in RAW with the one thing that could fill the gap locked behind
+  // the refusal. `artist` counts as present when the multi-valued `artists`
+  // carries it, the same precedence albumArtistAnchor uses.
+  const requiredValue = (t, field) => (field === 'artist' ? t.artist || t.artists : t[field]);
+  const missingRequired = REQUIRED_FIELDS.map((field) => ({
+    field,
+    files: readable.filter((t) => !requiredValue(t, field)).map((t) => t.file)
+  })).filter((entry) => entry.files.length > 0);
+
   // Tag text hygiene: control-char corruption and invisible/whitespace noise.
   const textIssues = [];
   for (const track of tracks) {
@@ -348,6 +375,9 @@ export async function inspectAlbum(album) {
     },
     trackGaps,
     incomplete: trackGaps.length > 0,
+    missingRequired,
+    noDuration,
+    durationRepairable,
     art,
     textIssues,
     filenameIssues,
