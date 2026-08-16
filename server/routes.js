@@ -518,12 +518,12 @@ apiRouter.post('/releases', async (req, res) => {
   // beats the alternative of writing a guess into every file at step 2 just to
   // have something to ask MusicBrainz with.
   const typed = req.body?.search || {};
-  const artist = String(typed.artist || '').trim() || report.fields.album_artist.proposed;
-  const album = String(typed.album || '').trim() || report.fields.album.proposed;
+  const searchArtist = String(typed.artist || '').trim() || report.fields.album_artist.proposed;
+  const searchAlbum = String(typed.album || '').trim() || report.fields.album.proposed;
 
   const result = await searchReleases({
-    artist,
-    album: albumBase(album),
+    artist: searchArtist,
+    album: albumBase(searchAlbum),
     tracks: report.trackCount
   });
 
