@@ -308,7 +308,7 @@ export function FixForm({ report, draft, onDraftChange }) {
 // exact release. Naming the release is the way past that, and it has to be a
 // person doing the naming — the whole reason beets declined is that the
 // evidence in the files is too thin to decide on.
-export function ReleasePicker({ report, releases, chosen, onSearch, onChoose, busy }) {
+export function ReleasePicker({ report, releases, chosen, query, onQueryChange, onSearch, onChoose, busy }) {
   if (!report) {
     return null;
   }
@@ -317,6 +317,27 @@ export function ReleasePicker({ report, releases, chosen, onSearch, onChoose, bu
 
   return (
     <div className="report">
+      {/* Searching on the album's own tags fails exactly where this feature is
+          needed most: an album that arrived untagged has nothing to search on.
+          Typing the two fields here beats filling them in at step 2, which
+          would write a guess into every file just to ask a question. */}
+      <div className="cover-controls">
+        <Input
+          type="text"
+          className="min-w-[160px] text-sm"
+          value={query?.artist ?? ''}
+          placeholder={report.fields.album_artist?.proposed || 'artist'}
+          onChange={(event) => onQueryChange('artist', event.target.value)}
+        />
+        <Input
+          type="text"
+          className="min-w-[160px] text-sm"
+          value={query?.album ?? ''}
+          placeholder={report.fields.album?.proposed || 'album'}
+          onChange={(event) => onQueryChange('album', event.target.value)}
+        />
+      </div>
+
       <div className="cover-controls">
         <Button type="button" size="sm" variant="secondary" onClick={onSearch} disabled={Boolean(busy)}>
           {busy === 'releases' ? 'Searching…' : releases ? 'Search again' : 'Find on MusicBrainz'}

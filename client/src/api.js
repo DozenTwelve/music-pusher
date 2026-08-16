@@ -147,8 +147,10 @@ export async function embedCover(album, file) {
 
 // MusicBrainz releases this album could be. Read-only — nothing is applied
 // until one is passed back to startImport.
-export async function searchReleases(album) {
-  const { data } = await axios.post('/api/releases', { album });
+// `search` overrides what to look for; blank fields fall back to the album's
+// own tags, which is all an album that arrived untagged could offer.
+export async function searchReleases(album, search = {}) {
+  const { data } = await axios.post('/api/releases', { album, search });
   return data;
 }
 

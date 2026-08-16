@@ -77,7 +77,11 @@ function summarize(release, expectedTracks) {
 
 export async function searchReleases({ artist, album, tracks }) {
   if (!album || String(album).trim() === '') {
-    return { ok: false, code: 'no_album_name', message: 'The album has no album tag to search on.' };
+    return {
+      ok: false,
+      code: 'no_album_name',
+      message: 'Nothing to search on: the album has no album tag. Type the album name above.'
+    };
   }
 
   const url = new URL(MB_ENDPOINT);

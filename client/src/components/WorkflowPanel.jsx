@@ -57,6 +57,10 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
   // because its tags were tidied up.
   const [releases, setReleases] = useState(null);
   const [chosenRelease, setChosenRelease] = useState(null);
+  // What to search MusicBrainz for, when the album's own tags are not it. Blank
+  // means "use the tags", which is the common case; an album that arrived with
+  // no tags at all has nothing to search on, and this is the only way in.
+  const [releaseQuery, setReleaseQuery] = useState({ artist: '', album: '' });
   const eventSourceRef = useRef(null);
   const toast = useToast();
 
@@ -73,6 +77,7 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
     setDuplicateBlock(null);
     setReleases(null);
     setChosenRelease(null);
+    setReleaseQuery({ artist: '', album: '' });
   }, [selectedAlbum]);
 
   function applyReport(data) {
@@ -197,10 +202,10 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
     }
     setBusy('releases');
     try {
-      const data = await searchReleases(selectedAlbum);
+      const data = await searchReleases(selectedAlbum, releaseQuery);
       setReleases(data.candidates || []);
       if (!data.candidates?.length) {
-        toast.error('No MusicBrainz release matched this album’s tags.');
+        toast.error('No MusicBrainz release matched. Try typing the artist and album above.');
       }
     } catch (requestError) {
       toast.error(errorMessage(requestError));
@@ -455,6 +460,8 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
               releases={releases}
               chosen={chosenRelease}
               onSearch={findReleases}
+              query={releaseQuery}
+              onQueryChange={(key, value) => setReleaseQuery((q) => ({ ...q, [key]: value }))}
               onChoose={setChosenRelease}
               busy={busy}
             />

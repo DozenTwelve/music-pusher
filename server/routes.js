@@ -451,9 +451,17 @@ apiRouter.post('/releases', async (req, res) => {
   // Search on the base name. A trailing "[Explicit]"-style marker comes from the
   // downloader, not the release, and MusicBrainz matches the phrase literally —
   // so leaving it on turns a findable album into zero results.
+  // A typed value wins over the tags. It is the only way in for an album that
+  // arrived with no tags at all — the case this picker exists for — and it
+  // beats the alternative of writing a guess into every file at step 2 just to
+  // have something to ask MusicBrainz with.
+  const typed = req.body?.search || {};
+  const artist = String(typed.artist || '').trim() || report.fields.album_artist.proposed;
+  const album = String(typed.album || '').trim() || report.fields.album.proposed;
+
   const result = await searchReleases({
-    artist: report.fields.album_artist.proposed,
-    album: albumBase(report.fields.album.proposed),
+    artist,
+    album: albumBase(album),
     tracks: report.trackCount
   });
 
