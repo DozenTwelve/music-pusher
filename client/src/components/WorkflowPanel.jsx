@@ -262,7 +262,25 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
           ]);
         }
         if (status === 'done') {
-          toast.success(`Import finished for “${selectedAlbum}”.`);
+          const v = payload.verification;
+          // A `done` import can still be the bad kind: every track landed, and
+          // beets wrote back nothing because it never matched the album. That
+          // is the outcome this whole screen exists to prevent, so it does not
+          // get to look like a plain success. `toast.error` is reused for its
+          // stickiness (duration 0) rather than a third variant — the import
+          // did succeed, but the result needs a decision.
+          const blank = [
+            v?.untitled ? `${v.untitled} track${v.untitled > 1 ? 's' : ''} have no title` : null,
+            v && v.matched === false ? 'no MusicBrainz release matched' : null
+          ].filter(Boolean);
+          if (blank.length) {
+            toast.error(
+              `Imported “${selectedAlbum}”, but ${blank.join(' and ')}. The tags are unchanged ` +
+                'from the files — pick the release in step 3 and import again to correct them.'
+            );
+          } else {
+            toast.success(`Import finished for “${selectedAlbum}”.`);
+          }
         } else if (status === 'partial') {
           const v = payload.verification;
           toast.error(

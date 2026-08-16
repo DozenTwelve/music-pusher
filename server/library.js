@@ -22,7 +22,18 @@ import { AUDIO_EXTENSIONS } from '../shared/extensions.js';
 // loudly here instead of surfacing as silently empty columns in the UI.
 const REQUIRED_COLUMNS = {
   albums: ['id', 'album', 'albumartist', 'year', 'genre', 'artpath'],
-  items: ['id', 'album_id', 'path', 'title', 'artist', 'track', 'format', 'samplerate', 'bitdepth']
+  items: [
+    'id',
+    'album_id',
+    'path',
+    'title',
+    'artist',
+    'track',
+    'format',
+    'samplerate',
+    'bitdepth',
+    'mb_albumid'
+  ]
 };
 
 // Long lists are truncated in the response — the counts stay exact. A library
@@ -157,13 +168,22 @@ export async function maxItemId(paths) {
 // The rows an import added, by id and path. Ids rather than a plain count,
 // because undoing a partial import has to name the rows it removes — and beets
 // picks the imported album's name itself, so there is nothing else to match on.
+//
+// `title` and `mbAlbumId` come along because counting the rows only answers
+// whether the tracks arrived, not whether they arrived usable. These two are
+// what separate a corrected import from one beets gave up on and filed as-is.
 export async function itemsAddedSince(sinceId, paths) {
   const db = await openLibraryDb(paths);
   try {
     return db
-      .prepare('select id, path from items where id > ? order by id')
+      .prepare('select id, path, title, mb_albumid from items where id > ? order by id')
       .all(sinceId)
-      .map((row) => ({ id: row.id, path: toPathBuffer(row.path) }));
+      .map((row) => ({
+        id: row.id,
+        path: toPathBuffer(row.path),
+        title: row.title || '',
+        mbAlbumId: row.mb_albumid || ''
+      }));
   } finally {
     db.close();
   }

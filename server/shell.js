@@ -281,6 +281,37 @@ export async function startImport(album, { releaseId = null } = {}) {
               'so nothing is lost — check the log above for what beets skipped.'
           );
         }
+
+        // Arriving and arriving usable are different questions, and until now
+        // only the first one was asked. An album beets cannot match imports
+        // `asis`: every track lands, every count agrees, the exit code is 0,
+        // and what got written back is exactly the nothing the files arrived
+        // with. That is how ゆらゆら帝国 and Francis of Delirium sat in the
+        // library as blank names for months — nothing in the run said a word.
+        // These two counts are what a person would have noticed, asked at the
+        // one moment they can still act on cheaply.
+        const untitled = added.filter((row) => row.title.trim() === '').length;
+        const matched = added.some((row) => row.mbAlbumId !== '');
+        job.verification.untitled = untitled;
+        job.verification.matched = matched;
+
+        if (untitled > 0) {
+          pushLine(
+            job,
+            'stderr',
+            `${untitled} of ${imported} imported tracks have no title. beets had nothing to ` +
+              'match them on and filed them as they arrived.'
+          );
+        }
+        if (!matched && imported > 0) {
+          pushLine(
+            job,
+            'stderr',
+            'beets matched no MusicBrainz release for this album, so the tags are unchanged ' +
+              'from what the files came with. Pick the release in step 3 and import again to ' +
+              'correct them.'
+          );
+        }
       } catch (error) {
         job.status = 'partial';
         pushLine(job, 'stderr', `Could not verify the import: ${error.message}`);

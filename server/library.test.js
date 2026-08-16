@@ -47,7 +47,8 @@ async function buildLibrary(tracks) {
   db.exec(`create table albums (id integer primary key, album text, albumartist text,
              year integer, genre text, artpath blob)`);
   db.exec(`create table items (id integer primary key, album_id integer, path blob, title text,
-             artist text, track integer, format text, samplerate integer, bitdepth integer)`);
+             artist text, track integer, format text, samplerate integer, bitdepth integer,
+             mb_albumid text)`);
   db.prepare('insert into albums (id, album, albumartist, year) values (1, ?, ?, 2020)').run(
     'Test Album',
     'Test Artist'
@@ -134,9 +135,12 @@ async function buildAlbums(rows) {
   db.exec(`create table albums (id integer primary key, album text, albumartist text,
              year integer, genre text, artpath blob)`);
   db.exec(`create table items (id integer primary key, album_id integer, path blob, title text,
-             artist text, track integer, format text, samplerate integer, bitdepth integer)`);
+             artist text, track integer, format text, samplerate integer, bitdepth integer,
+             mb_albumid text)`);
   const insertAlbum = db.prepare('insert into albums (id, album, albumartist) values (?, ?, ?)');
-  const insertItem = db.prepare('insert into items (id, album_id, path, title) values (?, ?, ?, ?)');
+  const insertItem = db.prepare(
+    'insert into items (id, album_id, path, title, mb_albumid) values (?, ?, ?, ?, ?)'
+  );
 
   let itemId = 0;
   for (const [index, row] of rows.entries()) {
@@ -147,7 +151,15 @@ async function buildAlbums(rows) {
     for (let n = 0; n < (row.tracks ?? 1); n += 1) {
       itemId += 1;
       const file = path.join(root, `${albumId}-${n}.flac`);
-      insertItem.run(itemId, albumId, Buffer.from(file), `track ${n}`);
+      // `untitled` is how an album beets could not match is spelled: it lands
+      // complete and carries nothing that says which release it is.
+      insertItem.run(
+        itemId,
+        albumId,
+        Buffer.from(file),
+        row.untitled ? '' : `track ${n}`,
+        row.mbAlbumId ?? ''
+      );
       if (row.onDisk !== false) {
         await fsp.writeFile(file, 'x');
       }
@@ -259,6 +271,33 @@ test('the added rows are the ones past the high-water mark, and nothing else', a
       [21, 22, 23, 24, 25]
     );
     assert.ok(Buffer.isBuffer(added[0].path), 'paths stay Buffers for filesystem use');
+  } finally {
+    await fsp.rm(root, { recursive: true, force: true });
+  }
+});
+
+// The two counts that separate a corrected import from one beets gave up on and
+// filed as-is. Both runs exit 0 and add every track they were handed, so the row
+// count cannot tell them apart and the post-import check reads these instead.
+test('an import beets could not match is visible in the rows it added', async () => {
+  const { root, paths } = await buildAlbums([
+    { album: 'Lighthouse', albumartist: 'Francis of Delirium', tracks: 2, mbAlbumId: 'abc' },
+    { album: 'Run, Run Pure Beauty', albumartist: 'Francis of Delirium', tracks: 3, untitled: true }
+  ]);
+
+  try {
+    const matchedAlbum = (await itemsAddedSince(0, paths)).slice(0, 2);
+    assert.ok(
+      matchedAlbum.every((row) => row.title !== '' && row.mbAlbumId !== ''),
+      'a matched import carries both'
+    );
+
+    const asIs = await itemsAddedSince(2, paths);
+    assert.equal(asIs.filter((row) => row.title.trim() === '').length, 3, 'every track untitled');
+    assert.ok(
+      asIs.every((row) => row.mbAlbumId === ''),
+      'and no release id, which is what makes it an as-is import rather than a bad match'
+    );
   } finally {
     await fsp.rm(root, { recursive: true, force: true });
   }
