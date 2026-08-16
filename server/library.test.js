@@ -10,8 +10,10 @@ import {
   findExistingAlbums,
   repairLibrary,
   maxItemId,
-  itemsAddedSince
+  itemsAddedSince,
+  restageAlbum
 } from './library.js';
+import { config } from './config.js';
 
 // Trimmed from the real `beet config` output on the deployment box (beets
 // 2.5.1). The nested `directory:` under a plugin is the trap: only the
@@ -318,6 +320,135 @@ test('a beets schema without the columns we read fails loudly', async () => {
       'silently empty columns in the UI would be far worse than an error here'
     );
   } finally {
+    await fsp.rm(root, { recursive: true, force: true });
+  }
+});
+
+// A library whose items sit at chosen paths, so the guards that decide whether
+// an album can be moved as a single folder have something real to read.
+async function buildRestage(rows) {
+  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'beetsrestage-'));
+  const dbPath = path.join(root, 'musiclibrary.db');
+  const libraryDir = path.join(root, 'Library');
+  const db = new DatabaseSync(dbPath);
+  db.exec(`create table albums (id integer primary key, album text, albumartist text,
+             year integer, genre text, artpath blob)`);
+  db.exec(`create table items (id integer primary key, album_id integer, path blob, title text,
+             artist text, track integer, format text, samplerate integer, bitdepth integer,
+             mb_albumid text)`);
+  const insertAlbum = db.prepare('insert into albums (id, album, albumartist) values (?, ?, ?)');
+  const insertItem = db.prepare(
+    'insert into items (id, album_id, path, title, mb_albumid) values (?, ?, ?, ?, ?)'
+  );
+
+  let itemId = 0;
+  for (const [index, row] of rows.entries()) {
+    const albumId = index + 1;
+    insertAlbum.run(albumId, row.album, row.albumartist ?? 'An Artist');
+    for (const relative of row.files) {
+      itemId += 1;
+      const absolute = path.join(libraryDir, relative);
+      await fsp.mkdir(path.dirname(absolute), { recursive: true });
+      await fsp.writeFile(absolute, 'x');
+      insertItem.run(itemId, albumId, Buffer.from(absolute), 'a title', '');
+    }
+  }
+  db.close();
+  return { root, paths: { dbPath, libraryDir } };
+}
+
+// Restaging moves a whole folder, and both ways that can go wrong end with audio
+// somewhere nobody asked for. Both are refused before beets is invoked at all,
+// so a refusal leaves the library exactly as it found it.
+test('restaging refuses a folder holding audio the album does not own', async () => {
+  const { root, paths } = await buildRestage([
+    { album: 'Wading', files: ['An Artist/Shared/01 - a.flac'] },
+    { album: 'All Change', files: ['An Artist/Shared/02 - b.flac'] }
+  ]);
+
+  try {
+    const result = await restageAlbum(1, paths);
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'shared_folder');
+    assert.ok(
+      await fsp.stat(path.join(paths.libraryDir, 'An Artist/Shared/02 - b.flac')),
+      'the other album is untouched'
+    );
+  } finally {
+    await fsp.rm(root, { recursive: true, force: true });
+  }
+});
+
+test('restaging refuses an album spread across two folders', async () => {
+  const { root, paths } = await buildRestage([
+    {
+      album: 'Luv(sic) Hexalogy',
+      files: ['An Artist/Disc 1/01 - a.flac', 'An Artist/Disc 2/01 - b.flac']
+    }
+  ]);
+
+  try {
+    const result = await restageAlbum(1, paths);
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'scattered');
+  } finally {
+    await fsp.rm(root, { recursive: true, force: true });
+  }
+});
+
+test('restaging an album id beets does not have is refused, not thrown', async () => {
+  const { root, paths } = await buildRestage([
+    { album: 'Lighthouse', files: ['An Artist/L/01 - a.flac'] }
+  ]);
+
+  try {
+    const result = await restageAlbum(99, paths);
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'no_such_album');
+  } finally {
+    await fsp.rm(root, { recursive: true, force: true });
+  }
+});
+
+// The move itself, which is the whole point and the one part no guard covers.
+// `beet` is stubbed with /usr/bin/true: it exits 0 without touching the fixture
+// database, so this asserts what the stub cannot fake — that the files leave the
+// library, arrive in RAW, and take the emptied artist folder with them.
+test('restaging moves the album folder into RAW', async () => {
+  const { root, paths } = await buildRestage([
+    {
+      album: 'Run, Run Pure Beauty',
+      files: ['An Artist/Run/01 - a.flac', 'An Artist/Run/02 - b.flac']
+    }
+  ]);
+  const rawDir = path.join(root, 'RAW');
+  const originalBeet = config.beetBin;
+  const originalRaw = config.rawDir;
+  config.beetBin = '/usr/bin/true';
+  config.rawDir = rawDir;
+
+  try {
+    const result = await restageAlbum(1, paths);
+    assert.equal(result.ok, true, result.message);
+    assert.equal(result.album, 'Run');
+    assert.equal(result.tracks, 2);
+
+    assert.deepEqual(
+      (await fsp.readdir(path.join(rawDir, 'Run'))).sort(),
+      ['01 - a.flac', '02 - b.flac'],
+      'every track arrived in RAW'
+    );
+    await assert.rejects(
+      fsp.stat(path.join(paths.libraryDir, 'An Artist/Run')),
+      'and none are left in the library'
+    );
+    await assert.rejects(
+      fsp.stat(path.join(paths.libraryDir, 'An Artist')),
+      'the emptied artist folder goes too'
+    );
+  } finally {
+    config.beetBin = originalBeet;
+    config.rawDir = originalRaw;
     await fsp.rm(root, { recursive: true, force: true });
   }
 });

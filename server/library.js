@@ -16,6 +16,7 @@ import { config, expandHome } from './config.js';
 import { runProcess } from './metadata/probe.js';
 import { albumBase } from './metadata/inspect.js';
 import { normalizeTagValue } from './metadata/text.js';
+import { withAlbumLock } from './metadata/lock.js';
 import { AUDIO_EXTENSIONS } from '../shared/extensions.js';
 
 // Columns this module reads. Checked on open so a beets schema change fails
@@ -124,6 +125,21 @@ function pathKey(buffer) {
   return buffer.toString('latin1');
 }
 
+function unKey(key) {
+  return Buffer.from(key, 'latin1');
+}
+
+// path.dirname/basename on the raw bytes. Decoding to a string first would
+// normalize the very names this module keeps as Buffers to avoid normalizing.
+function dirnameBuffer(buffer) {
+  const cut = buffer.lastIndexOf(0x2f);
+  return cut <= 0 ? Buffer.from('/') : buffer.subarray(0, cut);
+}
+
+function basenameBuffer(buffer) {
+  return buffer.subarray(buffer.lastIndexOf(0x2f) + 1);
+}
+
 // Walk the library directory for audio files, as Buffers so the byte-level
 // comparison against the database holds.
 async function listLibraryFiles(rootBuffer) {
@@ -187,6 +203,204 @@ export async function itemsAddedSince(sinceId, paths) {
   } finally {
     db.close();
   }
+}
+
+// Every album beets holds, with the two counts that say whether the import that
+// created it actually corrected anything. Until now the app could only see what
+// was staged in RAW, so a library album was invisible to it — which is why 48 of
+// the 50 albums in the deployment's library carry no release id and nothing in
+// the app could say so.
+//
+// `dir` is the folder its files live in, or null when they are spread across
+// several. Restaging moves one folder, so a null is what makes an album
+// ineligible for it, and the caller shows that rather than offering a button
+// that would refuse.
+export async function listLibraryAlbums(paths) {
+  const resolved = paths || (await beetsPaths());
+  const db = await openLibraryDb(resolved);
+
+  let rows;
+  try {
+    rows = db
+      .prepare(
+        `select a.id, a.album, a.albumartist, i.path, i.title, i.mb_albumid
+           from albums a join items i on i.album_id = a.id
+          order by a.id`
+      )
+      .all();
+  } finally {
+    db.close();
+  }
+
+  const byId = new Map();
+  for (const row of rows) {
+    let entry = byId.get(row.id);
+    if (!entry) {
+      entry = {
+        id: row.id,
+        album: row.album || '',
+        albumartist: row.albumartist || '',
+        tracks: 0,
+        untitled: 0,
+        matched: false,
+        dirs: new Set()
+      };
+      byId.set(row.id, entry);
+    }
+    entry.tracks += 1;
+    if ((row.title || '').trim() === '') {
+      entry.untitled += 1;
+    }
+    if ((row.mb_albumid || '') !== '') {
+      entry.matched = true;
+    }
+    entry.dirs.add(pathKey(dirnameBuffer(toPathBuffer(row.path))));
+  }
+
+  return [...byId.values()].map(({ dirs, ...rest }) => ({
+    ...rest,
+    dir: dirs.size === 1 ? unKey([...dirs][0]).toString('utf8') : null
+  }));
+}
+
+// Move an album out of the library and back into RAW, so the ordinary
+// analyze → fix → pick a release → import path can be run over it again.
+//
+// This is the one step that was missing. Everything else the app does already
+// operates on RAW, so correcting an album that had already been imported meant
+// doing it by hand over SSH — `beet remove` without `-d`, move the folder,
+// import again with the release named. With the files back in RAW, nothing else
+// has to change: inspect, fix, the release picker and the import all work on
+// them unchanged.
+//
+// Ordered so that no failure can lose audio. The rows go first and without
+// `-d`, so the files survive every outcome: if the move then fails they are left
+// in the library directory with no rows, which is exactly the orphan case
+// checkLibraryHealth already reports. Moving first would instead leave rows
+// pointing at files that had moved out from under them.
+export async function restageAlbum(albumId, paths) {
+  const resolved = paths || (await beetsPaths());
+  const db = await openLibraryDb(resolved);
+
+  let meta;
+  let rows;
+  try {
+    meta = db.prepare('select id, album, albumartist from albums where id = ?').get(albumId);
+    rows = db.prepare('select id, path from items where album_id = ? order by id').all(albumId);
+  } finally {
+    db.close();
+  }
+
+  if (!meta) {
+    return { ok: false, code: 'no_such_album', message: `No album with id ${albumId} in the beets library.` };
+  }
+  if (rows.length === 0) {
+    return { ok: false, code: 'no_tracks', message: `Album '${meta.album}' has no tracks to restage.` };
+  }
+
+  const files = rows.map((row) => toPathBuffer(row.path));
+  const dirs = new Set(files.map((buffer) => pathKey(dirnameBuffer(buffer))));
+  if (dirs.size !== 1) {
+    return {
+      ok: false,
+      code: 'scattered',
+      message:
+        `'${meta.album}' has files in ${dirs.size} directories. Restaging moves a single folder, ` +
+        'so this one needs sorting out by hand first.'
+    };
+  }
+
+  const sourceDir = unKey([...dirs][0]);
+  const wanted = new Set(files.map((buffer) => pathKey(basenameBuffer(buffer))));
+
+  // Moving the folder takes everything in it, so refuse if it holds audio this
+  // album does not own. The path template gives every album its own folder, but
+  // that is a config this app does not control, and the cost of being wrong is
+  // dragging a second album out of the library behind the user's back.
+  let entries;
+  try {
+    entries = await fsp.readdir(sourceDir, { withFileTypes: true, encoding: 'buffer' });
+  } catch (error) {
+    return {
+      ok: false,
+      code: 'unreadable',
+      message: `Could not read '${sourceDir.toString('utf8')}': ${error.message}`
+    };
+  }
+  const foreign = entries.filter(
+    (entry) =>
+      entry.isFile() &&
+      AUDIO_EXTENSIONS.has(path.extname(entry.name.toString('utf8')).toLowerCase()) &&
+      !wanted.has(pathKey(entry.name))
+  );
+  if (foreign.length > 0) {
+    return {
+      ok: false,
+      code: 'shared_folder',
+      message:
+        `'${sourceDir.toString('utf8')}' also holds ${foreign.length} audio file(s) belonging to ` +
+        'another album. Restaging would move those too, so it is refused.'
+    };
+  }
+
+  const folderName = path.basename(sourceDir.toString('utf8'));
+  const destination = path.join(config.rawDir, folderName);
+  if (fs.existsSync(destination)) {
+    return {
+      ok: false,
+      code: 'raw_exists',
+      message: `RAW already has a folder named '${folderName}'. Import or remove it first.`
+    };
+  }
+
+  return withAlbumLock(folderName, 'restage_busy', async () => {
+    // `id:1 , id:2 , …` — a comma is beets' OR between query terms. Without
+    // `-d` this drops the rows and leaves every file where it is.
+    const args = ['remove', '-f'];
+    rows.forEach((row, index) => {
+      if (index > 0) {
+        args.push(',');
+      }
+      args.push(`id:${row.id}`);
+    });
+    const { code, stderr } = await runProcess(config.beetBin, args);
+    if (code !== 0) {
+      return {
+        ok: false,
+        code: 'remove_failed',
+        message: `'beet remove' failed (exit ${code}): ${stderr.trim()}`
+      };
+    }
+
+    await fsp.mkdir(config.rawDir, { recursive: true });
+    try {
+      await fsp.rename(sourceDir, destination);
+    } catch (error) {
+      // ponytail: rename only, so RAW and the library must share a filesystem.
+      // They do in every layout this app documents; a copy+delete fallback can
+      // come the day one of them is a separate mount.
+      return {
+        ok: false,
+        code: 'move_failed',
+        message:
+          `Rows for '${meta.album}' were removed but the files could not be moved: ${error.message}. ` +
+          'They are still in the library folder, and /library/health will report them as orphans.'
+      };
+    }
+
+    // The artist folder is left behind empty when that was its last album.
+    await fsp.rmdir(dirnameBuffer(sourceDir)).catch(() => {});
+
+    return {
+      ok: true,
+      album: folderName,
+      albumTitle: meta.album,
+      albumartist: meta.albumartist || '',
+      tracks: rows.length,
+      from: sourceDir.toString('utf8'),
+      to: destination
+    };
+  });
 }
 
 // The duplicate import is what creates the stale rows repairLibrary cleans up,

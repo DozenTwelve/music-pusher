@@ -134,7 +134,7 @@ export default function App() {
 
         <WorkflowPanel selectedAlbum={selectedAlbum} onImportDone={loadAlbums} />
 
-        <LibraryPanel />
+        <LibraryPanel onRestaged={loadAlbums} />
       </div>
 
       <Dialog open={pendingDelete !== null} onOpenChange={(open) => !open && setPendingDelete(null)}>

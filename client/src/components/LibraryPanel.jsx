@@ -1,5 +1,11 @@
 import { useState } from 'react';
-import { getLibraryHealth, repairLibrary, errorMessage } from '../api.js';
+import {
+  getLibraryHealth,
+  getLibraryAlbums,
+  restageLibraryAlbum,
+  repairLibrary,
+  errorMessage
+} from '../api.js';
 import { CheckIcon, AlertIcon } from './icons.jsx';
 import { Button } from './ui/button.jsx';
 import { useToast } from './Toast.jsx';
@@ -17,8 +23,9 @@ import {
 // renames files — beets runs with `move: yes`, so it relocates everything onto
 // its path template — and a yes/no prompt cannot say which files. The preview
 // is the same command with `--pretend`, so it lists exactly that.
-export default function LibraryPanel() {
+export default function LibraryPanel({ onRestaged }) {
   const [health, setHealth] = useState(null);
+  const [albums, setAlbums] = useState(null);
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(null);
   const toast = useToast();
@@ -26,10 +33,38 @@ export default function LibraryPanel() {
   async function runCheck() {
     setBusy(true);
     try {
-      setHealth(await getLibraryHealth());
+      // Both readings come off the same press: they answer the same question in
+      // two directions, and a user who wants one has no reason to want the
+      // other a click later.
+      const [nextHealth, nextAlbums] = await Promise.all([getLibraryHealth(), getLibraryAlbums()]);
+      setHealth(nextHealth);
+      setAlbums(nextAlbums);
       // A fresh reading of disk invalidates any change list taken against the
       // old one; never leave a stale preview arming the apply button.
       setPreview(null);
+    } catch (requestError) {
+      toast.error(errorMessage(requestError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Moving an album back to RAW is the way out for one that imported as-is:
+  // from there the ordinary analyze → fix → pick a release → import path runs
+  // over it like any freshly uploaded folder.
+  async function restage(entry) {
+    setBusy(true);
+    try {
+      const result = await restageLibraryAlbum(entry.id);
+      toast.success(
+        `“${result.albumTitle}” (${result.tracks} tracks) is back in RAW as “${result.album}”. ` +
+          'Select it above to analyze and import it again.'
+      );
+      const [nextHealth, nextAlbums] = await Promise.all([getLibraryHealth(), getLibraryAlbums()]);
+      setHealth(nextHealth);
+      setAlbums(nextAlbums);
+      setPreview(null);
+      onRestaged?.();
     } catch (requestError) {
       toast.error(errorMessage(requestError));
     } finally {
@@ -61,6 +96,12 @@ export default function LibraryPanel() {
       setBusy(false);
     }
   }
+
+  // An album beets matched has already been corrected against a real release,
+  // so it is not what this section is for — only the ones it gave up on and
+  // filed as they arrived.
+  const unmatched = (albums || []).filter((entry) => !entry.matched);
+  const untitledAlbums = unmatched.filter((entry) => entry.untitled > 0);
 
   const totals = health?.totals;
   const healthy = totals && totals.missing === 0 && totals.orphans === 0;
@@ -137,6 +178,75 @@ export default function LibraryPanel() {
                 until they are imported.
               </span>
             </div>
+          ) : null}
+
+          {/* The other kind of unhealthy: every file present and accounted for,
+              and nothing in the album corrected. Kept separate from the
+              missing-file sections because the repair is different — these need
+              re-importing against a named release, not `beet update`. */}
+          {unmatched.length ? (
+            <>
+              <div className="report-banner warn">
+                <AlertIcon />
+                <span>
+                  {unmatched.length} of {albums.length} albums were imported without a MusicBrainz
+                  match, so their tags are still whatever the files arrived with.
+                  {untitledAlbums.length
+                    ? ` ${untitledAlbums.length} of those also have tracks with no title at all.`
+                    : ''}{' '}
+                  Restaging moves an album back to RAW so it can be analyzed, fixed and imported
+                  again against a release you pick. Files are moved, never copied or deleted.
+                </span>
+              </div>
+
+              <Accordion type="single" collapsible className="border-t border-border">
+                <AccordionItem value="unmatched">
+                  <AccordionTrigger>Albums beets never matched ({unmatched.length})</AccordionTrigger>
+                  <AccordionContent>
+                    <table className="field-table">
+                      <thead>
+                        <tr>
+                          <th>Album</th>
+                          <th>Album artist</th>
+                          <th>Tracks</th>
+                          <th>Untitled</th>
+                          <th />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {unmatched.map((entry) => (
+                          <tr key={entry.id} className={entry.untitled ? 'row-bad' : ''}>
+                            <td>{entry.album || '(no album)'}</td>
+                            <td>{entry.albumartist || '—'}</td>
+                            <td>{entry.tracks}</td>
+                            <td>{entry.untitled || '—'}</td>
+                            <td>
+                              {/* An album whose files are spread over several
+                                  folders cannot be moved as one, and the server
+                                  refuses it. Say so here rather than offering a
+                                  button that only reports the refusal. */}
+                              {entry.dir ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => restage(entry)}
+                                  disabled={busy}
+                                >
+                                  Restage to RAW
+                                </Button>
+                              ) : (
+                                <span className="muted small">spread across folders</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </>
           ) : null}
 
           {/* Both sections are independent: a library can have orphans and no

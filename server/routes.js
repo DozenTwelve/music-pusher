@@ -19,7 +19,13 @@ import { runAudit, startImport, retryImport, streamJob, getJob } from './shell.j
 import { searchReleases } from './musicbrainz.js';
 import { inspectAlbum, albumBase, fixAlbum, embedCover } from './metadata/index.js';
 import { runPreflight } from './preflight.js';
-import { checkLibraryHealth, repairLibrary, findExistingAlbums } from './library.js';
+import {
+  checkLibraryHealth,
+  repairLibrary,
+  findExistingAlbums,
+  listLibraryAlbums,
+  restageAlbum
+} from './library.js';
 import { acquireLibrary, releaseLibrary, libraryBusyMessage } from './metadata/lock.js';
 
 export const apiRouter = express.Router();
@@ -107,6 +113,62 @@ apiRouter.get('/library/health', async (req, res) => {
     res.status(500).json({
       ok: false,
       code: 'library_health_failed',
+      message: error.message
+    });
+  }
+});
+
+// Every album already in the library, with the counts that say whether its
+// import corrected anything. Read-only — the companion to /library/restage,
+// which is what acts on it.
+apiRouter.get('/library/albums', async (req, res) => {
+  try {
+    res.json({ ok: true, albums: await listLibraryAlbums() });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      code: 'library_albums_failed',
+      message: error.message
+    });
+  }
+});
+
+// Move an imported album back into RAW so it can be analyzed, fixed and
+// imported again — the path out for an album that landed with nothing usable.
+// It takes the album's own lock rather than the library-wide one: this moves a
+// single folder, not every album at once.
+apiRouter.post('/library/restage', async (req, res) => {
+  const albumId = Number(req.body?.albumId);
+  if (!Number.isInteger(albumId) || albumId <= 0) {
+    res.status(400).json({
+      ok: false,
+      code: 'bad_album_id',
+      message: 'A numeric beets album id is required.'
+    });
+    return;
+  }
+
+  try {
+    const result = await restageAlbum(albumId);
+    // A refusal here is the guard doing its job, not a server fault, so it
+    // carries the same shape as the other not-run outcomes.
+    let status;
+    if (result.ok) {
+      status = 200;
+    } else if (result.code === 'restage_busy') {
+      status = 409;
+    } else if (result.code === 'no_such_album') {
+      status = 404;
+    } else if (result.code === 'remove_failed' || result.code === 'move_failed') {
+      status = 500;
+    } else {
+      status = 422;
+    }
+    res.status(status).json(result);
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      code: 'library_restage_failed',
       message: error.message
     });
   }

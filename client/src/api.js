@@ -168,6 +168,20 @@ export async function getLibraryHealth() {
   return data;
 }
 
+// Every album already imported, with the counts that say whether the import
+// corrected anything. Read-only.
+export async function getLibraryAlbums() {
+  const { data } = await axios.get('/api/library/albums');
+  return data?.albums || [];
+}
+
+// Move an imported album back into RAW, so the ordinary analyze → fix → import
+// path can be run over it again. Files are moved, never copied or deleted.
+export async function restageLibraryAlbum(albumId) {
+  const { data } = await axios.post('/api/library/restage', { albumId });
+  return data;
+}
+
 // Repair what getLibraryHealth reports, via `beet update`. `pretend` returns the
 // same change list without touching anything, so it doubles as the preview.
 export async function repairLibrary(pretend) {
