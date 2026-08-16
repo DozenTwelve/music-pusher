@@ -479,7 +479,7 @@ apiRouter.post('/fix', async (req, res) => {
     let status;
     if (result.code === 'fix_busy') {
       status = 409;
-    } else if (result.code === 'no_audio_files') {
+    } else if (result.code === 'no_audio_files' || result.code === 'bad_date') {
       status = 422;
     } else {
       status = 200;

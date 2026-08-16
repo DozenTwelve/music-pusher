@@ -16,6 +16,31 @@ import { withAlbumLock } from './lock.js';
 // Fields the UI can unify to a single value across every track.
 const UNIFIABLE_FIELDS = ['date', 'album', 'album_artist', 'disc'];
 
+// Everything downstream of a date tag parses it as ISO. ffmpeg writes whatever
+// string it is handed, so a hand-typed `2026.5.29` survives the fix, reaches
+// beets, fails its parse, and comes back out of the import as `DATE=0000` —
+// a blank date that looks like the fix never ran. Accept the separators people
+// actually type and hand ffmpeg the ISO form; reject the rest at the door
+// rather than writing a value we know will be discarded.
+const DATE_RE = /^(\d{4})(?:[-./](\d{1,2})(?:[-./](\d{1,2}))?)?$/;
+
+export function normalizeDate(value) {
+  const match = DATE_RE.exec(value.trim());
+  if (!match) {
+    return null;
+  }
+  const [, year, month, day] = match;
+  if (month != null && (Number(month) < 1 || Number(month) > 12)) {
+    return null;
+  }
+  if (day != null && (Number(day) < 1 || Number(day) > 31)) {
+    return null;
+  }
+  // Year-only and year-month are legitimate release dates, so a missing part
+  // stays missing instead of being padded to a day nobody claimed.
+  return [year, month?.padStart(2, '0'), day?.padStart(2, '0')].filter(Boolean).join('-');
+}
+
 const MP4_EXTENSIONS = new Set(['.m4a', '.aac', '.alac', '.mp4', '.m4b']);
 const VORBIS_EXTENSIONS = new Set(['.flac', '.ogg', '.opus']);
 
@@ -108,6 +133,17 @@ async function runFix(album, options = {}) {
     if (typeof value === 'string' && value.trim() !== '') {
       unify[field] = value.trim();
     }
+  }
+  if (unify.date != null) {
+    const iso = normalizeDate(unify.date);
+    if (iso == null) {
+      return {
+        ok: false,
+        code: 'bad_date',
+        message: `Date “${unify.date}” is not a date beets can read. Use 2026, 2026-05 or 2026-05-29.`
+      };
+    }
+    unify.date = iso;
   }
 
   const changes = [];

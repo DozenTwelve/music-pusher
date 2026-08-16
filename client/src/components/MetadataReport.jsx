@@ -234,7 +234,7 @@ export function FixForm({ report, draft, onDraftChange }) {
                     type="text"
                     className="min-w-[120px] text-sm"
                     value={draft[field] ?? ''}
-                    placeholder={info.proposed || '(leave blank to skip)'}
+                    placeholder={info.proposed || (field === 'date' ? 'YYYY-MM-DD' : '(leave blank to skip)')}
                     onChange={(event) => onDraftChange(field, event.target.value)}
                   />
                 </td>
