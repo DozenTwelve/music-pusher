@@ -171,6 +171,13 @@ test('album: the guess is marked, and a name the user must supply is asked for',
   // The values behind a disagreement come along, to show the user.
   const two = plan(album(3, (n) => (n === 3 ? { ALBUM: 'Other' } : {})));
   assert.deepEqual(two.fixes[0].found, [{ value: 'Album', count: 2 }, { value: 'Other', count: 1 }]);
+  // ...with a flag for names that may be different albums, not one misnamed.
+  const apart = (names) => plan(album(names.length, (n) => ({ ALBUM: names[n - 1] }))).fixes[0].apart;
+  assert.equal(two.fixes[0].apart, true);
+  assert.equal(apart(['Album', 'Album [Explicit]']), false);
+  assert.equal(apart(['Album', 'Album ']), false);
+  assert.equal(apart(['Album', 'ALBUM (Deluxe Edition)']), false);
+  assert.equal(apart(['Album', 'Album II']), true);
 
   // What the user types is what is written, trimmed.
   const edited = two.fixes.map((fix) => ({ ...fix, value: '  Typed  ' }));

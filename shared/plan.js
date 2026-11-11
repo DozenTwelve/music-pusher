@@ -14,7 +14,8 @@
 // A fix is proposed exactly when switching it on would write something, so an
 // album that has been through its own plan proposes nothing the second time.
 
-import { albumArtist, normalizeReleaseDate } from './identity.js';
+import { albumArtist, foldForIdentity, normalizeReleaseDate } from './identity.js';
+import { albumBase } from './inspect.js';
 import { basename, extname } from './paths.js';
 import { normalizeDate, parseNumberPair, leadingTrackNumber } from './tags.js';
 import { analyzeText, suggestFilenameFix } from './text.js';
@@ -332,8 +333,11 @@ export function planAlbum(report, tracks, context = {}) {
   const album = report.fields.album;
   if (readable.length > 0 && (!album.consistent || album.distinct.length === 0)) {
     const guess = album.distinct.length === 0 ? clean(context.nameGuess || '') : '';
+    // `apart`: the names differ by more than spacing, letter case or a trailing
+    // marker, so these may be different albums rather than one album misnamed.
+    const apart = new Set(album.distinct.map((entry) => foldForIdentity(albumBase(entry.value)))).size > 1;
     // Shown even with nothing to pre-fill: the name has to come from the user.
-    offer({ id: 'album', value: clean(album.proposed) || guess, guess: Boolean(guess), found: found(album), missing: album.missing }, true);
+    offer({ id: 'album', value: clean(album.proposed) || guess, guess: Boolean(guess), apart, found: found(album), missing: album.missing }, true);
   }
   const artist = report.fields.album_artist;
   if (readable.length > 0 && (!artist.consistent || artist.distinct.length === 0)) {
