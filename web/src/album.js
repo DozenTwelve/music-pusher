@@ -6,6 +6,7 @@
 import { AUDIO_EXTENSIONS, ART_EXTENSIONS } from '../../shared/extensions.js';
 import { diagnoseAlbum } from '../../shared/inspect.js';
 import { basename, extname } from '../../shared/paths.js';
+import { albumIdentity } from '../../shared/identity.js';
 import { planAlbum, planWrites } from '../../shared/plan.js';
 import { readTrack, readPicture, writeTrack } from './tags.js';
 import { openZip, zipWriter } from './zip.js';
@@ -27,15 +28,16 @@ const isJunk = (path) => path.startsWith('__MACOSX/') || /^(\._.*|\.DS_Store)$/.
 
 // The album as one folder: junk dropped, paths sorted, and everything under a
 // single top folder — the one the files came in, or `fallback` (the archive's
-// or the first file's name) when they came loose.
+// name) when they came loose. `guess` is that name when it is a real one: the
+// best guess at the album name for tracks that carry none.
 export function asAlbum(entries, fallback) {
   const kept = entries.filter((entry) => !isJunk(entry.path)).sort((a, b) => a.path.localeCompare(b.path));
   const tops = new Set(kept.map((entry) => (entry.path.includes('/') ? entry.path.split('/')[0] : '')));
   if (tops.size === 1 && !tops.has('')) {
-    return { name: [...tops][0], entries: kept };
+    return { name: [...tops][0], guess: [...tops][0], entries: kept };
   }
   const name = fallback || 'Album';
-  return { name, entries: kept.map((entry) => ({ ...entry, path: `${name}/${entry.path}` })) };
+  return { name, guess: fallback || '', entries: kept.map((entry) => ({ ...entry, path: `${name}/${entry.path}` })) };
 }
 
 // Why this album cannot be taken on, as { code, … }, or null when it can.
@@ -84,6 +86,25 @@ export function inspect(name, album, entries, context = {}) {
   const report = diagnoseAlbum(name, album.tracks, album.images);
   const whole = { paths: entries.map((entry) => entry.path), ...context };
   return { report, context: whole, ...planAlbum(report, album.tracks, whole) };
+}
+
+// The albums Navidrome would make of these tracks, largest first: what each is
+// called, by whom, and how many tracks it gets. `album` and `artist` are null
+// where Navidrome would show its "[Unknown …]".
+export function shelf(tracks) {
+  const albums = new Map();
+  for (const track of tracks.filter((candidate) => candidate.readable)) {
+    const identity = albumIdentity(track);
+    if (!albums.has(identity.key)) {
+      albums.set(identity.key, {
+        album: identity.unknownAlbum ? null : track.album,
+        artist: identity.unknownArtist ? null : identity.albumArtist,
+        tracks: 0
+      });
+    }
+    albums.get(identity.key).tracks += 1;
+  }
+  return [...albums.values()].sort((a, b) => b.tracks - a.tracks);
 }
 
 // The bytes of the cover `chooseCover` settled on: { mimeType, data } or null.

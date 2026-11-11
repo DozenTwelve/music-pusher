@@ -92,9 +92,9 @@ async function extract(blob, name) {
 
 // read -> plan (defaults) -> write -> zip -> re-read, the way the page does it.
 async function clean(dir, { edit = (fixes) => fixes, cover } = {}) {
-  const { name, entries } = asAlbum(await entriesOf(dir), path.basename(dir));
+  const { name, guess, entries } = asAlbum(await entriesOf(dir), path.basename(dir));
   const album = await readAlbum(taglib, entries);
-  const before = inspect(name, album, entries, { nameGuess: name });
+  const before = inspect(name, album, entries, { nameGuess: guess });
   const fixes = edit(before.fixes);
   const picture = cover ?? (await loadCover(taglib, entries, before.cover))?.data;
   const result = await cleanAlbum(taglib, entries, before, fixes, picture);
@@ -283,6 +283,10 @@ test('asAlbum: one top folder, junk dropped', () => {
   const paths = (album) => album.entries.map((item) => item.path);
   const inFolder = asAlbum(['Al/2.flac', 'Al/1.flac', 'Al/.DS_Store', '__MACOSX/Al/._1.flac', 'Al/._2.flac'].map(entry), 'zip name');
   assert.equal(inFolder.name, 'Al');
+  assert.equal(inFolder.guess, 'Al');
+  assert.equal(asAlbum(['1.flac'].map(entry), 'zip name').guess, 'zip name');
+  // Loose files with nothing to name them by: a folder name, but no guess.
+  assert.deepEqual([asAlbum(['1.flac'].map(entry), '').name, asAlbum(['1.flac'].map(entry), '').guess], ['Album', '']);
   assert.deepEqual(paths(inFolder), ['Al/1.flac', 'Al/2.flac']);
   // Loose files, or more than one top folder: wrapped in a folder of their own.
   assert.deepEqual(paths(asAlbum(['1.flac', 'art/cover.jpg'].map(entry), 'zip name')), ['zip name/1.flac', 'zip name/art/cover.jpg']);
