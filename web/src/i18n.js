@@ -7,12 +7,13 @@
 
 const STORAGE_KEY = 'album-cleaner-language';
 
+// English first: it is what most visitors read, and the fallback.
 export const LANGUAGES = [
-  { code: 'zh', tag: 'zh-Hans', label: '中文' },
-  { code: 'en', tag: 'en', label: 'English' }
+  { code: 'en', tag: 'en', label: 'English' },
+  { code: 'zh', tag: 'zh-Hans', label: '中文' }
 ];
 
-// The remembered choice, else the browser's language.
+// The remembered choice, else the browser's language, else English.
 export function pickLanguage() {
   let saved = null;
   try {
@@ -34,6 +35,9 @@ export function saveLanguage(code) {
   }
 }
 
+// In a headline, [[…]] marks a number with the word it counts ("3 albums",
+// "10 首"): the page keeps what is inside on one line. In the footer it marks
+// the words that are the link.
 const count = (n, one, many) => (n === 1 ? one : many.replace('{n}', n));
 const tracks = (n) => count(n, '1 track', '{n} tracks');
 
@@ -60,23 +64,23 @@ const en = {
   'cleaning.check': 'Checking the zip',
   'progress.label': 'Progress',
 
-  'verdict.split': ({ albums }) => `Navidrome would show this as ${albums} albums.`,
+  'verdict.split': ({ albums }) => `Navidrome would show this as [[${albums} albums]].`,
   'verdict.causes': 'The tracks disagree on {list}.',
   'verdict.merged.no_album': 'These tracks have no album name. Navidrome would mix them with every other track that has none.',
   'verdict.merged.unknown_artist': 'These tracks have no artist. Navidrome would put them under “Unknown Artist” with everything else that has none.',
   'verdict.no_cover': ({ missing, tracks: total }) =>
-    missing === total ? count(total, 'The track has no cover.', 'None of the {n} tracks has a cover.') : `${missing} of ${total} tracks ${missing === 1 ? 'has' : 'have'} no cover.`,
-  'verdict.tidy': ({ fixes }) => `One album already. ${count(fixes, 'One thing', '{n} things')} to fix.`,
+    missing === total ? count(total, 'The track has no cover.', 'None of the [[{n} tracks]] has a cover.') : `${missing} of [[${total} tracks]] ${missing === 1 ? 'has' : 'have'} no cover.`,
+  'verdict.tidy': ({ fixes }) => `One album already. ${count(fixes, 'One thing', '[[{n} things]]')} to fix.`,
   'verdict.stuck': 'One album, with problems that can’t be fixed here.',
-  'verdict.fine': ({ tracks: n }) => `Nothing to fix. Navidrome will show 1 album, ${tracks(n)}.`,
+  'verdict.fine': ({ tracks: n }) => `Nothing to fix. Navidrome will show [[1 album]], [[${tracks(n)}]].`,
   'verdict.unreadable': 'None of these files can be read.',
 
-  'after.one': ({ tracks: n }) => `Navidrome will show 1 album, ${tracks(n)}.`,
-  'after.split': ({ albums }) => `Still ${albums} albums.`,
+  'after.one': ({ tracks: n }) => `Navidrome will show [[1 album]], [[${tracks(n)}]].`,
+  'after.split': ({ albums }) => `Still [[${albums} albums]].`,
   'after.causes': 'The tracks still disagree on {list}.',
   'after.merged.no_album': 'Still no album name. Navidrome would mix these tracks with every other track that has none.',
   'after.merged.unknown_artist': 'Still no artist. Navidrome would put these tracks under “Unknown Artist”.',
-  'after.no_cover': ({ missing }) => `${count(missing, '1 track still has', '{n} tracks still have')} no cover.`,
+  'after.no_cover': ({ missing }) => `${count(missing, '[[1 track]] still has', '[[{n} tracks]] still have')} no cover.`,
   'after.proof': 'Checked by opening the finished zip and reading every track again.',
 
   'cause.album': 'the album name',
@@ -124,7 +128,7 @@ const en = {
     ids === 1
       ? `Copy the MusicBrainz ID to the ${count(total - n, 'one track', '{n} tracks')} without one`
       : `${ids} different MusicBrainz IDs. Use the one on ${n} of ${total} tracks for all`,
-  'fix.track_numbers': ({ count: n }) => `Write complete track numbers on ${tracks(n)} (as 3/12, counted per disc)`,
+  'fix.track_numbers': ({ count: n, example }) => `Write complete track numbers on ${tracks(n)} (as ${example}, counted per disc)`,
   'fix.text': ({ count: n }) => `Repair damaged text, and strip stray spaces and invisible characters (${count(n, 'one place', '{n} places')})`,
   'fix.filenames': ({ n }) => `Repair ${count(n, 'one file name', '{n} file names')}`,
   'fix.becomes': '“{from}” becomes “{to}”',
@@ -168,6 +172,8 @@ const en = {
   'error.unexpected': 'That failed: {message}',
 
   'footer.taglib': 'Tags are read and written by TagLib, under the LGPL.',
+  'footer.source': 'The source is on [[GitHub]].',
+  'footer.selfhost': 'To run it on your own machine, the same repository has [[Music Pusher]]: upload albums to your server, fix them, and import them into your library with beets for Navidrome.',
   'footer.notice': 'TagLib notice',
   'footer.lgpl': 'LGPL 2.1',
   'footer.all': 'All licences'
@@ -196,22 +202,22 @@ const zh = {
   'cleaning.check': '正在核对 zip',
   'progress.label': '进度',
 
-  'verdict.split': 'Navidrome 会把它显示成 {albums} 张专辑。',
+  'verdict.split': 'Navidrome 会把它显示成 [[{albums} 张专辑]]。',
   'verdict.causes': '各首歌的{list}不一致。',
   'verdict.merged.no_album': '这些歌没有专辑名，Navidrome 会把它们和别的没有专辑名的歌混在一起。',
   'verdict.merged.unknown_artist': '这些歌没写艺人，Navidrome 会把它们和别的没写艺人的歌一起放到“未知艺人”下面。',
-  'verdict.no_cover': ({ missing, tracks: total }) => (missing === total ? `${total} 首歌都没有封面。` : `${total} 首歌里有 ${missing} 首没有封面。`),
-  'verdict.tidy': '已经是一张专辑，还有 {fixes} 处可以修。',
+  'verdict.no_cover': ({ missing, tracks: total }) => (missing === total ? `[[${total} 首歌]]都没有封面。` : `[[${total} 首歌]]里有 [[${missing} 首]]没有封面。`),
+  'verdict.tidy': '已经是一张专辑，还有 [[{fixes} 处]]可以修。',
   'verdict.stuck': '已经是一张专辑，但有这里修不了的问题。',
-  'verdict.fine': '不用修。Navidrome 会显示 1 张专辑，共 {tracks} 首。',
+  'verdict.fine': '不用修。Navidrome 会显示 [[1 张专辑]]，[[共 {tracks} 首]]。',
   'verdict.unreadable': '这些文件都读不出来。',
 
-  'after.one': 'Navidrome 会显示 1 张专辑，共 {tracks} 首。',
-  'after.split': '还是 {albums} 张专辑。',
+  'after.one': 'Navidrome 会显示 [[1 张专辑]]，[[共 {tracks} 首]]。',
+  'after.split': '还是 [[{albums} 张专辑]]。',
   'after.causes': '各首歌的{list}仍然不一致。',
   'after.merged.no_album': '还是没有专辑名，Navidrome 仍会把这些歌和别的没有专辑名的歌混在一起。',
   'after.merged.unknown_artist': '还是没写艺人，Navidrome 仍会把这些歌放到“未知艺人”下面。',
-  'after.no_cover': '还有 {missing} 首歌没有封面。',
+  'after.no_cover': '还有 [[{missing} 首歌]]没有封面。',
   'after.proof': '核对过了：重新打开这个 zip，把每首歌又读了一遍。',
 
   'cause.album': '专辑名',
@@ -257,7 +263,7 @@ const zh = {
   'fix.album_version.none': '不写版本',
   'fix.mbid': ({ ids, count: n, total }) =>
     ids === 1 ? `给 ${total - n} 首没有 MusicBrainz 编号的歌补上` : `有 ${ids} 个不同的 MusicBrainz 编号，统一用 ${total} 首里 ${n} 首在用的那个`,
-  'fix.track_numbers': '把 {count} 首歌的音轨号补完整（写成 3/12，每张碟分开计数）',
+  'fix.track_numbers': '把 {count} 首歌的音轨号补完整（写成 {example}，每张碟分开计数）',
   'fix.text': '修好损坏的文字，去掉多余空格和看不见的字符（{count} 处）',
   'fix.filenames': '修好 {n} 个文件名',
   'fix.becomes': '“{from}”改成“{to}”',
@@ -299,6 +305,8 @@ const zh = {
   'error.unexpected': '失败了：{message}',
 
   'footer.taglib': '标签由 TagLib 读写，采用 LGPL 许可。',
+  'footer.source': '源代码在 [[GitHub]] 上。',
+  'footer.selfhost': '想装在自己的机器上，同一个仓库里有 [[Music Pusher]]：把专辑传到自己的服务器，修好，再用 beets 导入 Navidrome 的音乐库。',
   'footer.notice': 'TagLib 声明',
   'footer.lgpl': 'LGPL 2.1',
   'footer.all': '全部许可'
@@ -309,7 +317,7 @@ const STRINGS = { en, zh };
 // t(key, values) for one language, plus the helpers that need its conventions.
 export function translator(code) {
   const strings = STRINGS[code] || en;
-  const { tag } = LANGUAGES.find((language) => language.code === code) || LANGUAGES[1];
+  const { tag } = LANGUAGES.find((language) => language.code === code) || LANGUAGES[0];
   const t = (key, values = {}) => {
     const entry = strings[key] ?? en[key] ?? key;
     return typeof entry === 'function' ? entry(values) : entry.replace(/\{(\w+)\}/g, (_, name) => values[name] ?? '');

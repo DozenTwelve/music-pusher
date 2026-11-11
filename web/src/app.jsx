@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import wasmUrl from '../node_modules/taglib-wasm/dist/taglib-web.wasm?url';
 import { basename } from '../../shared/paths.js';
+import { planWrites } from '../../shared/plan.js';
 import { normalizeTagValue } from '../../shared/text.js';
 import { asAlbum, cleanAlbum, inspect, loadCover, readAlbum, recheck, refusal, shelf, LIMITS } from './album.js';
 import { LANGUAGES, saveLanguage, translator } from './i18n.js';
@@ -106,6 +107,14 @@ function verdictLines(t, verdict, after = false) {
 
 const quality = ({ sampleRate, bitDepth }) =>
   `${sampleRate / 1000} kHz${bitDepth ? ` ${bitDepth}-bit` : ''}`;
+
+// A headline with its [[number and counted word]] pairs kept from breaking apart.
+const unbroken = (line) => line.split(/\[\[(.+?)\]\]/).map((part, index) => (index % 2 ? <span className="nowrap" key={index}>{part}</span> : part));
+
+// A footer line whose [[marked words]] are a link to the project's repository:
+// the page's only way out, an ordinary link that fetches nothing until followed.
+const REPOSITORY = 'https://github.com/DozenTwelve/music-pusher';
+const linked = (line) => line.split(/\[\[(.+?)\]\]/).map((part, index) => (index % 2 ? <a href={REPOSITORY} key={index}>{part}</a> : part));
 
 // One thing that cannot be fixed, as a sentence and the files it is about.
 function cannotLine(t, entry) {
@@ -247,9 +256,9 @@ function FilePicker({ label, onFiles, className = 'button', ...input }) {
   );
 }
 
-function Fix({ t, fix, coverName, onChange }) {
+function Fix({ t, fix, coverName, example, onChange }) {
   const id = `fix-${fix.id}`;
-  const names = { n: fix.renames?.length, ...fix };
+  const names = { n: fix.renames?.length, ...fix, example };
   const sample = fix.sample || (fix.renames?.[0] && { from: basename(fix.renames[0].from), to: basename(fix.renames[0].to) });
   const hints = [];
   if (fix.found?.length > 1) {
@@ -580,14 +589,17 @@ function App({ initialLanguage }) {
     const albums = shelf(album.read.tracks);
     const anyOn = fixes.some((fix) => fix.on);
     const listed = cannot.some((entry) => entry.code !== 'no_cover');
+    // The example in the track-number row is one this album will really get: its third, where it has one.
+    const numbers = planWrites(album.inspected.report, album.read.tracks, [{ id: 'track_numbers', on: true }], album.inspected.context).files;
+    const numbered = numbers[Math.min(2, numbers.length - 1)]?.set.TRACKNUMBER;
     main = (
       <>
         <h1 className="headline" ref={title} tabIndex={-1}>
-          {headline}
+          {unbroken(headline)}
         </h1>
         {rest.map((line) => (
           <p className="lead" key={line}>
-            {line}
+            {unbroken(line)}
           </p>
         ))}
         {album.encoding && (
@@ -627,7 +639,7 @@ function App({ initialLanguage }) {
                 <h2>{t('plan.title')}</h2>
                 <ul className="fixes">
                   {fixes.map((fix) => (
-                    <Fix key={fix.id} t={t} fix={fix} coverName={cover?.guess ? basename(cover.path) : null} onChange={change(fix.id)} />
+                    <Fix key={fix.id} t={t} fix={fix} coverName={cover?.guess ? basename(cover.path) : null} example={numbered} onChange={change(fix.id)} />
                   ))}
                 </ul>
               </section>
@@ -648,11 +660,11 @@ function App({ initialLanguage }) {
     main = (
       <>
         <h1 className="headline" ref={title} tabIndex={-1}>
-          {headline}
+          {unbroken(headline)}
         </h1>
         {rest.map((line) => (
           <p className="lead" key={line}>
-            {line}
+            {unbroken(line)}
           </p>
         ))}
         <div className="row" data-tiles={albums.length > 1 ? 'many' : 'one'}>
@@ -697,7 +709,11 @@ function App({ initialLanguage }) {
       </main>
       <footer className="container">
         <div className="foot">
-          <p>{t('footer.taglib')}</p>
+          <div className="foot__lines">
+            <p>{t('footer.taglib')}</p>
+            <p>{linked(t('footer.source'))}</p>
+            <p>{linked(t('footer.selfhost'))}</p>
+          </div>
           <a href="licenses/taglib-wasm-NOTICE.txt">{t('footer.notice')}</a>
           <a href="licenses/LGPL-2.1.txt">{t('footer.lgpl')}</a>
           <a href="licenses/third-party.txt">{t('footer.all')}</a>
