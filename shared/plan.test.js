@@ -130,10 +130,28 @@ test('album and album artist: one value on every track', () => {
       { 'Album/02 Song.flac': { ALBUM: 'Al bum' } }
     ],
     [
-      'a marker on some tracks: the fuller name wins',
+      'a marker on some tracks: the spelling most tracks use',
       album(3, (n) => (n === 1 ? { ALBUM: 'Album [Explicit]' } : {})),
+      { album: 'Album' },
+      { 'Album/01 Song.flac': { ALBUM: 'Album' } }
+    ],
+    [
+      'a marker on most tracks: still the spelling most tracks use',
+      album(3, (n) => (n === 1 ? {} : { ALBUM: 'Album [Explicit]' })),
       { album: 'Album [Explicit]' },
-      { 'Album/02 Song.flac': { ALBUM: 'Album [Explicit]' }, 'Album/03 Song.flac': { ALBUM: 'Album [Explicit]' } }
+      { 'Album/01 Song.flac': { ALBUM: 'Album [Explicit]' } }
+    ],
+    [
+      'a marker on exactly half: the longer name',
+      album(2, (n) => (n === 1 ? { ALBUM: 'Album [Explicit]' } : {})),
+      { album: 'Album [Explicit]' },
+      { 'Album/02 Song.flac': { ALBUM: 'Album [Explicit]' } }
+    ],
+    [
+      'the count is of spellings as the eye reads them: a stray space is the same spelling',
+      album(5, (n) => ({ ALBUM: ['Album', 'Album ', 'Album', 'Album (Deluxe)', 'Album (Deluxe)'][n - 1] })),
+      { album: 'Album', text: undefined },
+      { 'Album/02 Song.flac': { ALBUM: 'Album' }, 'Album/04 Song.flac': { ALBUM: 'Album' }, 'Album/05 Song.flac': { ALBUM: 'Album' } }
     ],
     [
       'no album tag anywhere: the folder name, as a guess',
@@ -148,6 +166,23 @@ test('album and album artist: one value on every track', () => {
       { album_artist: 'Band' },
       { 'Album/02 Song.flac': { ALBUMARTIST: 'Band' } }
     ],
+    [
+      'no album artist anywhere and the track artists differ: Various Artists',
+      album(3, (n) => ({ ALBUMARTIST: [], ARTIST: ['Alpha', 'Beta', 'Alpha'][n - 1] })),
+      { album_artist: 'Various Artists' },
+      {
+        'Album/01 Song.flac': { ALBUMARTIST: 'Various Artists' },
+        'Album/02 Song.flac': { ALBUMARTIST: 'Various Artists' },
+        'Album/03 Song.flac': { ALBUMARTIST: 'Various Artists' }
+      }
+    ],
+    [
+      'ALBUMARTISTS on one track counts as carrying an album artist: that one is proposed',
+      album(2, (n) => (n === 1 ? { ALBUMARTIST: [], ALBUMARTISTS: 'Band', ARTIST: 'Alpha' } : { ALBUMARTIST: [], ARTIST: 'Beta' })),
+      { album_artist: 'Band' },
+      { 'Album/01 Song.flac': { ALBUMARTIST: 'Band' }, 'Album/02 Song.flac': { ALBUMARTIST: 'Band' } }
+    ],
+    ['no album artist, but one artist with and without a guest: one album already, nothing to do', album(2, (n) => ({ ALBUMARTIST: [], ARTIST: n === 1 ? 'Solo' : 'Solo feat. Guest' })), {}, {}],
     [
       'several album artists stay several values, never one joined string',
       album(2, (n) => (n === 1 ? { ALBUMARTIST: ['A', 'B'] } : { ALBUMARTIST: [], ARTIST: 'C' })),
@@ -197,10 +232,22 @@ test('release date: the same on every track, in the tag each container keeps it 
       { 'Album/03 Song.m4a': { DATE: '2020-01-01' } }
     ],
     [
-      'm4a: a year against a full date',
+      'm4a: a year against a full date, one track each: the fuller date',
       m4a(['2020', '2020-05-01']),
+      { release_date: '2020-05-01' },
+      { 'Album/01 Song.m4a': { DATE: '2020-05-01' } }
+    ],
+    [
+      'a tie between a year, a month and a day: the day',
+      m4a(['2020', '2020-05', '2020-05-01']),
+      { release_date: '2020-05-01' },
+      { 'Album/01 Song.m4a': { DATE: '2020-05-01' }, 'Album/02 Song.m4a': { DATE: '2020-05-01' } }
+    ],
+    [
+      'a clear majority wins, however bare',
+      m4a(['2020', '2020', '2020-05-01']),
       { release_date: '2020' },
-      { 'Album/02 Song.m4a': { DATE: '2020' } }
+      { 'Album/03 Song.m4a': { DATE: '2020' } }
     ],
     [
       'm4a: a time of day does not make another date, so the tag is left as it is',
@@ -263,6 +310,12 @@ test('recording date: unified where it disagrees, outside MP4', () => {
       album(3, (n) => ({ DATE: [['2020'], ['2021'], []][n - 1] })),
       { date: '2020' },
       { 'Album/02 Song.flac': { DATE: '2020' }, 'Album/03 Song.flac': { DATE: '2020' } }
+    ],
+    [
+      'a tie: the more complete date',
+      album(2, (n) => ({ DATE: n === 1 ? '2020' : '2020-05-01' })),
+      { date: '2020-05-01' },
+      { 'Album/01 Song.flac': { DATE: '2020-05-01' } }
     ],
     ['one DATE and a track without: not a disagreement', album(2, (n) => (n === 1 ? { DATE: '2020' } : {})), {}, {}]
   ]);

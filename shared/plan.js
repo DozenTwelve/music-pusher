@@ -14,7 +14,7 @@
 // A fix is proposed exactly when switching it on would write something, so an
 // album that has been through its own plan proposes nothing the second time.
 
-import { albumArtist, foldForIdentity, normalizeReleaseDate } from './identity.js';
+import { albumArtist, foldForIdentity, normalizeReleaseDate, VARIOUS_ARTISTS } from './identity.js';
 import { albumBase } from './inspect.js';
 import { basename, extname } from './paths.js';
 import { normalizeDate, parseNumberPair, leadingTrackNumber } from './tags.js';
@@ -300,6 +300,23 @@ export function planWrites(report, tracks, fixes, context = {}) {
 
 // --- The proposal -----------------------------------------------------------------
 
+// The values tied for most common, from a tally that is sorted most common first.
+const leaders = (distinct) => distinct.filter((entry) => entry.count === distinct[0].count).map((entry) => entry.value);
+
+// Of the dates tied for most common, the most complete: a full date over a
+// year and month over a year. A clear majority wins whatever its form.
+function likeliestDate(distinct) {
+  const completeness = (value) => (normalizeDate(value) ?? '').length;
+  return leaders(distinct).sort((a, b) => completeness(b) - completeness(a))[0];
+}
+
+// One album whose name carries a trailing marker ("[Explicit]") on some tracks
+// only: the spelling most tracks use, and on an exact tie the longer one.
+function commonestName(distinct) {
+  const spellings = tally(distinct.flatMap((entry) => Array(entry.count).fill(clean(entry.value))));
+  return leaders(spellings).sort((a, b) => b.length - a.length)[0];
+}
+
 // What the album looks like to Navidrome, what can be fixed, and what cannot.
 //   context   { nameGuess?, paths?, hasUserCover? } — `nameGuess` is the folder
 //             or archive name, offered as the album name when no track has one
@@ -336,20 +353,25 @@ export function planAlbum(report, tracks, context = {}) {
     // `apart`: the names differ by more than spacing, letter case or a trailing
     // marker, so these may be different albums rather than one album misnamed.
     const apart = new Set(album.distinct.map((entry) => foldForIdentity(albumBase(entry.value)))).size > 1;
+    const proposed = album.variantOnly ? commonestName(album.distinct) : clean(album.proposed);
     // Shown even with nothing to pre-fill: the name has to come from the user.
-    offer({ id: 'album', value: clean(album.proposed) || guess, guess: Boolean(guess), apart, found: found(album), missing: album.missing }, true);
+    offer({ id: 'album', value: proposed || guess, guess: Boolean(guess), apart, found: found(album), missing: album.missing }, true);
   }
   const artist = report.fields.album_artist;
   if (readable.length > 0 && (!artist.consistent || artist.distinct.length === 0)) {
-    offer({ id: 'album_artist', value: clean(artist.proposed), found: found(artist), missing: artist.missing }, true);
+    // No track names an album artist and the track artists differ: a
+    // compilation, more likely than an album by whichever artist sorts first.
+    const tagged = readable.some((track) => [...(track.album_artist_values || []), ...(track.album_artists_values || [])].some(Boolean));
+    const value = !tagged && artist.distinct.length > 1 ? VARIOUS_ARTISTS : clean(artist.proposed);
+    offer({ id: 'album_artist', value, found: found(artist), missing: artist.missing }, true);
   }
   const release = report.fields.release_date;
   if (!release.consistent) {
-    offer({ id: 'release_date', value: release.proposed, options: release.distinct.map((entry) => entry.value) });
+    offer({ id: 'release_date', value: likeliestDate(release.distinct), options: release.distinct.map((entry) => entry.value) });
   }
   const dates = recordingDates(readable);
   if (dates.length > 1) {
-    offer({ id: 'date', value: dates[0].value, options: dates.map((entry) => entry.value) });
+    offer({ id: 'date', value: likeliestDate(dates), options: dates.map((entry) => entry.value) });
   }
   const version = report.fields.album_version;
   if (!version.consistent) {
