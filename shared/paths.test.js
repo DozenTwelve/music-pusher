@@ -67,6 +67,18 @@ const TRICKY = [
   '/data/RAW/Some Album/CD1/07 Song.flac',
   '/01.flac',
   'a//b.flac',
+  // trailing slashes: the last segment is still the name
+  'CD1/',
+  'red/12/',
+  'red/12//',
+  'Album.flac/',
+  'a/b.c/',
+  '.hidden/',
+  'Song./',
+  './',
+  '../',
+  '/',
+  '//',
   ''
 ];
 
@@ -85,23 +97,19 @@ test('extname agrees with node:path on tricky file names', () => {
 test('basename and extname agree with node:path on every short path there is', () => {
   // Every string of up to six characters over an alphabet with a letter, a dot,
   // a separator and a space — all the shapes dots and slashes can take, not just
-  // the ones someone thought to list. Paths ending in "/" are folders and are
-  // outside what the helpers promise.
+  // the ones someone thought to list.
   const alphabet = ['a', '.', '/', ' '];
   let names = [''];
   let checked = 0;
   for (let length = 1; length <= 6; length += 1) {
     names = names.flatMap((prefix) => alphabet.map((ch) => prefix + ch));
     for (const name of names) {
-      if (name.endsWith('/')) {
-        continue;
-      }
       assert.equal(basename(name), posix.basename(name), JSON.stringify(name));
       assert.equal(extname(name), posix.extname(name), JSON.stringify(name));
       checked += 1;
     }
   }
-  assert.equal(checked, 4095);
+  assert.equal(checked, 5460);
 });
 
 test('a non-string is refused, as node:path refuses it', () => {

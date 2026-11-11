@@ -1,12 +1,17 @@
 // Path helpers for the album-relative strings the shared rules work on
 // ("CD1/01 Song.flac"). Pure string code, because node:path does not exist in a
-// browser. They answer exactly what node:path's POSIX basename/extname answer
-// for a file path — paths.test.js holds them to that — and, like POSIX, treat
-// only "/" as a separator. A path ending in "/" names a folder, not a file, and
-// is not handled.
+// browser. They answer exactly what node:path's POSIX basename/extname answer —
+// paths.test.js holds them to that — and, like POSIX, treat only "/" as a
+// separator.
 
+// The last segment of the path. Trailing slashes are not part of it, so
+// "red/12/" is "12", just as "red/12" is.
 export function basename(filePath) {
-  return filePath.slice(filePath.lastIndexOf('/') + 1);
+  let end = filePath.length;
+  while (end > 0 && filePath[end - 1] === '/') {
+    end -= 1;
+  }
+  return filePath.slice(filePath.lastIndexOf('/', end - 1) + 1, end);
 }
 
 // The extension of the file name, dot included, or '' when it has none. A
