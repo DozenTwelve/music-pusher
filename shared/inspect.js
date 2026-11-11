@@ -3,19 +3,23 @@
 // this module stays free of I/O and runs anywhere extensions.js does.
 
 import { distinctAudioFormats } from './extensions.js';
+import { albumIdentity } from './identity.js';
 import { basename, extname } from './paths.js';
 import { parseNumberPair } from './tags.js';
 import { normalizeTagValue, analyzeText, suggestFilenameFix, TEXT_FIELDS } from './text.js';
 
-// Tags that, when they disagree between tracks, cause THIS pipeline (beets
-// album clustering, then Navidrome) to split one album into several. beets
-// groups a directory's tracks by album + album_artist, so those two are the
-// real split causes. `date` is deliberately excluded: per-single release dates
-// differ constantly yet beets keeps them in one album, so treating date as a
-// split cause only produces false "would split" noise. It stays unifiable and
-// is still shown — it is just not a grouping key.
-const GROUPING_FIELDS = ['album', 'album_artist'];
-// ffprobe normalizes container-specific atoms to these lowercase tag keys.
+// What splits an album is Navidrome's album identity (identity.js): the
+// MusicBrainz album id when a track has one, otherwise album artist, album,
+// album version and release date together. These are the names `splitFields`
+// reports a differing ingredient under.
+const IDENTITY_PARTS = ['album', 'album_artist', 'release_date', 'album_version', 'musicbrainz_albumid'];
+// The two of those whose values the Fix form can unify, and so the two that get
+// a proposed value when they differ only by spacing or a trailing marker.
+const NAME_FIELDS = ['album', 'album_artist'];
+// Summarized per field for the report. `date` is the recording date: it is not
+// part of the identity — tracks that disagree on it stay one album, whose date
+// then shows blank — so it is shown and unifiable, never a split cause. (In an
+// m4a the one ©day atom is both this and the release date.)
 const READ_FIELDS = ['album', 'album_artist', 'date', 'disc', 'track', 'genre'];
 // Tags every track needs on its own, which is a different question from the
 // cross-track agreement READ_FIELDS asks about. An album whose tracks all lack a
@@ -23,18 +27,6 @@ const READ_FIELDS = ['album', 'album_artist', 'date', 'disc', 'track', 'genre'];
 // passes it — and it still reaches the library as a column of blank names, which
 // is what `空洞です` did with eight of its ten tracks.
 const REQUIRED_FIELDS = ['title', 'artist'];
-
-// The album-artist a player actually groups by. An explicit album_artist wins;
-// with none, the player derives one from each track's artist participants — the
-// multi-valued `artists` tag (feat. guests included), else the single `artist`.
-// When that derived anchor differs across tracks the album fragments, even
-// though `album` and `date` all agree, so grouping must compare THIS, not the
-// raw album_artist (which reads uniformly "" and hides the split). Precedence is
-// per track: a partially-set album_artist mixes with derived values and still
-// flags, which is correct — partial album_artist is itself a split cause.
-function albumArtistAnchor(track) {
-  return track.album_artist || track.artists || track.artist;
-}
 
 // Strip trailing bracketed markers ("[Explicit]", "(Deluxe Edition)", …) and
 // normalize, yielding the album's base name. Amazon/Lucida singles tag some
@@ -88,16 +80,25 @@ export function diagnoseAlbum(album, tracks, folderImages) {
   const readable = tracks.filter((t) => t.readable);
   const unreadable = tracks.filter((t) => !t.readable).map((t) => t.file);
 
-  // Grouping compares the effective anchor for album_artist; every other field
-  // compares its raw value.
-  const groupValue = (t, field) => (field === 'album_artist' ? albumArtistAnchor(t) : t[field]);
+  const identities = readable.map(albumIdentity);
+  // Tracks with a MusicBrainz album id are grouped by it alone; the other four
+  // ingredients only ever separate the tracks that have none.
+  const byTags = (id) => !id.parts.musicbrainz_albumid;
+
+  // The album artist shown is the one Navidrome settles on — an explicit tag,
+  // else "Various Artists" for a compilation, else the track's first artist —
+  // as it would display it, so the proposal stays a name a person can read and
+  // search with. A track with nothing to go on counts as missing rather than as
+  // a value called "[Unknown Artist]". Every other field shows its raw value.
+  const shownValue = (t, i, field) =>
+    field === 'album_artist' ? (identities[i].unknownArtist ? '' : identities[i].albumArtist) : t[field];
 
   const fields = {};
   for (const field of READ_FIELDS) {
     if (field === 'genre' || field === 'track') {
       continue;
     }
-    fields[field] = summarizeField(readable.map((t) => groupValue(t, field)));
+    fields[field] = summarizeField(readable.map((t, i) => shownValue(t, i, field)));
   }
 
   // Disc structure. A genuine multi-disc set legitimately carries >1 disc
@@ -137,7 +138,7 @@ export function diagnoseAlbum(album, tracks, folderImages) {
 
   // Some "inconsistencies" are pure spacing/encoding drift: the values become
   // identical after normalization. Flag those and propose the clean form.
-  for (const field of GROUPING_FIELDS) {
+  for (const field of NAME_FIELDS) {
     const info = fields[field];
     if (info.consistent || info.missing > 0) {
       continue;
@@ -164,11 +165,39 @@ export function diagnoseAlbum(album, tracks, folderImages) {
     }
   }
 
-  // How many albums would a player create? Distinct combos of grouping fields.
-  const groupKeys = new Set(
-    readable.map((t) => GROUPING_FIELDS.map((f) => groupValue(t, f) || '∅').join(' ¦ '))
+  // The identity's other ingredients, as they are compared: the release date
+  // normalized, the id only when it is a valid UUID. Reported so a split on one
+  // of them can show the values behind it; nothing here is unifiable yet.
+  for (const part of ['release_date', 'album_version', 'musicbrainz_albumid']) {
+    fields[part] = summarizeField(identities.map((id) => id.parts[part]));
+  }
+  // Whether unifying `date` would also unify the release date: true when every
+  // track that is grouped by its tags keeps the two in one tag (an m4a's ©day).
+  const tagged = readable.filter((t, i) => byTags(identities[i]));
+  fields.release_date.followsDate = tagged.length > 0 && tagged.every((t) => Boolean(t.release_date_follows_date));
+
+  // How many albums would Navidrome make of these tracks, and which ingredients
+  // of the identity tell them apart. Values that differ only in what the
+  // comparison ignores — letter case, curly quotes — leave `fields.album`
+  // inconsistent and unifiable but are not a cause, and neither is any
+  // difference between tracks that share a MusicBrainz album id.
+  const groupKeys = new Set(identities.map((id) => id.key));
+  const differs = (ids, part) => new Set(ids.map((id) => id.parts[part])).size > 1;
+  const splitFields = IDENTITY_PARTS.filter((part) =>
+    differs(part === 'musicbrainz_albumid' ? identities : identities.filter(byTags), part)
   );
-  const splitFields = GROUPING_FIELDS.filter((f) => !fields[f].consistent);
+
+  // The opposite risk: tracks Navidrome would file together with music that is
+  // not this album. A track with no album tag joins "[Unknown Album]" along with
+  // every other untagged track by the same artist, wherever it sits on disk; a
+  // track with no artist of any kind lands under "[Unknown Artist]". A
+  // MusicBrainz album id spares a track both.
+  const filesWhere = (test) =>
+    readable.filter((t, i) => byTags(identities[i]) && test(identities[i])).map((t) => t.file);
+  const mergeWarnings = [
+    { reason: 'no_album', files: filesWhere((id) => id.unknownAlbum) },
+    { reason: 'unknown_artist', files: filesWhere((id) => id.unknownArtist) }
+  ].filter((entry) => entry.files.length > 0);
 
   // Track-number health is per disc: numbers present and totals matching the
   // count of their own disc (e.g. 4/10 on disc 1, 8/9 on disc 2).
@@ -224,7 +253,7 @@ export function diagnoseAlbum(album, tracks, folderImages) {
   // for a missing title is the import itself, and refusing it would leave the
   // album stuck in RAW with the one thing that could fill the gap locked behind
   // the refusal. `artist` counts as present when the multi-valued `artists`
-  // carries it, the same precedence albumArtistAnchor uses.
+  // carries it.
   const requiredValue = (t, field) => (field === 'artist' ? t.artist || t.artists : t[field]);
   const missingRequired = REQUIRED_FIELDS.map((field) => ({
     field,
@@ -311,6 +340,7 @@ export function diagnoseAlbum(album, tracks, folderImages) {
     trackGaps,
     incomplete: trackGaps.length > 0,
     missingRequired,
+    mergeWarnings,
     noDuration,
     durationRepairable,
     art,

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { config } from '../config.js';
 import { ART_EXTENSIONS } from '../upload.js';
 import { diagnoseAlbum } from '../../shared/inspect.js';
+import { firstReleaseDate, normalizeReleaseDate } from '../../shared/identity.js';
 import { listAudioFiles, probeTags } from './probe.js';
 
 // Walk the album tree and collect loose image files (cover.jpg, folder.png, ...).
@@ -30,6 +31,53 @@ async function listFolderImages(albumPath) {
 
   found.sort((a, b) => a.localeCompare(b));
   return found;
+}
+
+// A tag's values as a list. ffprobe hands every tag over as one string, and what
+// it does with a tag that has several values depends on where the tag lives:
+// repeated Vorbis comments (FLAC, Ogg, Opus) and repeated values of a standard
+// MP4 atom come joined with ";", while an ID3 frame or an MP4 freeform atom
+// yields its first value and silently drops the rest. Cutting at the ";" makes
+// the same tag read as the same list in every container — and the album
+// identity only ever looks at the first value, or at all of ALBUMARTIST.
+// ponytail: a ";" ffprobe put between two values and a ";" that is part of one
+// value look the same from here. A ";" followed by a space is taken to be
+// typed ("Nujabes; Shing02" in one ARTISTS comment stays one value, which is
+// how Navidrome reads it); a bare one is taken to be a join, so a literal
+// "A;B" is misread as two values, and a second value that begins with a space
+// as none. The dropped values of an ID3 frame are simply not there. The upgrade
+// is a reader that returns real lists — TagLib, as web/src/tags.js does.
+function valueList(joined) {
+  return joined ? joined.split(/;(?! )/) : [];
+}
+
+// The identity fields of the track record (shared/identity.js), from the keys
+// ffprobe reports — lowercased by probeTags. Per container:
+//   FLAC  every Vorbis comment under its own name, so DATE, RELEASEDATE and
+//         YEAR stay three tags.
+//   MP3   TXXX frames under their description ("MusicBrainz Album Id",
+//         RELEASEDATE, YEAR, ALBUMVERSION, ARTISTS, ALBUMARTISTS); TCMP as
+//         `compilation`. TDRC and TDRL both arrive as `date`, one hiding the
+//         other when both are set, so an ID3 release date cannot be told from
+//         a recording date: `date` is read as the recording date, which is
+//         what ffmpeg and most taggers write, and a TDRL is not seen.
+//   MP4   freeform atoms under their name, as MP3's TXXX; cpil as
+//         `compilation`; ©day as `date`, which there is the release date too.
+function identityFields(tags) {
+  const mp4 = (tags.__format_name || '').split(',').includes('mp4');
+  return {
+    artist_values: valueList(tags.artist),
+    artists_values: valueList(tags.artists),
+    album_artist_values: valueList(tags.album_artist || tags.albumartist),
+    album_artists_values: valueList(tags.albumartists),
+    compilation: tags.compilation || '',
+    musicbrainz_albumid: tags.musicbrainz_albumid || tags['musicbrainz album id'] || '',
+    album_version:
+      tags.albumversion || tags.musicbrainz_albumcomment || tags['musicbrainz album comment'] || '',
+    release_date: firstReleaseDate([tags.releasedate, mp4 ? tags.date : '', tags.year]),
+    // Rewriting ©day moves the release date unless a RELEASEDATE outranks it.
+    release_date_follows_date: mp4 && !normalizeReleaseDate(tags.releasedate || '')
+  };
 }
 
 // How many ffprobe processes may run at once while scanning an album.
@@ -60,7 +108,8 @@ export async function inspectAlbum(album) {
       album_artist: tags.album_artist || tags.albumartist || '',
       date: tags.date || tags.year || '',
       disc: tags.disc || tags.disk || tags.discnumber || '',
-      track: tags.track || tags.tracknumber || ''
+      track: tags.track || tags.tracknumber || '',
+      ...identityFields(tags)
     };
   }
 

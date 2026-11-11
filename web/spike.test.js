@@ -17,6 +17,7 @@ import { spawn } from 'node:child_process';
 import { initTagLib, readTrack, writeTrack } from './src/tags.js';
 import { unzipAlbum, zipAlbum } from './src/zip.js';
 import { diagnoseAlbum } from '../shared/inspect.js';
+import { GROUND_TRUTH, BY_RULE } from '../shared/navidrome.groundtruth.js';
 
 const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), 'web-spike-'));
 after(() => fsp.rm(tmp, { recursive: true, force: true }));
@@ -280,7 +281,18 @@ for (const container of CONTAINERS) {
         album_artist: 'Old Artist',
         date: '2020',
         disc: '1/1',
-        track: '1/3'
+        track: '1/3',
+        artist_values: ['A'],
+        artists_values: [],
+        album_artist_values: ['Old Artist'],
+        album_artists_values: [],
+        compilation: '',
+        musicbrainz_albumid: '',
+        album_version: '',
+        // ffmpeg's `date` is the ©day atom in an m4a, and only there is it the
+        // release date; in FLAC (DATE) and MP3 (TDRC) it is the recording date.
+        release_date: container.ext === 'm4a' ? '2020' : '',
+        release_date_follows_date: container.ext === 'm4a'
       }
     );
     assert.deepEqual(properties.GENRE, ['Pop']);
@@ -519,6 +531,50 @@ test('mp3: Picard-style frames written by another tool are read, and survive a r
   );
 });
 
+// The record fields the album identity is computed from (shared/identity.js).
+const identityOf = ({ artist_values, artists_values, album_artist_values, album_artists_values, compilation, musicbrainz_albumid, album_version, release_date, release_date_follows_date }) =>
+  ({ artist_values, artists_values, album_artist_values, album_artists_values, compilation, musicbrainz_albumid, album_version, release_date, release_date_follows_date });
+
+for (const container of [FLAC, MP3, MP3_V23, M4A]) {
+  test(`${container.name}: the identity fields of the record, read from where the container keeps them`, async () => {
+    const written = await rewrite(await fixture(container), { set: { ...IDENTITY, ARTISTS: ['A', 'B'] } });
+    assert.deepEqual(identityOf(await read(written)), {
+      artist_values: ['A'],
+      artists_values: ['A', 'B'],
+      album_artist_values: ['Old Artist'],
+      album_artists_values: ['X', 'Y'],
+      compilation: '1',
+      musicbrainz_albumid: MBID,
+      album_version: 'Deluxe',
+      // RELEASEDATE outranks ©day and YEAR, so unifying `date` would not move it.
+      release_date: '2021-06-01',
+      release_date_follows_date: false
+    });
+
+    // Without RELEASEDATE: ©day in an m4a, YEAR elsewhere — never DATE or TDRC.
+    const noRelease = await read(await rewrite(written, { set: { RELEASEDATE: null } }));
+    assert.equal(noRelease.release_date, container.ext === 'm4a' ? '2021-05-29' : '2019');
+    assert.equal(noRelease.release_date_follows_date, container.ext === 'm4a');
+    const noYear = await read(await rewrite(written, { set: { RELEASEDATE: null, YEAR: null } }));
+    assert.equal(noYear.release_date, container.ext === 'm4a' ? '2021-05-29' : '');
+    assert.equal(noYear.date, '2021-05-29');
+
+    // MUSICBRAINZ_ALBUMCOMMENT stands in for a missing ALBUMVERSION.
+    const comment = await read(await rewrite(written, { set: { ALBUMVERSION: null, MUSICBRAINZ_ALBUMCOMMENT: 'Remaster' } }));
+    assert.equal(comment.album_version, 'Remaster');
+  });
+}
+
+test('mp3: the compilation flag as ffmpeg writes it to each ID3 version', async () => {
+  // ID3v2.3 gets a TCMP frame; ID3v2.4 gets TXXX:TCMP, which TagLib has no
+  // name for and Navidrome still reads as the flag.
+  for (const container of [MP3, MP3_V23]) {
+    const file = await fixture(container, { tags: { ...ORIGINAL, compilation: '1' } });
+    assert.equal((await read(file)).compilation, '1', container.name);
+  }
+  assert.deepEqual(pick(await rawMp3(await fixture(MP3, { tags: { ...ORIGINAL, compilation: '1' } })), ['TCMP', 'TXXX:TCMP']), { 'TXXX:TCMP': ['1'] });
+});
+
 test('m4a: tracks with different ©day values are rewritten to one', async () => {
   const first = await fixture(M4A, { tags: { ...ORIGINAL, date: '2020-01-02', compilation: '1' } });
   const second = await fixture(M4A_FASTSTART, { tags: { ...ORIGINAL, date: '2019' } });
@@ -614,12 +670,20 @@ const KNOWN_DIFFERENCES = [
     match: (key, server, browser) => /^tracks\.\d+\.duration$/.test(key) && Math.abs(server - browser) < 0.05
   },
   {
-    why: 'artists (MP3, MP4): ffprobe returns only the first value of a multi-valued tag; TagLib returns all of them. FLAC agrees, because there ffprobe joins repeats with ";".',
+    why: 'artists, the joined string (MP3, MP4): ffprobe returns only the first value of a multi-valued tag; TagLib returns all of them. FLAC agrees, because there ffprobe joins repeats with ";". No rule groups by this string any more.',
     match: (key, server, browser) => /^tracks\.\d+\.artists$/.test(key) && server === 'A' && browser === 'A;B'
   },
   {
-    why: 'grouping: a consequence of the line above. With no album_artist the anchor is `artists`, so the server sees "A" on MP3/MP4 and "A;B" on FLAC and counts one group more than the browser reader does.',
-    match: (key) => key === 'groupCount' || /^fields\.album_artist\.distinct\.\d+\.(value|count)$/.test(key)
+    why: 'artists_values / album_artists_values past the first value (MP3, MP4): the same ffprobe limit, in the lists the album identity reads. The identity takes the FIRST ARTISTS value, which both readers have, so the album count agrees; ALBUMARTISTS is read whole, so an album whose only album artist tag is a multi-valued ALBUMARTISTS in an MP3 or MP4 is where the server would still differ.',
+    match: (key, server, browser) =>
+      /^tracks\.\d+\.(artists_values|album_artists_values)\.[1-9]\d*$/.test(key) && server === undefined && typeof browser === 'string'
+  },
+  {
+    why: 'date and release_date (MP3 with a TDRL frame): ffprobe reports TDRC and TDRL under the one key `date`, so the server shows the release date as the recording date and has no release date; TagLib keeps the two apart. A consequence: the tallies of distinct recording dates and release dates in the album differ by that one track.',
+    match: (key, server, browser) =>
+      (/^tracks\.\d+\.date$/.test(key) && server === '2021-06-01' && browser === '2021-05-29') ||
+      (/^tracks\.\d+\.release_date$/.test(key) && server === '2019' && browser === '2021-06-01') ||
+      /^fields\.(date|release_date)\.distinct\.\d+\.(value|count)$/.test(key)
   }
 ];
 
@@ -650,6 +714,11 @@ test('diagnoseAlbum: the server reader and the browser reader agree, bar a known
   await withArtists(FLAC, '13.flac', bare);
   await withArtists(MP3, '14.mp3', bare);
   await withArtists(M4A, '15.m4a', bare);
+  // Every identity tag at once, written where each container keeps it.
+  const identity = { set: { ...IDENTITY, ARTISTS: ['A', 'B'] } };
+  for (const [container, name] of [[FLAC, '16.flac'], [MP3, '17.mp3'], [M4A, '18.m4a']]) {
+    await fsp.writeFile(path.join(dir, name), await writeTrack(taglib, name, await bytesOf(await fixture(container)), identity));
+  }
   await place(cover, 'cover.jpg');
 
   const server = await inspectAlbum(album);
@@ -685,7 +754,39 @@ test('diagnoseAlbum: the server reader and the browser reader agree, bar a known
   // Each known difference really occurs — the list is not allowed to rot.
   assert.deepEqual(counts.map((n) => n > 0), KNOWN_DIFFERENCES.map(() => true));
   // The parts the rules act on agree outright.
-  for (const key of ['unreadable', 'noDuration', 'durationRepairable', 'qualities', 'mixedQuality', 'formats', 'art', 'track', 'trackGaps', 'missingRequired', 'discs', 'splitFields']) {
+  for (const key of ['unreadable', 'noDuration', 'durationRepairable', 'qualities', 'mixedQuality', 'formats', 'art', 'track', 'trackGaps', 'missingRequired', 'mergeWarnings', 'discs', 'splitFields', 'groupCount']) {
     assert.deepEqual(browser[key], server[key], key);
   }
+  // The false split this album used to show on the server: 13, 14 and 15 carry
+  // the same two ARTISTS values and no album artist, and ffprobe hands them
+  // over as "A;B" (FLAC) and "A" (MP3, MP4). Both readers now make one album
+  // artist of them.
+  const byFile = Object.fromEntries(server.tracks.map((track) => [track.file, track]));
+  assert.deepEqual(['13.flac', '14.mp3', '15.m4a'].map((file) => byFile[file].artists), ['A;B', 'A', 'A']);
+  assert.deepEqual(['13.flac', '14.mp3', '15.m4a'].map((file) => byFile[file].artists_values[0]), ['A', 'A', 'A']);
+  // (The fourth "A" is 10.flac, whose only artist tag is ARTIST=A.)
+  assert.deepEqual(server.fields.album_artist.distinct, [{ value: 'Old Artist', count: 12 }, { value: 'A', count: 4 }]);
+  assert.deepEqual(browser.fields.album_artist, server.fields.album_artist);
 });
+
+// --- Navidrome's album count, through this reader ----------------------------
+
+for (const album of [...GROUND_TRUTH, ...BY_RULE]) {
+  test(`${album.id}: tracks differ in ${album.differs} — ${album.albums} album${album.albums > 1 ? 's' : ''}`, async () => {
+    const tracks = [];
+    for (const [file, tags] of album.files) {
+      const target = path.join(tmp, 'navidrome', album.id, file);
+      await fsp.mkdir(path.dirname(target), { recursive: true });
+      await ffmpeg(...SINE, ...metadataArgs(tags), target);
+      tracks.push(await readTrack(taglib, file, await bytesOf(target)));
+    }
+    const report = diagnoseAlbum(album.id, tracks, []);
+    // No case is a known gap for this reader; the server's are in knownGaps.
+    assert.equal(album.knownGaps?.browser, undefined);
+    assert.equal(report.groupCount, album.albums);
+    assert.equal(report.splitFields.length > 0, album.albums > 1, `causes: ${report.splitFields}`);
+    if (album.albumArtist) {
+      assert.equal(report.fields.album_artist.proposed, album.albumArtist);
+    }
+  });
+}

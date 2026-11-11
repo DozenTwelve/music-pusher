@@ -4,6 +4,7 @@
 // test) is the only environment-specific step.
 
 import { TagLib, PROPERTIES } from 'taglib-wasm';
+import { firstReleaseDate, normalizeReleaseDate } from '../../shared/identity.js';
 
 // Supplying the binary selects TagLib's Emscripten backend in every runtime —
 // the one a browser gets — so the Node test exercises the code path that ships.
@@ -30,6 +31,15 @@ const UNREADABLE = {
   date: '',
   disc: '',
   track: '',
+  artist_values: [],
+  artists_values: [],
+  album_artist_values: [],
+  album_artists_values: [],
+  compilation: '',
+  musicbrainz_albumid: '',
+  album_version: '',
+  release_date: '',
+  release_date_follows_date: false,
   properties: {}
 };
 
@@ -72,6 +82,12 @@ export async function readTrack(taglib, file, bytes) {
       properties[tagLibName(key).toUpperCase()] = values || [];
     }
     const tag = (name) => (properties[name] || []).join(MULTI_VALUE_SEPARATOR);
+    // Every value of the first of these names the file has, then of the next.
+    const all = (...names) => names.flatMap((name) => properties[name] || []);
+    // TDRL is how the frame reads in an ID3v2.3 tag, which has no such frame
+    // and so no normalized name for it.
+    const releaseTags = all('TDRL', 'RELEASEDATE');
+    const mp4 = handle.getFormat() === 'MP4';
     return {
       file,
       readable: true,
@@ -91,6 +107,20 @@ export async function readTrack(taglib, file, bytes) {
       date: tag('DATE'),
       disc: tag('DISCNUMBER'),
       track: tag('TRACKNUMBER'),
+      // The album identity fields (shared/identity.js), as real lists.
+      artist_values: all('ARTIST'),
+      artists_values: all('ARTISTS'),
+      album_artist_values: all('ALBUMARTIST'),
+      album_artists_values: all('ALBUMARTISTS'),
+      // TCMP: ffmpeg writes the flag to an ID3v2.4 tag as TXXX:TCMP.
+      compilation: all('COMPILATION', 'TCMP')[0] || '',
+      musicbrainz_albumid: all('MUSICBRAINZ_ALBUMID')[0] || '',
+      album_version: all('ALBUMVERSION', 'MUSICBRAINZ_ALBUMCOMMENT', 'MUSICBRAINZ ALBUM COMMENT')[0] || '',
+      // In an MP4, DATE is the ©day atom, which Navidrome reads as the release
+      // date; everywhere else DATE is the recording date and stays out of it.
+      release_date: firstReleaseDate([...releaseTags, ...(mp4 ? all('DATE') : []), ...all('YEAR')]),
+      // Rewriting ©day moves the release date unless a RELEASEDATE outranks it.
+      release_date_follows_date: mp4 && !releaseTags.some(normalizeReleaseDate),
       properties
     };
   } finally {
