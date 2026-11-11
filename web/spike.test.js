@@ -15,7 +15,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { initTagLib, readTrack, writeTrack } from './src/tags.js';
-import { unzipAlbum, zipAlbum } from './src/zip.js';
+import { openZip, zipWriter } from './src/zip.js';
 import { diagnoseAlbum } from '../shared/inspect.js';
 import { GROUND_TRUTH, BY_RULE } from '../shared/navidrome.groundtruth.js';
 
@@ -611,16 +611,21 @@ test('zip in, zip out: stored, and the rewritten tracks survive the round trip',
   const zipIn = path.join(tmp, 'in.zip');
   assert.equal((await run('zip', ['-qr', zipIn, 'Album'], { cwd: stage })).code, 0);
 
-  const entries = unzipAlbum(await bytesOf(zipIn));
-  assert.deepEqual(entries.map((e) => e.path), Object.keys(sources).sort((a, b) => a.localeCompare(b)));
+  // The archive is opened as a Blob, the way the page gets it from a File.
+  const { entries } = await openZip(new Blob([await bytesOf(zipIn)]));
+  assert.deepEqual(
+    entries.map((e) => e.path).sort((a, b) => a.localeCompare(b)),
+    Object.keys(sources).sort((a, b) => a.localeCompare(b))
+  );
 
-  const rewritten = [];
-  for (const { path: name, bytes } of entries) {
-    const isAudio = /\.(flac|mp3|m4a)$/.test(name);
-    rewritten.push({ path: name, bytes: isAudio ? await writeTrack(taglib, name, bytes, { set: NEW_TAGS }) : bytes });
+  const zip = zipWriter();
+  for (const entry of entries) {
+    const bytes = await entry.read();
+    const isAudio = /\.(flac|mp3|m4a)$/.test(entry.path);
+    zip.add(entry.path, isAudio ? await writeTrack(taglib, entry.path, bytes, { set: NEW_TAGS }) : bytes);
   }
   const zipOut = path.join(tmp, 'out.zip');
-  await fsp.writeFile(zipOut, zipAlbum(rewritten));
+  await fsp.writeFile(zipOut, new Uint8Array(await zip.finish().arrayBuffer()));
 
   // Extract with the system unzip (not the library that wrote it) and check.
   const outDir = path.join(tmp, 'zip-out');
