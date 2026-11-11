@@ -3,13 +3,14 @@
  * nav: one line, the wordmark set as a spine and the two languages as words · signature: the rack, a sleeve for each album Navidrome would make, three becoming one · states: arrive, reading, plan, cleaning, done, error, drag-over, phone
  * axes: light/grotesk-heavy/neutral · posture: restrained, no accent at all · contrast: pass · modes: light+dark · v2.0.0 */
 /* Hallmark · pre-emit critique: P4 H4 E4 S4 R5 V4 · weakest: S, black type on grey could be any print-minded tool; the rack of repeated sleeves and the filing language are what tie it to this job · cut to earn R: the accent, every shadow, every radius, the glows */
-/* Hallmark · dismissed 25 · the phone screen is one sentence on a 390px screen, set as a statement rather than as prose */
-/* Hallmark · dismissed 23 · the page declares no accent; the accent token repeats the ink, so the measure is counting type and rules */
+/* Hallmark · waive 23 · the stamp declares no accent and the accent token repeats the ink · what the measure counts is the ink of the type, the rules and the one ink button, on a page whose only colour is the album cover */
 /* Hallmark · reworded "别再让 Navidrome 把专辑拆开" to "修好被 Navidrome 拆散的专辑" · the owner asked for the slogan to go; every other string was reread at their request too */
 @import url("./tokens.css");
 @import url("./base.css");
 
 :lang(zh) :is(h1, h2, .wordmark, .drop__title, .button) { letter-spacing: 0; }
+/* The condensed cut is a Latin voice. Beside Chinese it only looks pinched, so there the face runs at its normal width and size does the work. */
+:lang(zh) :is(.headline, .drop__title, .block h2, .wordmark, .phone h1, .phone p) { font-stretch: 100%; }
 
 /* --- Shell ----------------------------------------------------------------- */
 
@@ -27,6 +28,7 @@
 @media (hover: hover) { .switch button:hover { color: var(--color-ink); } }
 
 .stage { display: grid; align-content: start; gap: var(--space-lg); padding-block: var(--space-xl) var(--space-3xl); }
+.stage:is([data-step="arrive"], [data-step="reading"], [data-step="cleaning"]) { align-content: center; }
 .foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-xs) var(--space-lg); padding-block: var(--space-md) var(--space-lg); border-top: var(--rule) solid var(--color-ink); color: var(--color-muted); font-size: var(--text-sm); }
 .foot p { margin-right: auto; }
 @media (hover: hover) { .foot a:hover { color: var(--color-ink); } }
@@ -36,11 +38,13 @@
 .headline { max-width: 17em; font-size: var(--text-display); font-stretch: 75%; line-height: 1.02; }
 /* Focus is sent here when a step opens, to be read out, not to be operated. */
 .headline:focus { outline: none; }
-:lang(zh) .headline { max-width: 20em; font-size: 3.25rem; font-weight: 600; line-height: 1.2; }
+:lang(zh) .headline { max-width: 18em; font-size: 4rem; font-weight: 600; line-height: 1.15; }
 .lead { max-width: 36rem; color: var(--color-ink-2); font-size: var(--text-lead); line-height: 1.4; }
 .lead--strong { color: var(--color-ink); font-weight: 600; }
 .note, .small { max-width: 44rem; color: var(--color-muted); font-size: var(--text-sm); }
-.alert { max-width: 44rem; padding: var(--space-sm) var(--space-md); border: var(--rule) solid var(--color-error); background: var(--color-paper-2); font-weight: 600; }
+.warning { max-width: 44rem; font-weight: 600; }
+.alert { max-width: 44rem; padding: var(--space-sm) var(--space-md); background: var(--color-ink); color: var(--color-paper); font-weight: 600; }
+.shell[data-over] .alert { visibility: hidden; }
 
 /* --- The rack: one sleeve for each album ---------------------------------- */
 
@@ -49,8 +53,9 @@
 .rack figcaption { font-weight: 600; }
 /* Several albums: four sleeves to a row, as a library grid shows them. */
 .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-lg) var(--gap-columns); }
-.body { grid-column: span 8; display: grid; gap: var(--space-lg); justify-items: start; }
-.cannot { grid-column: span 4; }
+.body { grid-column: span 6; display: grid; gap: var(--space-lg); justify-items: start; }
+.body--wide { grid-column: 1 / -1; }
+.cannot { grid-column: span 6; }
 /* One album: its sleeve on the left, larger, and everything else beside it. */
 .row[data-tiles="one"] .rack { grid-column: span 4; grid-row: 1 / span 2; }
 .row[data-tiles="one"] .tiles { grid-template-columns: minmax(0, 1fr); }
@@ -59,7 +64,7 @@
 .tile { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--space-md); align-items: baseline; }
 .tile .square { grid-column: 1 / -1; margin-bottom: var(--space-sm); }
 .tile strong { grid-column: 1 / -1; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
-.tile span { color: var(--color-muted); font-size: var(--text-sm); overflow-wrap: anywhere; }
+.tile > span { color: var(--color-muted); font-size: var(--text-sm); overflow-wrap: anywhere; }
 .tile .num { color: var(--color-ink); white-space: nowrap; }
 
 /* A sleeve is a square with sharp corners. Empty, it is an outline. */
@@ -68,19 +73,24 @@
 .square > img { width: 100%; height: 100%; object-fit: cover; }
 .square__empty { place-self: center; color: var(--color-muted); font-weight: 600; }
 
-.drop { display: grid; align-content: center; gap: var(--space-sm); padding: var(--space-lg); }
-.drop__title { margin-bottom: var(--space-sm); font-size: var(--text-section); font-stretch: 75%; font-weight: 800; letter-spacing: var(--tracking-display); line-height: 1.05; text-wrap: balance; }
+.drop { display: grid; align-content: center; justify-items: start; gap: var(--space-xs); padding: var(--space-lg); }
+.drop .square__empty { place-self: auto; }
+.pickers { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-lg); }
+.link { position: relative; min-height: 40px; padding: 0; border: 0; background: none; color: inherit; font-weight: 600; text-decoration: underline; text-decoration-thickness: var(--rule); text-underline-offset: 0.3em; cursor: pointer; }
+.link:active { color: var(--color-ink-2); }
+@media (hover: hover) { .link:hover { text-decoration-thickness: 3px; } }
+.drop__title { font-size: var(--text-section); font-stretch: 75%; font-weight: 800; letter-spacing: var(--tracking-display); line-height: 1.05; text-wrap: balance; }
 :lang(zh) .drop__title { font-weight: 600; line-height: 1.25; }
 
 /* Something is being dragged over the page: the whole page is the target, and says so. */
 .shell[data-over]::after { content: ""; position: fixed; inset: 0; border: var(--space-xs) solid var(--color-ink); pointer-events: none; }
 .shell[data-over] .square:has(.drop) { background: var(--color-ink); color: var(--color-paper); }
-.shell[data-over] .drop .button { visibility: hidden; }
+.shell[data-over] .pickers { visibility: hidden; }
 
 .was { display: grid; gap: var(--space-xs); padding-top: var(--space-md); border-top: var(--rule-hair) solid var(--color-rule); width: 100%; }
-.was figcaption { color: var(--color-muted); font-size: var(--text-sm); }
-.was ul { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
-.was .square { width: 56px; border-width: var(--rule-hair); }
+.was figcaption { font-weight: 600; }
+.was ul { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.was .square { width: 112px; }
 
 /* --- Lists ----------------------------------------------------------------- */
 
@@ -90,12 +100,14 @@
 .plain { display: grid; gap: var(--space-sm); }
 .plain li { max-width: 40rem; }
 .files { display: block; margin-top: var(--space-2xs); color: var(--color-muted); font-size: var(--text-sm); overflow-wrap: anywhere; }
-.files .button { margin-top: var(--space-xs); color: var(--color-ink); font-size: var(--text-md); }
 
 .fix { display: grid; gap: var(--space-xs); padding-block: var(--space-sm); }
 .fix + .fix { border-top: var(--rule-hair) solid var(--color-rule); }
 .fix__toggle { display: flex; align-items: flex-start; gap: var(--space-md); font-weight: 600; cursor: pointer; }
-.fix__toggle input { flex-shrink: 0; width: 24px; height: 24px; margin: 0; border-radius: 0; accent-color: var(--color-ink); cursor: pointer; }
+.fix__toggle input { appearance: none; flex-shrink: 0; display: grid; place-content: center; width: 24px; height: 24px; margin: 0; border: var(--rule) solid var(--color-ink); border-radius: 0; background: var(--color-paper-2); cursor: pointer; }
+.fix__toggle input::before { content: ""; width: 14px; height: 14px; background: var(--color-paper); clip-path: polygon(12% 48%, 0 62%, 40% 100%, 100% 22%, 86% 10%, 38% 72%); opacity: 0; }
+.fix__toggle input:checked { background: var(--color-ink); }
+.fix__toggle input:checked::before { opacity: 1; }
 .field, .fix__hint { margin-left: var(--space-xl); }
 .field { display: grid; gap: var(--space-2xs); max-width: 28rem; }
 .field span, .fix__hint { color: var(--color-muted); font-size: var(--text-sm); }
@@ -112,8 +124,16 @@
   outline: 3px solid transparent;
   outline-offset: 3px;
 }
+.field select {
+  appearance: none;
+  padding-right: var(--space-xl);
+  background-image: linear-gradient(45deg, transparent 50%, var(--color-ink) 50%), linear-gradient(135deg, var(--color-ink) 50%, transparent 50%);
+  background-position: right 19px center, right 12px center;
+  background-size: 7px 7px;
+  background-repeat: no-repeat;
+}
 .field input:focus-visible, .field select:focus-visible { outline-color: var(--color-focus); }
-@media (hover: hover) { .field :enabled:hover { background: var(--color-paper); } }
+@media (hover: hover) { .field :enabled:hover { background-color: var(--color-paper); } }
 
 /* --- Controls -------------------------------------------------------------- */
 
@@ -174,11 +194,10 @@ progress:indeterminate { animation: waiting 1.2s var(--ease-out) infinite altern
    touch screen still has a fine pointer first, and stays a desktop. */
 @media (pointer: coarse) and (max-width: 1400px) {
   .phone { display: grid; align-content: center; gap: var(--space-md); min-height: 100dvh; padding: var(--gutter); }
-  .phone p { max-width: 18ch; font-size: 2.25rem; font-stretch: 75%; font-weight: 800; letter-spacing: var(--tracking-display); line-height: 1.08; }
-  .phone p:lang(zh) { max-width: 12em; font-size: 1.75rem; font-weight: 600; letter-spacing: 0; line-height: 1.3; }
-  .phone p + p { color: var(--color-muted); }
-  .phone p + p:lang(en) { max-width: 30ch; font-size: var(--text-md); font-stretch: 100%; font-weight: 400; letter-spacing: 0; line-height: 1.5; }
-  .phone p + p:lang(zh) { font-size: var(--text-md); font-weight: 400; line-height: 1.6; }
+  .phone h1 { max-width: 12em; margin-bottom: var(--space-md); font-size: 2.5rem; font-stretch: 75%; line-height: 1.05; }
+  .phone h1:lang(zh) { max-width: 9em; font-size: 2.125rem; font-weight: 600; line-height: 1.25; }
+  .phone p { max-width: 22rem; font-weight: 600; }
+  .phone p + p { color: var(--color-muted); font-weight: 400; }
   #app { display: none; }
 }
 

@@ -44,7 +44,7 @@ const en = {
   phone: 'Open this on a computer. Firefox or Chrome work best.',
 
   'arrive.title': 'Fix an album that Navidrome shows in pieces.',
-  'arrive.lede': 'Drop the album’s folder or zip. You get back a zip that Navidrome reads as one album.',
+  'arrive.lede': 'Drop the album’s folder or zip. The tags and cover are fixed, and it comes back as a zip that Navidrome reads as one album.',
   'arrive.private': 'Nothing is uploaded. The files are read and rewritten on this computer.',
   'arrive.drop': 'Drop a folder or a zip here',
   'arrive.release': 'Let go',
@@ -145,7 +145,6 @@ const en = {
   'cannot.unclear_text': ({ n }) => `${count(n, 'One track has', '{n} tracks have')} damaged text with no safe repair.`,
   'cannot.no_title': ({ n }) => `${count(n, 'One track has', '{n} tracks have')} no title.`,
   'cannot.no_artist': ({ n }) => `${count(n, 'One track has', '{n} tracks have')} no artist.`,
-  'cannot.no_cover': 'No cover in the files. Add an image and it goes into every track.',
   'cannot.unsupported': ({ n }) =>
     count(n, 'One audio file is in a format that isn’t read here. It goes into the zip unchanged.', '{n} audio files are in a format that isn’t read here. They go into the zip unchanged.'),
   'cannot.names': ({ n }) => `and ${n} more`,
@@ -180,8 +179,8 @@ const zh = {
   language: '语言',
   phone: '请在电脑浏览器中打开，建议使用 Firefox 或 Chrome。',
 
-  'arrive.title': '修好被 Navidrome 拆散的专辑',
-  'arrive.lede': '把专辑的文件夹或 zip 拖进来，拿回一个 zip，Navidrome 会把它认成一张专辑。',
+  'arrive.title': '修好被 Navidrome 拆散的专辑。',
+  'arrive.lede': '把专辑的文件夹或 zip 拖进来。标签和封面修好后打包成 zip，Navidrome 会把它认成一张专辑。',
   'arrive.private': '不上传任何文件，读取和修改都在这台电脑上完成。',
   'arrive.drop': '把文件夹或 zip 拖到这里',
   'arrive.release': '松手',
@@ -278,13 +277,12 @@ const zh = {
   'cannot.unclear_text': '{n} 首歌里有损坏的文字，没法可靠地修。',
   'cannot.no_title': '{n} 首歌没有标题。',
   'cannot.no_artist': '{n} 首歌没写艺人。',
-  'cannot.no_cover': '文件里没有封面。加一张图片，就会写进每一首歌。',
   'cannot.unsupported': '{n} 个音频文件的格式这里读不了，会原样放进 zip。',
   'cannot.names': '等 {n} 个',
   'encoding.guessed': '这个 zip 的文件名是旧编码，这里按 {encoding} 读。如果“{sample}”是乱码，就换一张专辑：修出来的文件名也会是乱的。',
   'encoding.unknown': '这个 zip 的文件名编码认不出来，修出来的文件名可能是乱的。',
 
-  'action.clean': '修复专辑',
+  'action.clean': '修好这张专辑',
   'action.another': '换一张专辑',
   'action.download': '下载 zip',
   'action.again': '再修一张',

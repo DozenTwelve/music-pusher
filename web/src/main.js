@@ -8,8 +8,9 @@ const language = pickLanguage();
 document.documentElement.lang = LANGUAGES.find(({ code }) => code === language).tag;
 document.title = translator(language)('app');
 
-// Both languages, the reader's own first.
+// What this is, then where to open it: both languages, the reader's own first.
 const phone = document.getElementById('phone');
+phone.appendChild(document.createElement('h1')).textContent = translator(language)('arrive.title');
 for (const { code, tag } of [...LANGUAGES].sort((a) => (a.code === language ? -1 : 1))) {
   const line = phone.appendChild(document.createElement('p'));
   line.lang = tag;

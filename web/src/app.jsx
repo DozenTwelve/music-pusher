@@ -179,7 +179,7 @@ function Square({ t, cover, children }) {
 
 // The rack: one sleeve for each album Navidrome would make of these tracks.
 const MOST_TILES = 6;
-function Rack({ t, cover, albums, caption }) {
+function Rack({ t, cover, albums, caption, picker }) {
   const rows = shelfRows(t, albums);
   return (
     <figure className="rack">
@@ -187,7 +187,12 @@ function Rack({ t, cover, albums, caption }) {
       <ul className="tiles">
         {rows.slice(0, MOST_TILES).map((row, index) => (
           <li className="tile" key={index}>
-            <Square t={t} cover={cover} />
+            <Square t={t} cover={cover}>
+              <div className="drop">
+                <p className="square__empty">{t('cover.none')}</p>
+                {index === 0 && picker}
+              </div>
+            </Square>
             <strong>{row.album}</strong>
             <span>{row.detail}</span>
             <span className="num">{t('shelf.tracks', { n: row.tracks })}</span>
@@ -315,20 +320,20 @@ function Fix({ t, fix, coverName, onChange }) {
   );
 }
 
-// `coverPicker` is the control that fills the one gap the user can fill.
-function CannotFix({ t, entries, coverPicker }) {
-  if (entries.length === 0) {
+// A missing cover is not listed: the empty sleeve says it, and takes an image.
+function CannotFix({ t, entries }) {
+  const listed = entries.filter((entry) => entry.code !== 'no_cover');
+  if (listed.length === 0) {
     return null;
   }
   return (
     <section className="block cannot">
       <h2>{t('cannot.title')}</h2>
       <ul className="plain">
-        {entries.map((entry) => (
+        {listed.map((entry) => (
           <li key={entry.code}>
             {cannotLine(t, entry)}
-            {entry.files?.length > 0 && entry.code !== 'no_cover' && <span className="files">{fileNames(t, entry.files)}</span>}
-            {entry.code === 'no_cover' && coverPicker && <span className="files">{coverPicker}</span>}
+            {entry.files?.length > 0 && <span className="files">{fileNames(t, entry.files)}</span>}
           </li>
         ))}
       </ul>
@@ -529,18 +534,23 @@ function App({ initialLanguage }) {
         </h1>
         <div className="row" data-tiles="one">
           <section className="rack" aria-label={t('arrive.drop')}>
-            <Square t={t}>
-              <div className="drop">
-                <p className="drop__title">{t(over ? 'arrive.release' : 'arrive.drop')}</p>
-                <FilePicker label={t('arrive.folder')} onFiles={takeFiles} webkitdirectory="" />
-                <FilePicker label={t('arrive.zip')} onFiles={takeFiles} accept=".zip,application/zip" />
-              </div>
-            </Square>
+            <div className="tile">
+              <Square t={t}>
+                <div className="drop">
+                  <p className="drop__title">{t(over ? 'arrive.release' : 'arrive.drop')}</p>
+                  <div className="pickers">
+                    <FilePicker className="link" label={t('arrive.folder')} onFiles={takeFiles} webkitdirectory="" />
+                    <FilePicker className="link" label={t('arrive.zip')} onFiles={takeFiles} accept=".zip,application/zip" />
+                  </div>
+                </div>
+              </Square>
+              <span>{t('arrive.formats', { album: t.size(LIMITS.album) })}</span>
+            </div>
           </section>
           <div className="body">
             <p className="lead">{t('arrive.lede')}</p>
             <p className="lead lead--strong">{t('arrive.private')}</p>
-            {alert || <p className="small">{t('arrive.formats', { album: t.size(LIMITS.album) })}</p>}
+            {alert}
           </div>
         </div>
       </>
@@ -569,6 +579,7 @@ function App({ initialLanguage }) {
     const cannot = [...cannotFix, ...(album.read.unsupported.length > 0 ? [{ code: 'unsupported', files: album.read.unsupported }] : [])];
     const albums = shelf(album.read.tracks);
     const anyOn = fixes.some((fix) => fix.on);
+    const listed = cannot.some((entry) => entry.code !== 'no_cover');
     main = (
       <>
         <h1 className="headline" ref={title} tabIndex={-1}>
@@ -580,7 +591,7 @@ function App({ initialLanguage }) {
           </p>
         ))}
         {album.encoding && (
-          <p className="note">
+          <p className="warning">
             {album.encoding.name
               ? t('encoding.guessed', { encoding: album.encoding.name.toUpperCase().replace('_', ' '), sample: basename(album.read.tracks[0]?.file || album.entries[0].path) })
               : t('encoding.unknown')}
@@ -588,18 +599,14 @@ function App({ initialLanguage }) {
         )}
         {alert}
         <div className="row" data-tiles={albums.length > 1 ? 'many' : 'one'}>
-          <Rack t={t} cover={album.cover} albums={albums} caption={t('shelf.before')} />
-          <div className="body">
-            {fixes.length > 0 && (
-              <section className="block">
-                <h2>{t('plan.title')}</h2>
-                <ul className="fixes">
-                  {fixes.map((fix) => (
-                    <Fix key={fix.id} t={t} fix={fix} coverName={cover?.guess ? basename(cover.path) : null} onChange={change(fix.id)} />
-                  ))}
-                </ul>
-              </section>
-            )}
+          <Rack
+            t={t}
+            cover={album.cover}
+            albums={albums}
+            caption={t('shelf.before')}
+            picker={<FilePicker className="link" label={t('cover.add')} onFiles={([file]) => addCover(file)} accept="image/*" />}
+          />
+          <div className={listed ? 'body' : 'body body--wide'}>
             <div className="actions">
               {fixes.length > 0 && (
                 <button type="button" className="button button--primary" disabled={!anyOn} aria-describedby={anyOn ? undefined : 'nothing-on'} onClick={clean}>
@@ -615,12 +622,18 @@ function App({ initialLanguage }) {
                 {t('plan.none')}
               </p>
             )}
+            {fixes.length > 0 && (
+              <section className="block">
+                <h2>{t('plan.title')}</h2>
+                <ul className="fixes">
+                  {fixes.map((fix) => (
+                    <Fix key={fix.id} t={t} fix={fix} coverName={cover?.guess ? basename(cover.path) : null} onChange={change(fix.id)} />
+                  ))}
+                </ul>
+              </section>
+            )}
           </div>
-          <CannotFix
-            t={t}
-            entries={cannot}
-            coverPicker={album.cover ? null : <FilePicker label={t('cover.add')} onFiles={([file]) => addCover(file)} accept="image/*" />}
-          />
+          <CannotFix t={t} entries={cannot} />
         </div>
       </>
     );
@@ -630,6 +643,8 @@ function App({ initialLanguage }) {
     const hasCover = after.album.tracks.some((track) => track.hasArt) || after.cover;
     const before = shelf(album.read.tracks);
     const albums = shelf(after.album.tracks);
+    const left = [...after.cannotFix, ...(after.album.unsupported.length > 0 ? [{ code: 'unsupported', files: after.album.unsupported }] : [])];
+    const listed = left.some((entry) => entry.code !== 'no_cover');
     main = (
       <>
         <h1 className="headline" ref={title} tabIndex={-1}>
@@ -642,7 +657,7 @@ function App({ initialLanguage }) {
         ))}
         <div className="row" data-tiles={albums.length > 1 ? 'many' : 'one'}>
           <Rack t={t} cover={hasCover ? album.cover : null} albums={albums} caption={t('shelf.after')} />
-          <div className="body">
+          <div className={listed ? 'body' : 'body body--wide'}>
             <div className="actions">
               <a className="button button--primary" href={result.url} download={`${album.name}.zip`}>
                 {t('action.download')}
@@ -665,10 +680,7 @@ function App({ initialLanguage }) {
             </ul>
             {before.length !== albums.length && <Was t={t} cover={album.cover} albums={before} />}
           </div>
-          <CannotFix
-            t={t}
-            entries={[...after.cannotFix, ...(after.album.unsupported.length > 0 ? [{ code: 'unsupported', files: after.album.unsupported }] : [])]}
-          />
+          <CannotFix t={t} entries={left} />
         </div>
       </>
     );

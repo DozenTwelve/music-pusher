@@ -31,7 +31,6 @@
   --color-ink: oklch(17% 0.006 250); --color-ink-2: oklch(31% 0.006 250); --color-muted: oklch(40% 0.006 250);
   --color-rule: oklch(70% 0.005 250);
   --color-accent: oklch(17% 0.006 250); --color-accent-ink: oklch(98% 0.003 250); --color-focus: oklch(17% 0.006 250);
-  --color-error: oklch(47% 0.19 27);
   --font-display: "Archivo", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-display);
   --rule: 2px; --rule-hair: 1px;
@@ -45,7 +44,6 @@
   --color-ink: oklch(94% 0.004 250); --color-ink-2: oklch(84% 0.005 250); --color-muted: oklch(72% 0.006 250);
   --color-rule: oklch(43% 0.006 250);
   --color-accent: oklch(94% 0.004 250); --color-accent-ink: oklch(21% 0.005 250); --color-focus: oklch(94% 0.004 250);
-  --color-error: oklch(74% 0.15 27);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-mode]) {
@@ -54,6 +52,5 @@
     --color-ink: oklch(94% 0.004 250); --color-ink-2: oklch(84% 0.005 250); --color-muted: oklch(72% 0.006 250);
     --color-rule: oklch(43% 0.006 250);
     --color-accent: oklch(94% 0.004 250); --color-accent-ink: oklch(21% 0.005 250); --color-focus: oklch(94% 0.004 250);
-    --color-error: oklch(74% 0.15 27);
   }
 }
