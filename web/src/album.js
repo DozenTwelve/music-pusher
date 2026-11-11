@@ -89,8 +89,9 @@ export function inspect(name, album, entries, context = {}) {
 }
 
 // The albums Navidrome would make of these tracks, largest first: what each is
-// called, by whom, and how many tracks it gets. `album` and `artist` are null
-// where Navidrome would show its "[Unknown …]".
+// called, by whom, its release date and version as compared, and how many
+// tracks it gets. `album` and `artist` are null where Navidrome would show its
+// "[Unknown …]".
 export function shelf(tracks) {
   const albums = new Map();
   for (const track of tracks.filter((candidate) => candidate.readable)) {
@@ -99,6 +100,9 @@ export function shelf(tracks) {
       albums.set(identity.key, {
         album: identity.unknownAlbum ? null : track.album,
         artist: identity.unknownArtist ? null : identity.albumArtist,
+        // What else can tell two albums apart, for the page to show when it does.
+        date: identity.parts.release_date,
+        version: identity.parts.album_version,
         tracks: 0
       });
     }

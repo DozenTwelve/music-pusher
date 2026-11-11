@@ -128,6 +128,23 @@ function fileNames(t, files) {
   return files.length > 3 ? `${shown.join(', ')} ${t('cannot.names', { n: files.length - 3 })}` : shown.join(', ');
 }
 
+// The shelf's rows: name, artist, and whatever tells two rows apart — the
+// release date or version when those differ, and a word when nothing visible does.
+function shelfRows(t, albums) {
+  const differ = (key) => new Set(albums.map((album) => album[key])).size > 1;
+  const rows = albums.map((album) => ({
+    tracks: album.tracks,
+    album: album.album ?? t('shelf.unknown_album'),
+    detail: [
+      album.artist ?? t('shelf.unknown_artist'),
+      ...(differ('date') ? [album.date || t('shelf.no_date')] : []),
+      ...(differ('version') ? [album.version || t('shelf.no_version')] : [])
+    ].join(', ')
+  }));
+  const seen = (row) => `${normalizeTagValue(row.album)}\n${normalizeTagValue(row.detail)}`.toLowerCase();
+  return rows.map((row) => (rows.filter((other) => seen(other) === seen(row)).length > 1 ? { ...row, detail: `${row.detail}, ${t('shelf.unseen')}` } : row));
+}
+
 // --- Pieces ------------------------------------------------------------------------
 
 function LanguageSwitch({ lang, onChange, t }) {
@@ -147,7 +164,10 @@ function Progress({ t, progress }) {
   return (
     <div className="progress">
       <progress aria-label={t('progress.label')} max="1" value={progress.total ? fraction : undefined} />
-      <p role="status">{progress.label}</p>
+      <p className="progress__file">{progress.label}</p>
+      <p className="visually-hidden" role="status">
+        {progress.key === 'cleaning.check' ? progress.label : ''}
+      </p>
     </div>
   );
 }
@@ -162,11 +182,11 @@ function Sleeve({ t, cover, albums, caption, children }) {
         <figcaption>
           <p className="sleeve__caption">{caption}</p>
           <ul className="shelf">
-            {albums.map((album, index) => (
+            {shelfRows(t, albums).map((row, index) => (
               <li key={index}>
-                <strong>{album.album ?? t('shelf.unknown_album')}</strong>
-                <span>{album.artist ?? t('shelf.unknown_artist')}</span>
-                <span className="num">{t('shelf.tracks', { n: album.tracks })}</span>
+                <strong>{row.album}</strong>
+                <span>{row.detail}</span>
+                <span className="num">{t('shelf.tracks', { n: row.tracks })}</span>
               </li>
             ))}
           </ul>
@@ -215,7 +235,7 @@ function Fix({ t, fix, coverName, onChange }) {
         : t('fix.spacing')
     );
     if (fix.apart) {
-      hints.push(t('fix.album.apart'));
+      hints.push({ warning: t('fix.album.apart') });
     }
   }
   if (fix.guess) {
@@ -267,7 +287,7 @@ function Fix({ t, fix, coverName, onChange }) {
       )}
       {hints.length > 0 && (
         <p className="fix__hint" id={`${id}-hint`}>
-          {hints.join(' ')}
+          {hints.map((hint) => (hint.warning ? <strong key={hint.warning}>{hint.warning}</strong> : <span key={hint}>{hint}</span>))}
         </p>
       )}
     </li>
@@ -496,10 +516,9 @@ function App({ initialLanguage }) {
                 <FilePicker label={t('arrive.folder')} onFiles={takeFiles} webkitdirectory="" />
                 <FilePicker label={t('arrive.zip')} onFiles={takeFiles} accept=".zip,application/zip" />
               </div>
-              <p className="small">{t('arrive.formats', { album: t.size(LIMITS.album) })}</p>
+              {alert || <p className="small">{t('arrive.formats', { album: t.size(LIMITS.album) })}</p>}
             </div>
           </Sleeve>
-          {alert}
         </section>
       </>
     );
@@ -542,6 +561,7 @@ function App({ initialLanguage }) {
                 : t('encoding.unknown')}
             </p>
           )}
+          {alert}
           {fixes.length > 0 && (
             <section className="block">
               <h2>{t('plan.title')}</h2>
@@ -552,8 +572,6 @@ function App({ initialLanguage }) {
               </ul>
             </section>
           )}
-          <CannotFix t={t} entries={cannot} />
-          {alert}
           <div className="actions">
             {fixes.length > 0 && (
               <button type="button" className="button button--primary" disabled={!anyOn} aria-describedby={anyOn ? undefined : 'nothing-on'} onClick={clean}>
@@ -569,6 +587,7 @@ function App({ initialLanguage }) {
               {t('plan.none')}
             </p>
           )}
+          <CannotFix t={t} entries={cannot} />
         </div>
         <div className="side">
           <Sleeve t={t} cover={album.cover} albums={shelf(album.read.tracks)} caption={t('shelf.before')}>
