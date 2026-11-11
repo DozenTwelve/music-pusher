@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { FIELD_LABELS } from '../format.js';
+import { FIELD_LABELS, SPLIT_LABELS } from '../format.js';
 import {
   inspectAlbum,
   fixAlbum,
@@ -382,7 +382,9 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
       : null,
     splitBlock
       ? splitBlock.length
-        ? `it would split on ${splitBlock.map((f) => FIELD_LABELS[f] || f).join(', ')} (fix in step 2)`
+        ? `it would split on ${splitBlock.map((f) => SPLIT_LABELS[f] || f).join(', ')} (${
+            splitBlock.every((f) => FIELD_LABELS[f]) ? 'fix in step 2' : 'see step 1 for what fixes it'
+          })`
         : 'it would split in the library (fix in step 2)'
       : null
   ].filter(Boolean);

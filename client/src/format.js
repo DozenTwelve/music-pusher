@@ -52,3 +52,12 @@ export const FIELD_LABELS = {
   album_artist: 'Album Artist',
   disc: 'Disc'
 };
+
+// Everything `splitFields` can name: the fields above that the Fix form has a
+// row for, and the rest of Navidrome's album identity, which it does not.
+export const SPLIT_LABELS = {
+  ...FIELD_LABELS,
+  release_date: 'Release date',
+  album_version: 'Album version',
+  musicbrainz_albumid: 'MusicBrainz album ID'
+};

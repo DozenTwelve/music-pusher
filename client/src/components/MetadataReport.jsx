@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FIELD_LABELS, showText } from '../format.js';
+import { FIELD_LABELS, SPLIT_LABELS, showText } from '../format.js';
 import { CheckIcon, AlertIcon, ImageIcon } from './icons.jsx';
 import { Button } from './ui/button.jsx';
 import { Input } from './ui/input.jsx';
@@ -12,10 +12,55 @@ import {
   AccordionContent
 } from './ui/accordion.jsx';
 
+// A split cause by name. The causes the Fix table has no row for carry their
+// values along, since nothing else on the page shows them.
+function splitCause(report, field) {
+  const label = SPLIT_LABELS[field] || field;
+  const info = report.fields[field];
+  if (FIELD_LABELS[field] || !info) {
+    return label;
+  }
+  const values = info.distinct.map((d) => `${showText(d.value)} ×${d.count}`);
+  if (info.missing) {
+    values.push(`none ×${info.missing}`);
+  }
+  return `${label} (${values.join(', ')})`;
+}
+
+// What to do about the causes step 2 has no row for. A release date is the one
+// with a way through: in an m4a it is the same ©day atom the Date row rewrites.
+function splitRemedy(report) {
+  const causes = report.splitFields.filter((field) => !FIELD_LABELS[field]);
+  const dateFixes = report.fields.release_date?.followsDate;
+  const stuck = causes.filter((field) => !(field === 'release_date' && dateFixes));
+  return [
+    causes.includes('release_date') && dateFixes
+      ? ' Unifying Date / Year in step 2 brings the release dates together.'
+      : '',
+    stuck.length
+      ? ` Step 2 has no fix for ${stuck
+          .map((field) => SPLIT_LABELS[field] || field)
+          .join(' or ')} yet: retag the files, or choose a release in step 3 so beets retags the whole album.`
+      : ''
+  ].join('');
+}
+
+const MERGE_WARNINGS = {
+  no_album: (files) =>
+    `${files.length} track${files.length > 1 ? 's' : ''} with no album tag (${files.join(', ')}): Navidrome files ${
+      files.length > 1 ? 'them' : 'it'
+    } under “[Unknown Album]”, together with every other untagged track by the same artist. Fill in Album in step 2.`,
+  unknown_artist: (files) =>
+    `${files.length} track${files.length > 1 ? 's' : ''} with no artist and no album artist (${files.join(', ')}): Navidrome files ${
+      files.length > 1 ? 'them' : 'it'
+    } under “[Unknown Artist]”. Fill in Album Artist in step 2.`
+};
+
 // Read-only diagnosis: what is wrong with the album (shown under "Analyze").
 export function Diagnosis({ report }) {
-  // Hard split = a tag split beets will actually create (blocks import, fixable
-  // in step 2). Soft = mixed format/quality: advisory only, import still allowed.
+  // Hard split = the tags make Navidrome file the tracks as several albums
+  // (blocks import). Soft = mixed format/quality: advisory only, import still
+  // allowed.
   const hardSplit = report.groupCount > 1;
   const softSplit = report.mixedFormats || report.mixedQuality;
   const bannerClass = hardSplit ? 'bad' : softSplit ? 'warn' : 'good';
@@ -34,8 +79,8 @@ export function Diagnosis({ report }) {
         <span>
           {report.groupCount > 1
             ? `This album would split into ${report.groupCount} albums. Cause: ${report.splitFields
-                .map((f) => FIELD_LABELS[f] || f)
-                .join(', ')}.`
+                .map((f) => splitCause(report, f))
+                .join(', ')}.${splitRemedy(report)}`
             : report.mixedFormats
               ? 'Tags are consistent, but mixed audio formats could split this album — import allowed, see below.'
               : report.mixedQuality
@@ -100,6 +145,17 @@ export function Diagnosis({ report }) {
             beets matches the album online and writes back what it finds. Import and check the
             result; if the tracks still land blank, beets found no match and they need tagging
             by hand.
+          </span>
+        </div>
+      ) : null}
+
+      {report.mergeWarnings?.length ? (
+        <div className="report-banner warn">
+          <AlertIcon />
+          <span>
+            {report.mergeWarnings
+              .map((warning) => MERGE_WARNINGS[warning.reason]?.(warning.files) || warning.reason)
+              .join(' ')}
           </span>
         </div>
       ) : null}
@@ -227,7 +283,14 @@ export function FixForm({ report, draft, onDraftChange }) {
             return (
               <tr key={field} className={info.consistent ? '' : 'row-bad'}>
                 <td>{FIELD_LABELS[field]}</td>
-                <td>{info.consistent ? 'OK' : info.variantOnly ? 'variant — safe merge' : `${info.distinct.length || 0} values${info.missing ? `, ${info.missing} missing` : ''}`}</td>
+                <td>
+                  {info.consistent ? 'OK' : info.variantOnly ? 'variant — safe merge' : `${info.distinct.length || 0} values${info.missing ? `, ${info.missing} missing` : ''}`}
+                  {/* Letter case, curly quotes, or tracks held together by a
+                      MusicBrainz ID: different on file, one album all the same. */}
+                  {!info.consistent && (field === 'album' || field === 'album_artist') && !report.splitFields.includes(field)
+                    ? ' — not a split'
+                    : ''}
+                </td>
                 <td className="value-cell">{valueSummary}</td>
                 <td>
                   <Input
