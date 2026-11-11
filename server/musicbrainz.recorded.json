@@ -1,0 +1,607 @@
+{
+  "created": "2026-11-11T08:45:45.163Z",
+  "count": 30,
+  "offset": 0,
+  "releases": [
+    {
+      "id": "ea92a194-2d60-35c7-9d56-0e1dba20cd45",
+      "score": 100,
+      "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+      "packaging-id": "d60b6157-79fe-3913-ab8b-23b32de8690d",
+      "artist-credit-id": "021661c1-84c5-30d7-9bb2-f0766affb734",
+      "count": 4,
+      "title": "In Rainbows",
+      "status": "Official",
+      "disambiguation": "discbox",
+      "packaging": "Book",
+      "text-representation": {
+        "language": "eng",
+        "script": "Latn"
+      },
+      "artist-credit": [
+        {
+          "name": "Radiohead",
+          "artist": {
+            "id": "a74b1b7f-71a5-4011-9441-d0b5e4122711",
+            "name": "Radiohead",
+            "sort-name": "Radiohead"
+          }
+        }
+      ],
+      "release-group": {
+        "id": "6e335887-60ba-38f0-95af-fae7774336bf",
+        "type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+        "primary-type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+        "title": "In Rainbows",
+        "primary-type": "Album"
+      },
+      "date": "2007-12-03",
+      "country": "GB",
+      "release-events": [
+        {
+          "date": "2007-12-03",
+          "area": {
+            "id": "8a754a16-0027-3a29-b6d7-2b40ea0481ed",
+            "name": "United Kingdom",
+            "sort-name": "United Kingdom",
+            "iso-3166-1-codes": [
+              "GB"
+            ]
+          }
+        }
+      ],
+      "label-info": [
+        {
+          "catalog-number": "_X_X001",
+          "label": {
+            "id": "22434a7f-88eb-4e30-b33a-6920aad57525",
+            "name": "_Xurbia_Xendless Limited"
+          }
+        },
+        {
+          "catalog-number": "CDS_X_X001",
+          "label": {
+            "id": "22434a7f-88eb-4e30-b33a-6920aad57525",
+            "name": "_Xurbia_Xendless Limited"
+          }
+        },
+        {
+          "catalog-number": "CD_X_X001",
+          "label": {
+            "id": "22434a7f-88eb-4e30-b33a-6920aad57525",
+            "name": "_Xurbia_Xendless Limited"
+          }
+        }
+      ],
+      "track-count": 28,
+      "media": [
+        {
+          "id": "9a116a07-fe15-3090-8003-6b509e8b1eb0",
+          "format": "12\" Vinyl",
+          "disc-count": 0,
+          "track-count": 6
+        },
+        {
+          "id": "d4804188-ad8d-3f2d-9ac9-76e4613e3330",
+          "format": "12\" Vinyl",
+          "disc-count": 0,
+          "track-count": 4
+        },
+        {
+          "id": "5b59757e-f5a2-3c66-8bea-0968f8288315",
+          "format": "CD",
+          "disc-count": 1,
+          "track-count": 10
+        },
+        {
+          "id": "14dea14c-5c50-3b33-87d6-1fe71cde783a",
+          "format": "Enhanced CD",
+          "disc-count": 1,
+          "track-count": 8
+        }
+      ]
+    },
+    {
+      "id": "cb05d8c5-f86f-4fe5-a7a0-37ac339a492d",
+      "score": 100,
+      "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+      "packaging-id": "119eba76-b343-3e02-a292-f0f00644bb9b",
+      "artist-credit-id": "021661c1-84c5-30d7-9bb2-f0766affb734",
+      "count": 2,
+      "title": "In Rainbows",
+      "status": "Official",
+      "packaging": "None",
+      "text-representation": {
+        "language": "eng",
+        "script": "Latn"
+      },
+      "artist-credit": [
+        {
+          "name": "Radiohead",
+          "artist": {
+            "id": "a74b1b7f-71a5-4011-9441-d0b5e4122711",
+            "name": "Radiohead",
+            "sort-name": "Radiohead"
+          }
+        }
+      ],
+      "release-group": {
+        "id": "6e335887-60ba-38f0-95af-fae7774336bf",
+        "type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+        "primary-type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+        "title": "In Rainbows",
+        "primary-type": "Album"
+      },
+      "date": "2009-06-09",
+      "country": "XW",
+      "release-events": [
+        {
+          "date": "2009-06-09",
+          "area": {
+            "id": "525d4e18-3d00-31b9-a58b-a146a916de8f",
+            "name": "[Worldwide]",
+            "sort-name": "[Worldwide]",
+            "iso-3166-1-codes": [
+              "XW"
+            ]
+          }
+        }
+      ],
+      "track-count": 18,
+      "media": [
+        {
+          "id": "72eece79-8c32-314f-b8cd-f71d3200dc8d",
+          "format": "Digital Media",
+          "disc-count": 0,
+          "track-count": 10
+        },
+        {
+          "id": "f1a341a6-79f8-3b6c-a6b9-c188d1ded0b4",
+          "format": "Digital Media",
+          "disc-count": 0,
+          "track-count": 8
+        }
+      ],
+      "tags": [
+        {
+          "count": 1,
+          "name": "rock"
+        },
+        {
+          "count": 1,
+          "name": "electronic"
+        },
+        {
+          "count": 1,
+          "name": "alternative rock"
+        },
+        {
+          "count": 1,
+          "name": "experimental"
+        },
+        {
+          "count": 1,
+          "name": "indie"
+        },
+        {
+          "count": 1,
+          "name": "alternative"
+        },
+        {
+          "count": 1,
+          "name": "psychedelic"
+        },
+        {
+          "count": 1,
+          "name": "2000's"
+        }
+      ]
+    },
+    {
+      "id": "cd061329-348f-46f7-b6c1-7460a88e5edb",
+      "score": 100,
+      "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+      "artist-credit-id": "021661c1-84c5-30d7-9bb2-f0766affb734",
+      "count": 1,
+      "title": "In Rainbows",
+      "status": "Official",
+      "disambiguation": "united pressing",
+      "text-representation": {
+        "language": "eng",
+        "script": "Latn"
+      },
+      "artist-credit": [
+        {
+          "name": "Radiohead",
+          "artist": {
+            "id": "a74b1b7f-71a5-4011-9441-d0b5e4122711",
+            "name": "Radiohead",
+            "sort-name": "Radiohead"
+          }
+        }
+      ],
+      "release-group": {
+        "id": "6e335887-60ba-38f0-95af-fae7774336bf",
+        "type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+        "primary-type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+        "title": "In Rainbows",
+        "primary-type": "Album"
+      },
+      "date": "2008-01-01",
+      "country": "US",
+      "release-events": [
+        {
+          "date": "2008-01-01",
+          "area": {
+            "id": "489ce91b-6658-3307-9877-795b68554c98",
+            "name": "United States",
+            "sort-name": "United States",
+            "iso-3166-1-codes": [
+              "US"
+            ]
+          }
+        }
+      ],
+      "barcode": "880882162313",
+      "label-info": [
+        {
+          "catalog-number": "88088-21623-1",
+          "label": {
+            "id": "2513d6c4-4622-4b4c-9ffa-a0067f29d717",
+            "name": "RED Distribution, LLC"
+          }
+        },
+        {
+          "catalog-number": "TBD0001",
+          "label": {
+            "id": "9b9655c8-30ec-4087-921d-87257e612d7b",
+            "name": "TBD Records"
+          }
+        }
+      ],
+      "track-count": 10,
+      "media": [
+        {
+          "id": "a0ae0c85-b407-3b10-b95a-c520ea07bf4b",
+          "format": "12\" Vinyl",
+          "disc-count": 0,
+          "track-count": 10
+        }
+      ]
+    },
+    {
+      "id": "3b408cb5-7d51-4188-b07c-fabcf308cda3",
+      "score": 100,
+      "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+      "packaging-id": "815b7785-8284-3926-8f04-e48bc6c4d102",
+      "artist-credit-id": "021661c1-84c5-30d7-9bb2-f0766affb734",
+      "count": 1,
+      "title": "In Rainbows",
+      "status": "Official",
+      "packaging": "Other",
+      "text-representation": {
+        "language": "eng",
+        "script": "Latn"
+      },
+      "artist-credit": [
+        {
+          "name": "Radiohead",
+          "artist": {
+            "id": "a74b1b7f-71a5-4011-9441-d0b5e4122711",
+            "name": "Radiohead",
+            "sort-name": "Radiohead"
+          }
+        }
+      ],
+      "release-group": {
+        "id": "6e335887-60ba-38f0-95af-fae7774336bf",
+        "type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+        "primary-type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+        "title": "In Rainbows",
+        "primary-type": "Album"
+      },
+      "date": "2007-12-26",
+      "country": "JP",
+      "release-events": [
+        {
+          "date": "2007-12-26",
+          "area": {
+            "id": "2db42837-c832-3c27-b4a3-08198f75693c",
+            "name": "Japan",
+            "sort-name": "Japan",
+            "iso-3166-1-codes": [
+              "JP"
+            ]
+          }
+        }
+      ],
+      "barcode": "4582214502663",
+      "asin": "B000YY68MG",
+      "label-info": [
+        {
+          "catalog-number": "CD_X_X001J",
+          "label": {
+            "id": "a714529c-86bf-4d89-9cf1-e50149fba8af",
+            "name": "Hostess Entertainment Unlimited"
+          }
+        }
+      ],
+      "track-count": 10,
+      "media": [
+        {
+          "id": "2e68a77e-39fd-325f-9198-67556fc9ab9f",
+          "format": "CD",
+          "disc-count": 1,
+          "track-count": 10
+        }
+      ]
+    },
+    {
+      "id": "90cf3f7e-a93a-45e0-8391-8863635ae0d5",
+      "score": 100,
+      "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+      "packaging-id": "c70b737a-0114-39a9-88f7-82843e54f906",
+      "artist-credit-id": "021661c1-84c5-30d7-9bb2-f0766affb734",
+      "count": 1,
+      "title": "In Rainbows",
+      "status": "Official",
+      "packaging": "Cassette Case",
+      "text-representation": {
+        "language": "eng",
+        "script": "Latn"
+      },
+      "artist-credit": [
+        {
+          "name": "Radiohead",
+          "artist": {
+            "id": "a74b1b7f-71a5-4011-9441-d0b5e4122711",
+            "name": "Radiohead",
+            "sort-name": "Radiohead"
+          }
+        }
+      ],
+      "release-group": {
+        "id": "6e335887-60ba-38f0-95af-fae7774336bf",
+        "type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+        "primary-type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+        "title": "In Rainbows",
+        "primary-type": "Album"
+      },
+      "date": "2007",
+      "country": "ID",
+      "release-events": [
+        {
+          "date": "2007",
+          "area": {
+            "id": "d3a68bd0-7419-3f99-a5bd-204d6e057089",
+            "name": "Indonesia",
+            "sort-name": "Indonesia",
+            "iso-3166-1-codes": [
+              "ID"
+            ]
+          }
+        }
+      ],
+      "barcode": "634904030766",
+      "label-info": [
+        {
+          "catalog-number": "XLMC 324",
+          "label": {
+            "id": "14221f01-8939-4ea0-b8f1-b5a21beae80a",
+            "name": "XL Recordings"
+          }
+        }
+      ],
+      "track-count": 10,
+      "media": [
+        {
+          "id": "48d9d0ff-b339-3a17-8a58-59c5861377ff",
+          "format": "Cassette",
+          "disc-count": 0,
+          "track-count": 10
+        }
+      ]
+    },
+    {
+      "id": "a58f4eb2-9829-37d5-b46c-e8163038e0f5",
+      "score": 100,
+      "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+      "artist-credit-id": "021661c1-84c5-30d7-9bb2-f0766affb734",
+      "count": 1,
+      "title": "In Rainbows",
+      "status": "Official",
+      "text-representation": {
+        "language": "eng",
+        "script": "Latn"
+      },
+      "artist-credit": [
+        {
+          "name": "Radiohead",
+          "artist": {
+            "id": "a74b1b7f-71a5-4011-9441-d0b5e4122711",
+            "name": "Radiohead",
+            "sort-name": "Radiohead"
+          }
+        }
+      ],
+      "release-group": {
+        "id": "6e335887-60ba-38f0-95af-fae7774336bf",
+        "type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+        "primary-type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+        "title": "In Rainbows",
+        "primary-type": "Album"
+      },
+      "date": "2007-12-31",
+      "country": "GB",
+      "release-events": [
+        {
+          "date": "2007-12-31",
+          "area": {
+            "id": "8a754a16-0027-3a29-b6d7-2b40ea0481ed",
+            "name": "United Kingdom",
+            "sort-name": "United Kingdom",
+            "iso-3166-1-codes": [
+              "GB"
+            ]
+          }
+        }
+      ],
+      "barcode": "634904032418",
+      "asin": "B000YIXBV8",
+      "label-info": [
+        {
+          "catalog-number": "XLLP324",
+          "label": {
+            "id": "14221f01-8939-4ea0-b8f1-b5a21beae80a",
+            "name": "XL Recordings"
+          }
+        }
+      ],
+      "track-count": 10,
+      "media": [
+        {
+          "id": "0b3e07d5-5695-3e93-997b-5cf77a029f80",
+          "format": "12\" Vinyl",
+          "disc-count": 0,
+          "track-count": 10
+        }
+      ]
+    },
+    {
+      "id": "3e71085d-35ce-4e75-92bf-a5437f80a41f",
+      "score": 100,
+      "status-id": "518ffc83-5cde-34df-8627-81bff5093d92",
+      "artist-credit-id": "021661c1-84c5-30d7-9bb2-f0766affb734",
+      "count": 1,
+      "title": "In Rainbows",
+      "status": "Promotion",
+      "text-representation": {
+        "language": "eng",
+        "script": "Latn"
+      },
+      "artist-credit": [
+        {
+          "name": "Radiohead",
+          "artist": {
+            "id": "a74b1b7f-71a5-4011-9441-d0b5e4122711",
+            "name": "Radiohead",
+            "sort-name": "Radiohead"
+          }
+        }
+      ],
+      "release-group": {
+        "id": "6e335887-60ba-38f0-95af-fae7774336bf",
+        "type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+        "primary-type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+        "title": "In Rainbows",
+        "primary-type": "Album"
+      },
+      "date": "2008",
+      "country": "US",
+      "release-events": [
+        {
+          "date": "2008",
+          "area": {
+            "id": "489ce91b-6658-3307-9877-795b68554c98",
+            "name": "United States",
+            "sort-name": "United States",
+            "iso-3166-1-codes": [
+              "US"
+            ]
+          }
+        }
+      ],
+      "label-info": [
+        {
+          "catalog-number": "[none]",
+          "label": {
+            "id": "9b9655c8-30ec-4087-921d-87257e612d7b",
+            "name": "TBD Records"
+          }
+        }
+      ],
+      "track-count": 18,
+      "media": [
+        {
+          "id": "09dc2df6-157d-32e1-85a9-70cfb10ffbd5",
+          "format": "CD-R",
+          "disc-count": 0,
+          "track-count": 18
+        }
+      ]
+    },
+    {
+      "id": "68e18fe3-1c1c-406f-83b0-26ae08642f19",
+      "score": 100,
+      "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+      "packaging-id": "815b7785-8284-3926-8f04-e48bc6c4d102",
+      "artist-credit-id": "021661c1-84c5-30d7-9bb2-f0766affb734",
+      "count": 2,
+      "title": "In Rainbows",
+      "status": "Official",
+      "packaging": "Other",
+      "text-representation": {
+        "language": "eng",
+        "script": "Latn"
+      },
+      "artist-credit": [
+        {
+          "name": "Radiohead",
+          "artist": {
+            "id": "a74b1b7f-71a5-4011-9441-d0b5e4122711",
+            "name": "Radiohead",
+            "sort-name": "Radiohead"
+          }
+        }
+      ],
+      "release-group": {
+        "id": "6e335887-60ba-38f0-95af-fae7774336bf",
+        "type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+        "primary-type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+        "title": "In Rainbows",
+        "primary-type": "Album"
+      },
+      "date": "2010-05-26",
+      "country": "JP",
+      "release-events": [
+        {
+          "date": "2010-05-26",
+          "area": {
+            "id": "2db42837-c832-3c27-b4a3-08198f75693c",
+            "name": "Japan",
+            "sort-name": "Japan",
+            "iso-3166-1-codes": [
+              "JP"
+            ]
+          }
+        }
+      ],
+      "barcode": "4582214505978",
+      "asin": "B003E33RDW",
+      "label-info": [
+        {
+          "catalog-number": "CD_X_X001J",
+          "label": {
+            "id": "a714529c-86bf-4d89-9cf1-e50149fba8af",
+            "name": "Hostess Entertainment Unlimited"
+          }
+        }
+      ],
+      "track-count": 18,
+      "media": [
+        {
+          "id": "5d446a1f-1107-3c20-9b74-26c3bed55863",
+          "format": "CD",
+          "disc-count": 0,
+          "track-count": 10
+        },
+        {
+          "id": "84d62bbe-2396-3a49-b16d-a93149c9d4a2",
+          "format": "CD",
+          "disc-count": 0,
+          "track-count": 8
+        }
+      ]
+    }
+  ]
+}

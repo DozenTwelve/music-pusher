@@ -1,0 +1,2804 @@
+{
+  "clean": {
+    "ok": true,
+    "album": "clean",
+    "trackCount": 3,
+    "groupCount": 1,
+    "splitFields": [],
+    "fields": {
+      "album": {
+        "distinct": [
+          {
+            "value": "Test Album",
+            "count": 3
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Album"
+      },
+      "album_artist": {
+        "distinct": [
+          {
+            "value": "Test Artist",
+            "count": 3
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Artist"
+      },
+      "date": {
+        "distinct": [
+          {
+            "value": "2024-03-01",
+            "count": 3
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "2024-03-01"
+      },
+      "disc": {
+        "distinct": [
+          {
+            "value": "1/1",
+            "count": 3
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "1/1"
+      }
+    },
+    "formats": [
+      "flac"
+    ],
+    "mixedFormats": false,
+    "qualities": [
+      {
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "count": 3,
+        "files": [
+          "01 First.flac",
+          "02 Second.flac",
+          "03 Third.flac"
+        ]
+      }
+    ],
+    "mixedQuality": false,
+    "unreadable": [],
+    "multiDisc": false,
+    "discs": [
+      {
+        "disc": 1,
+        "trackCount": 3,
+        "contiguous": true
+      }
+    ],
+    "track": {
+      "count": 3,
+      "missingNumbers": 0,
+      "wrongTotals": 0,
+      "needsNormalize": false
+    },
+    "trackGaps": [],
+    "incomplete": false,
+    "missingRequired": [],
+    "noDuration": [],
+    "durationRepairable": [],
+    "art": {
+      "total": 3,
+      "withArt": 3,
+      "missing": 0,
+      "hasMissing": false,
+      "folderImages": []
+    },
+    "textIssues": [],
+    "filenameIssues": [],
+    "tracks": [
+      {
+        "file": "01 First.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": true,
+        "duration": 1,
+        "title": "First",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "2024-03-01",
+        "disc": "1/1",
+        "track": "1/3"
+      },
+      {
+        "file": "02 Second.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": true,
+        "duration": 1,
+        "title": "Second",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "2024-03-01",
+        "disc": "1/1",
+        "track": "2/3"
+      },
+      {
+        "file": "03 Third.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": true,
+        "duration": 1,
+        "title": "Third",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "2024-03-01",
+        "disc": "1/1",
+        "track": "3/3"
+      }
+    ]
+  },
+  "split by album_artist": {
+    "ok": true,
+    "album": "split by album_artist",
+    "trackCount": 3,
+    "groupCount": 2,
+    "splitFields": [
+      "album_artist"
+    ],
+    "fields": {
+      "album": {
+        "distinct": [
+          {
+            "value": "Test Album",
+            "count": 3
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Album"
+      },
+      "album_artist": {
+        "distinct": [
+          {
+            "value": "Artist A",
+            "count": 2
+          },
+          {
+            "value": "Artist B",
+            "count": 1
+          }
+        ],
+        "missing": 0,
+        "consistent": false,
+        "proposed": "Artist A"
+      },
+      "date": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      },
+      "disc": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      }
+    },
+    "formats": [
+      "flac"
+    ],
+    "mixedFormats": false,
+    "qualities": [
+      {
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "count": 3,
+        "files": [
+          "01.flac",
+          "02.flac",
+          "03.flac"
+        ]
+      }
+    ],
+    "mixedQuality": false,
+    "unreadable": [],
+    "multiDisc": false,
+    "discs": [
+      {
+        "disc": 1,
+        "trackCount": 3,
+        "contiguous": false
+      }
+    ],
+    "track": {
+      "count": 3,
+      "missingNumbers": 3,
+      "wrongTotals": 3,
+      "needsNormalize": true
+    },
+    "trackGaps": [],
+    "incomplete": false,
+    "missingRequired": [],
+    "noDuration": [],
+    "durationRepairable": [],
+    "art": {
+      "total": 3,
+      "withArt": 0,
+      "missing": 3,
+      "hasMissing": true,
+      "folderImages": []
+    },
+    "textIssues": [],
+    "filenameIssues": [],
+    "tracks": [
+      {
+        "file": "01.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "One",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Artist A",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "02.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Two",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Artist A",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "03.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Three",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Artist B",
+        "date": "",
+        "disc": "",
+        "track": ""
+      }
+    ]
+  },
+  "split by derived artist anchor": {
+    "ok": true,
+    "album": "split by derived artist anchor",
+    "trackCount": 3,
+    "groupCount": 2,
+    "splitFields": [
+      "album_artist"
+    ],
+    "fields": {
+      "album": {
+        "distinct": [
+          {
+            "value": "Test Album",
+            "count": 3
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Album"
+      },
+      "album_artist": {
+        "distinct": [
+          {
+            "value": "Main",
+            "count": 2
+          },
+          {
+            "value": "Main; Guest",
+            "count": 1
+          }
+        ],
+        "missing": 0,
+        "consistent": false,
+        "proposed": "Main"
+      },
+      "date": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      },
+      "disc": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      }
+    },
+    "formats": [
+      "flac"
+    ],
+    "mixedFormats": false,
+    "qualities": [
+      {
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "count": 3,
+        "files": [
+          "01.flac",
+          "02.flac",
+          "03.flac"
+        ]
+      }
+    ],
+    "mixedQuality": false,
+    "unreadable": [],
+    "multiDisc": false,
+    "discs": [
+      {
+        "disc": 1,
+        "trackCount": 3,
+        "contiguous": false
+      }
+    ],
+    "track": {
+      "count": 3,
+      "missingNumbers": 3,
+      "wrongTotals": 3,
+      "needsNormalize": true
+    },
+    "trackGaps": [],
+    "incomplete": false,
+    "missingRequired": [],
+    "noDuration": [],
+    "durationRepairable": [],
+    "art": {
+      "total": 3,
+      "withArt": 0,
+      "missing": 3,
+      "hasMissing": true,
+      "folderImages": []
+    },
+    "textIssues": [],
+    "filenameIssues": [],
+    "tracks": [
+      {
+        "file": "01.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "One",
+        "artist": "Main",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "02.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Two",
+        "artist": "Main",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "03.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Three",
+        "artist": "Main",
+        "artists": "Main; Guest",
+        "album": "Test Album",
+        "album_artist": "",
+        "date": "",
+        "disc": "",
+        "track": ""
+      }
+    ]
+  },
+  "album name variants": {
+    "ok": true,
+    "album": "album name variants",
+    "trackCount": 3,
+    "groupCount": 2,
+    "splitFields": [
+      "album"
+    ],
+    "fields": {
+      "album": {
+        "distinct": [
+          {
+            "value": "The Scholars",
+            "count": 2
+          },
+          {
+            "value": "The Scholars [Explicit]",
+            "count": 1
+          }
+        ],
+        "missing": 0,
+        "consistent": false,
+        "proposed": "The Scholars [Explicit]",
+        "variantOnly": true
+      },
+      "album_artist": {
+        "distinct": [
+          {
+            "value": "Test Artist",
+            "count": 3
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Artist"
+      },
+      "date": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      },
+      "disc": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      }
+    },
+    "formats": [
+      "flac"
+    ],
+    "mixedFormats": false,
+    "qualities": [
+      {
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "count": 3,
+        "files": [
+          "01.flac",
+          "02.flac",
+          "03.flac"
+        ]
+      }
+    ],
+    "mixedQuality": false,
+    "unreadable": [],
+    "multiDisc": false,
+    "discs": [
+      {
+        "disc": 1,
+        "trackCount": 3,
+        "contiguous": false
+      }
+    ],
+    "track": {
+      "count": 3,
+      "missingNumbers": 3,
+      "wrongTotals": 3,
+      "needsNormalize": true
+    },
+    "trackGaps": [],
+    "incomplete": false,
+    "missingRequired": [],
+    "noDuration": [],
+    "durationRepairable": [],
+    "art": {
+      "total": 3,
+      "withArt": 0,
+      "missing": 3,
+      "hasMissing": true,
+      "folderImages": []
+    },
+    "textIssues": [],
+    "filenameIssues": [],
+    "tracks": [
+      {
+        "file": "01.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "One",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "The Scholars",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "02.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Two",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "The Scholars",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "03.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Three",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "The Scholars [Explicit]",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      }
+    ]
+  },
+  "whitespace-only drift": {
+    "ok": true,
+    "album": "whitespace-only drift",
+    "trackCount": 3,
+    "groupCount": 3,
+    "splitFields": [
+      "album",
+      "album_artist"
+    ],
+    "fields": {
+      "album": {
+        "distinct": [
+          {
+            "value": "Test Album",
+            "count": 2
+          },
+          {
+            "value": "Test\u00a0Album",
+            "count": 1
+          }
+        ],
+        "missing": 0,
+        "consistent": false,
+        "proposed": "Test Album",
+        "whitespaceOnly": true
+      },
+      "album_artist": {
+        "distinct": [
+          {
+            "value": "Test Artist",
+            "count": 2
+          },
+          {
+            "value": "Test  Artist",
+            "count": 1
+          }
+        ],
+        "missing": 0,
+        "consistent": false,
+        "proposed": "Test Artist",
+        "whitespaceOnly": true
+      },
+      "date": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      },
+      "disc": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      }
+    },
+    "formats": [
+      "flac"
+    ],
+    "mixedFormats": false,
+    "qualities": [
+      {
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "count": 3,
+        "files": [
+          "01.flac",
+          "02.flac",
+          "03.flac"
+        ]
+      }
+    ],
+    "mixedQuality": false,
+    "unreadable": [],
+    "multiDisc": false,
+    "discs": [
+      {
+        "disc": 1,
+        "trackCount": 3,
+        "contiguous": false
+      }
+    ],
+    "track": {
+      "count": 3,
+      "missingNumbers": 3,
+      "wrongTotals": 3,
+      "needsNormalize": true
+    },
+    "trackGaps": [],
+    "incomplete": false,
+    "missingRequired": [],
+    "noDuration": [],
+    "durationRepairable": [],
+    "art": {
+      "total": 3,
+      "withArt": 0,
+      "missing": 3,
+      "hasMissing": true,
+      "folderImages": []
+    },
+    "textIssues": [
+      {
+        "file": "02.flac",
+        "field": "album",
+        "kind": "whitespace",
+        "display": "Test\u00a0Album",
+        "suggested": "Test Album",
+        "confident": true
+      },
+      {
+        "file": "03.flac",
+        "field": "album_artist",
+        "kind": "whitespace",
+        "display": "Test  Artist",
+        "suggested": "Test Artist",
+        "confident": true
+      }
+    ],
+    "filenameIssues": [],
+    "tracks": [
+      {
+        "file": "01.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "One",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "02.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Two",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test\u00a0Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "03.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Three",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test  Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      }
+    ]
+  },
+  "multi-disc with a gap and wrong totals": {
+    "ok": true,
+    "album": "multi-disc with a gap and wrong totals",
+    "trackCount": 4,
+    "groupCount": 1,
+    "splitFields": [],
+    "fields": {
+      "album": {
+        "distinct": [
+          {
+            "value": "Test Album",
+            "count": 4
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Album"
+      },
+      "album_artist": {
+        "distinct": [
+          {
+            "value": "Test Artist",
+            "count": 4
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Artist"
+      },
+      "date": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": ""
+      },
+      "disc": {
+        "distinct": [
+          {
+            "value": "1/2",
+            "count": 2
+          },
+          {
+            "value": "2/2",
+            "count": 2
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "",
+        "multiDisc": true
+      }
+    },
+    "formats": [
+      "flac"
+    ],
+    "mixedFormats": false,
+    "qualities": [
+      {
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "count": 4,
+        "files": [
+          "CD1/01 One.flac",
+          "CD1/02 Two.flac",
+          "CD2/01 Three.flac",
+          "CD2/03 Four.flac"
+        ]
+      }
+    ],
+    "mixedQuality": false,
+    "unreadable": [],
+    "multiDisc": true,
+    "discs": [
+      {
+        "disc": 1,
+        "trackCount": 2,
+        "contiguous": true
+      },
+      {
+        "disc": 2,
+        "trackCount": 2,
+        "contiguous": false
+      }
+    ],
+    "track": {
+      "count": 4,
+      "missingNumbers": 0,
+      "wrongTotals": 2,
+      "needsNormalize": true
+    },
+    "trackGaps": [
+      {
+        "disc": 1,
+        "missing": [
+          3
+        ]
+      },
+      {
+        "disc": 2,
+        "missing": [
+          2
+        ]
+      }
+    ],
+    "incomplete": true,
+    "missingRequired": [],
+    "noDuration": [],
+    "durationRepairable": [],
+    "art": {
+      "total": 4,
+      "withArt": 0,
+      "missing": 4,
+      "hasMissing": true,
+      "folderImages": []
+    },
+    "textIssues": [],
+    "filenameIssues": [],
+    "tracks": [
+      {
+        "file": "CD1/01 One.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "One",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "1/2",
+        "track": "1/3"
+      },
+      {
+        "file": "CD1/02 Two.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Two",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "1/2",
+        "track": "2/3"
+      },
+      {
+        "file": "CD2/01 Three.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Three",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "2/2",
+        "track": "1/2"
+      },
+      {
+        "file": "CD2/03 Four.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Four",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "2/2",
+        "track": "3/2"
+      }
+    ]
+  },
+  "multi-disc with album-wide totals": {
+    "ok": true,
+    "album": "multi-disc with album-wide totals",
+    "trackCount": 4,
+    "groupCount": 1,
+    "splitFields": [],
+    "fields": {
+      "album": {
+        "distinct": [
+          {
+            "value": "Test Album",
+            "count": 4
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Album"
+      },
+      "album_artist": {
+        "distinct": [
+          {
+            "value": "Test Artist",
+            "count": 4
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Artist"
+      },
+      "date": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": ""
+      },
+      "disc": {
+        "distinct": [
+          {
+            "value": "1",
+            "count": 2
+          },
+          {
+            "value": "2",
+            "count": 2
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "",
+        "multiDisc": true
+      }
+    },
+    "formats": [
+      "flac"
+    ],
+    "mixedFormats": false,
+    "qualities": [
+      {
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "count": 4,
+        "files": [
+          "CD1/01 One.flac",
+          "CD1/02 Two.flac",
+          "CD2/01 Three.flac",
+          "CD2/02 Four.flac"
+        ]
+      }
+    ],
+    "mixedQuality": false,
+    "unreadable": [],
+    "multiDisc": true,
+    "discs": [
+      {
+        "disc": 1,
+        "trackCount": 2,
+        "contiguous": true
+      },
+      {
+        "disc": 2,
+        "trackCount": 2,
+        "contiguous": true
+      }
+    ],
+    "track": {
+      "count": 4,
+      "missingNumbers": 0,
+      "wrongTotals": 4,
+      "needsNormalize": true
+    },
+    "trackGaps": [],
+    "incomplete": false,
+    "missingRequired": [],
+    "noDuration": [],
+    "durationRepairable": [],
+    "art": {
+      "total": 4,
+      "withArt": 0,
+      "missing": 4,
+      "hasMissing": true,
+      "folderImages": []
+    },
+    "textIssues": [],
+    "filenameIssues": [],
+    "tracks": [
+      {
+        "file": "CD1/01 One.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "One",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "1",
+        "track": "1/4"
+      },
+      {
+        "file": "CD1/02 Two.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Two",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "1",
+        "track": "2/4"
+      },
+      {
+        "file": "CD2/01 Three.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Three",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "2",
+        "track": "1/4"
+      },
+      {
+        "file": "CD2/02 Four.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Four",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "2",
+        "track": "2/4"
+      }
+    ]
+  },
+  "disc numbers on only some tracks": {
+    "ok": true,
+    "album": "disc numbers on only some tracks",
+    "trackCount": 3,
+    "groupCount": 1,
+    "splitFields": [],
+    "fields": {
+      "album": {
+        "distinct": [
+          {
+            "value": "Test Album",
+            "count": 3
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Album"
+      },
+      "album_artist": {
+        "distinct": [
+          {
+            "value": "Test Artist",
+            "count": 3
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Artist"
+      },
+      "date": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      },
+      "disc": {
+        "distinct": [
+          {
+            "value": "1",
+            "count": 1
+          },
+          {
+            "value": "2",
+            "count": 1
+          }
+        ],
+        "missing": 1,
+        "consistent": false,
+        "proposed": "1"
+      }
+    },
+    "formats": [
+      "flac"
+    ],
+    "mixedFormats": false,
+    "qualities": [
+      {
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "count": 3,
+        "files": [
+          "01.flac",
+          "02.flac",
+          "03.flac"
+        ]
+      }
+    ],
+    "mixedQuality": false,
+    "unreadable": [],
+    "multiDisc": false,
+    "discs": [
+      {
+        "disc": 1,
+        "trackCount": 2,
+        "contiguous": true
+      },
+      {
+        "disc": 2,
+        "trackCount": 1,
+        "contiguous": true
+      }
+    ],
+    "track": {
+      "count": 3,
+      "missingNumbers": 0,
+      "wrongTotals": 3,
+      "needsNormalize": true
+    },
+    "trackGaps": [],
+    "incomplete": false,
+    "missingRequired": [],
+    "noDuration": [],
+    "durationRepairable": [],
+    "art": {
+      "total": 3,
+      "withArt": 0,
+      "missing": 3,
+      "hasMissing": true,
+      "folderImages": []
+    },
+    "textIssues": [],
+    "filenameIssues": [],
+    "tracks": [
+      {
+        "file": "01.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "One",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "1",
+        "track": "1"
+      },
+      {
+        "file": "02.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Two",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "2",
+        "track": "1"
+      },
+      {
+        "file": "03.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Three",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": "2"
+      }
+    ]
+  },
+  "differing dates do not split": {
+    "ok": true,
+    "album": "differing dates do not split",
+    "trackCount": 3,
+    "groupCount": 1,
+    "splitFields": [],
+    "fields": {
+      "album": {
+        "distinct": [
+          {
+            "value": "Test Album",
+            "count": 3
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Album"
+      },
+      "album_artist": {
+        "distinct": [
+          {
+            "value": "Test Artist",
+            "count": 3
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Artist"
+      },
+      "date": {
+        "distinct": [
+          {
+            "value": "2023-11-10",
+            "count": 1
+          },
+          {
+            "value": "2024-03-01",
+            "count": 1
+          }
+        ],
+        "missing": 1,
+        "consistent": false,
+        "proposed": "2023-11-10"
+      },
+      "disc": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      }
+    },
+    "formats": [
+      "flac"
+    ],
+    "mixedFormats": false,
+    "qualities": [
+      {
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "count": 3,
+        "files": [
+          "01.flac",
+          "02.flac",
+          "03.flac"
+        ]
+      }
+    ],
+    "mixedQuality": false,
+    "unreadable": [],
+    "multiDisc": false,
+    "discs": [
+      {
+        "disc": 1,
+        "trackCount": 3,
+        "contiguous": false
+      }
+    ],
+    "track": {
+      "count": 3,
+      "missingNumbers": 3,
+      "wrongTotals": 3,
+      "needsNormalize": true
+    },
+    "trackGaps": [],
+    "incomplete": false,
+    "missingRequired": [],
+    "noDuration": [],
+    "durationRepairable": [],
+    "art": {
+      "total": 3,
+      "withArt": 0,
+      "missing": 3,
+      "hasMissing": true,
+      "folderImages": []
+    },
+    "textIssues": [],
+    "filenameIssues": [],
+    "tracks": [
+      {
+        "file": "01.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "One",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "2024-03-01",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "02.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Two",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "2023-11-10",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "03.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Three",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      }
+    ]
+  },
+  "album and album_artist on only some tracks": {
+    "ok": true,
+    "album": "album and album_artist on only some tracks",
+    "trackCount": 4,
+    "groupCount": 3,
+    "splitFields": [
+      "album",
+      "album_artist"
+    ],
+    "fields": {
+      "album": {
+        "distinct": [
+          {
+            "value": "Test Album",
+            "count": 3
+          }
+        ],
+        "missing": 1,
+        "consistent": false,
+        "proposed": "Test Album"
+      },
+      "album_artist": {
+        "distinct": [
+          {
+            "value": "Test Artist",
+            "count": 3
+          },
+          {
+            "value": "Guest",
+            "count": 1
+          }
+        ],
+        "missing": 0,
+        "consistent": false,
+        "proposed": "Test Artist"
+      },
+      "date": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": ""
+      },
+      "disc": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": ""
+      }
+    },
+    "formats": [
+      "flac"
+    ],
+    "mixedFormats": false,
+    "qualities": [
+      {
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "count": 4,
+        "files": [
+          "01.flac",
+          "02.flac",
+          "03.flac",
+          "04.flac"
+        ]
+      }
+    ],
+    "mixedQuality": false,
+    "unreadable": [],
+    "multiDisc": false,
+    "discs": [
+      {
+        "disc": 1,
+        "trackCount": 4,
+        "contiguous": false
+      }
+    ],
+    "track": {
+      "count": 4,
+      "missingNumbers": 4,
+      "wrongTotals": 4,
+      "needsNormalize": true
+    },
+    "trackGaps": [],
+    "incomplete": false,
+    "missingRequired": [],
+    "noDuration": [],
+    "durationRepairable": [],
+    "art": {
+      "total": 4,
+      "withArt": 0,
+      "missing": 4,
+      "hasMissing": true,
+      "folderImages": []
+    },
+    "textIssues": [],
+    "filenameIssues": [],
+    "tracks": [
+      {
+        "file": "01.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "One",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "02.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Two",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "03.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Three",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "04.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Four",
+        "artist": "Guest",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "",
+        "date": "",
+        "disc": "",
+        "track": ""
+      }
+    ]
+  },
+  "missing title and artist": {
+    "ok": true,
+    "album": "missing title and artist",
+    "trackCount": 4,
+    "groupCount": 1,
+    "splitFields": [],
+    "fields": {
+      "album": {
+        "distinct": [
+          {
+            "value": "Test Album",
+            "count": 4
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Album"
+      },
+      "album_artist": {
+        "distinct": [
+          {
+            "value": "Test Artist",
+            "count": 4
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Artist"
+      },
+      "date": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": ""
+      },
+      "disc": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": ""
+      }
+    },
+    "formats": [
+      "flac"
+    ],
+    "mixedFormats": false,
+    "qualities": [
+      {
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "count": 4,
+        "files": [
+          "01.flac",
+          "02.flac",
+          "03.flac",
+          "04.flac"
+        ]
+      }
+    ],
+    "mixedQuality": false,
+    "unreadable": [],
+    "multiDisc": false,
+    "discs": [
+      {
+        "disc": 1,
+        "trackCount": 4,
+        "contiguous": false
+      }
+    ],
+    "track": {
+      "count": 4,
+      "missingNumbers": 4,
+      "wrongTotals": 4,
+      "needsNormalize": true
+    },
+    "trackGaps": [],
+    "incomplete": false,
+    "missingRequired": [
+      {
+        "field": "title",
+        "files": [
+          "02.flac",
+          "04.flac"
+        ]
+      },
+      {
+        "field": "artist",
+        "files": [
+          "04.flac"
+        ]
+      }
+    ],
+    "noDuration": [],
+    "durationRepairable": [],
+    "art": {
+      "total": 4,
+      "withArt": 0,
+      "missing": 4,
+      "hasMissing": true,
+      "folderImages": []
+    },
+    "textIssues": [],
+    "filenameIssues": [],
+    "tracks": [
+      {
+        "file": "01.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "One",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "02.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "03.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Three",
+        "artist": "",
+        "artists": "Test Artist",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "04.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "",
+        "artist": "",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      }
+    ]
+  },
+  "control characters and filename damage": {
+    "ok": true,
+    "album": "control characters and filename damage",
+    "trackCount": 4,
+    "groupCount": 1,
+    "splitFields": [],
+    "fields": {
+      "album": {
+        "distinct": [
+          {
+            "value": "Test Album",
+            "count": 4
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Album"
+      },
+      "album_artist": {
+        "distinct": [
+          {
+            "value": "Test Artist",
+            "count": 4
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Artist"
+      },
+      "date": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": ""
+      },
+      "disc": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": ""
+      }
+    },
+    "formats": [
+      "flac"
+    ],
+    "mixedFormats": false,
+    "qualities": [
+      {
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "count": 4,
+        "files": [
+          "01 Don_t Stop.flac",
+          "02 Star.flac",
+          "03 Plain.flac",
+          "I_m Bonus/04 It_s Late.flac"
+        ]
+      }
+    ],
+    "mixedQuality": false,
+    "unreadable": [],
+    "multiDisc": false,
+    "discs": [
+      {
+        "disc": 1,
+        "trackCount": 4,
+        "contiguous": false
+      }
+    ],
+    "track": {
+      "count": 4,
+      "missingNumbers": 4,
+      "wrongTotals": 4,
+      "needsNormalize": true
+    },
+    "trackGaps": [],
+    "incomplete": false,
+    "missingRequired": [],
+    "noDuration": [],
+    "durationRepairable": [],
+    "art": {
+      "total": 4,
+      "withArt": 0,
+      "missing": 4,
+      "hasMissing": true,
+      "folderImages": []
+    },
+    "textIssues": [
+      {
+        "file": "01 Don_t Stop.flac",
+        "field": "title",
+        "kind": "control",
+        "display": "Don\u00b7t Stop",
+        "suggested": "Don\u2019t Stop",
+        "confident": true
+      },
+      {
+        "file": "02 Star.flac",
+        "field": "title",
+        "kind": "control",
+        "display": "Star \u00b7",
+        "suggested": "Star \u0006",
+        "confident": false
+      },
+      {
+        "file": "03 Plain.flac",
+        "field": "artist",
+        "kind": "whitespace",
+        "display": "Test\u200b Artist",
+        "suggested": "Test Artist",
+        "confident": true
+      }
+    ],
+    "filenameIssues": [
+      {
+        "file": "01 Don_t Stop.flac",
+        "suggested": "01 Don't Stop.flac"
+      },
+      {
+        "file": "I_m Bonus/04 It_s Late.flac",
+        "suggested": "04 It's Late.flac"
+      }
+    ],
+    "tracks": [
+      {
+        "file": "01 Don_t Stop.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Don\u0019t Stop",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "02 Star.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Star \u0006",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "03 Plain.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Plain",
+        "artist": "Test\u200b Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "I_m Bonus/04 It_s Late.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Late",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      }
+    ]
+  },
+  "mixed formats and mixed sample rate": {
+    "ok": true,
+    "album": "mixed formats and mixed sample rate",
+    "trackCount": 3,
+    "groupCount": 1,
+    "splitFields": [],
+    "fields": {
+      "album": {
+        "distinct": [
+          {
+            "value": "Test Album",
+            "count": 3
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Album"
+      },
+      "album_artist": {
+        "distinct": [
+          {
+            "value": "Test Artist",
+            "count": 3
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Artist"
+      },
+      "date": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      },
+      "disc": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      }
+    },
+    "formats": [
+      "flac",
+      "wav"
+    ],
+    "mixedFormats": true,
+    "qualities": [
+      {
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "count": 2,
+        "files": [
+          "02.flac",
+          "03.wav"
+        ]
+      },
+      {
+        "sampleRate": 48000,
+        "bitDepth": 16,
+        "count": 1,
+        "files": [
+          "01.flac"
+        ]
+      }
+    ],
+    "mixedQuality": true,
+    "unreadable": [],
+    "multiDisc": false,
+    "discs": [
+      {
+        "disc": 1,
+        "trackCount": 3,
+        "contiguous": false
+      }
+    ],
+    "track": {
+      "count": 3,
+      "missingNumbers": 3,
+      "wrongTotals": 3,
+      "needsNormalize": true
+    },
+    "trackGaps": [],
+    "incomplete": false,
+    "missingRequired": [],
+    "noDuration": [],
+    "durationRepairable": [],
+    "art": {
+      "total": 3,
+      "withArt": 0,
+      "missing": 3,
+      "hasMissing": true,
+      "folderImages": []
+    },
+    "textIssues": [],
+    "filenameIssues": [],
+    "tracks": [
+      {
+        "file": "01.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 48000,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "One",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "02.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Two",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "03.wav",
+        "readable": true,
+        "formatName": "wav",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Three",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "",
+        "date": "",
+        "disc": "",
+        "track": ""
+      }
+    ]
+  },
+  "art missing with loose folder images": {
+    "ok": true,
+    "album": "art missing with loose folder images",
+    "trackCount": 2,
+    "groupCount": 1,
+    "splitFields": [],
+    "fields": {
+      "album": {
+        "distinct": [
+          {
+            "value": "Test Album",
+            "count": 2
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Album"
+      },
+      "album_artist": {
+        "distinct": [
+          {
+            "value": "Test Artist",
+            "count": 2
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Artist"
+      },
+      "date": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": ""
+      },
+      "disc": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": ""
+      }
+    },
+    "formats": [
+      "flac"
+    ],
+    "mixedFormats": false,
+    "qualities": [
+      {
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "count": 2,
+        "files": [
+          "01.flac",
+          "02.flac"
+        ]
+      }
+    ],
+    "mixedQuality": false,
+    "unreadable": [],
+    "multiDisc": false,
+    "discs": [
+      {
+        "disc": 1,
+        "trackCount": 2,
+        "contiguous": false
+      }
+    ],
+    "track": {
+      "count": 2,
+      "missingNumbers": 2,
+      "wrongTotals": 2,
+      "needsNormalize": true
+    },
+    "trackGaps": [],
+    "incomplete": false,
+    "missingRequired": [],
+    "noDuration": [],
+    "durationRepairable": [],
+    "art": {
+      "total": 2,
+      "withArt": 1,
+      "missing": 1,
+      "hasMissing": true,
+      "folderImages": [
+        "cover.jpg",
+        "scans/Back.PNG"
+      ]
+    },
+    "textIssues": [],
+    "filenameIssues": [],
+    "tracks": [
+      {
+        "file": "01.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": true,
+        "duration": 1,
+        "title": "One",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "02.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Two",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      }
+    ]
+  },
+  "unreadable file": {
+    "ok": true,
+    "album": "unreadable file",
+    "trackCount": 3,
+    "groupCount": 1,
+    "splitFields": [],
+    "fields": {
+      "album": {
+        "distinct": [
+          {
+            "value": "Test Album",
+            "count": 2
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Album"
+      },
+      "album_artist": {
+        "distinct": [
+          {
+            "value": "Test Artist",
+            "count": 2
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Artist"
+      },
+      "date": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": ""
+      },
+      "disc": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": ""
+      }
+    },
+    "formats": [
+      "flac"
+    ],
+    "mixedFormats": false,
+    "qualities": [
+      {
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "count": 2,
+        "files": [
+          "01.flac",
+          "02.flac"
+        ]
+      }
+    ],
+    "mixedQuality": false,
+    "unreadable": [
+      "03.flac"
+    ],
+    "multiDisc": false,
+    "discs": [
+      {
+        "disc": 1,
+        "trackCount": 3,
+        "contiguous": false
+      }
+    ],
+    "track": {
+      "count": 3,
+      "missingNumbers": 3,
+      "wrongTotals": 3,
+      "needsNormalize": true
+    },
+    "trackGaps": [],
+    "incomplete": false,
+    "missingRequired": [],
+    "noDuration": [],
+    "durationRepairable": [],
+    "art": {
+      "total": 3,
+      "withArt": 0,
+      "missing": 3,
+      "hasMissing": true,
+      "folderImages": []
+    },
+    "textIssues": [],
+    "filenameIssues": [],
+    "tracks": [
+      {
+        "file": "01.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "One",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "02.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Two",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "03.flac",
+        "readable": false,
+        "formatName": "flac",
+        "sampleRate": null,
+        "bitDepth": null,
+        "hasArt": false,
+        "duration": null,
+        "title": "",
+        "artist": "",
+        "artists": "",
+        "album": "",
+        "album_artist": "",
+        "date": "",
+        "disc": "",
+        "track": ""
+      }
+    ]
+  },
+  "track with no readable length": {
+    "ok": true,
+    "album": "track with no readable length",
+    "trackCount": 3,
+    "groupCount": 1,
+    "splitFields": [],
+    "fields": {
+      "album": {
+        "distinct": [
+          {
+            "value": "Test Album",
+            "count": 3
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Album"
+      },
+      "album_artist": {
+        "distinct": [
+          {
+            "value": "Test Artist",
+            "count": 3
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Artist"
+      },
+      "date": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      },
+      "disc": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      }
+    },
+    "formats": [
+      "flac",
+      "ogg"
+    ],
+    "mixedFormats": true,
+    "qualities": [
+      {
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "count": 3,
+        "files": [
+          "01.flac",
+          "03.ogg",
+          "Vol. 1/02.flac"
+        ]
+      }
+    ],
+    "mixedQuality": false,
+    "unreadable": [],
+    "multiDisc": false,
+    "discs": [
+      {
+        "disc": 1,
+        "trackCount": 3,
+        "contiguous": false
+      }
+    ],
+    "track": {
+      "count": 3,
+      "missingNumbers": 3,
+      "wrongTotals": 3,
+      "needsNormalize": true
+    },
+    "trackGaps": [],
+    "incomplete": false,
+    "missingRequired": [],
+    "noDuration": [
+      "03.ogg",
+      "Vol. 1/02.flac"
+    ],
+    "durationRepairable": [
+      "Vol. 1/02.flac"
+    ],
+    "art": {
+      "total": 3,
+      "withArt": 0,
+      "missing": 3,
+      "hasMissing": true,
+      "folderImages": []
+    },
+    "textIssues": [],
+    "filenameIssues": [],
+    "tracks": [
+      {
+        "file": "01.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "One",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "03.ogg",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": null,
+        "title": "Three",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      },
+      {
+        "file": "Vol. 1/02.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": null,
+        "title": "Two",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": ""
+      }
+    ]
+  },
+  "numbered tracks without a disc tag": {
+    "ok": true,
+    "album": "numbered tracks without a disc tag",
+    "trackCount": 2,
+    "groupCount": 1,
+    "splitFields": [],
+    "fields": {
+      "album": {
+        "distinct": [
+          {
+            "value": "Test Album",
+            "count": 2
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Album"
+      },
+      "album_artist": {
+        "distinct": [
+          {
+            "value": "Test Artist",
+            "count": 2
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Artist"
+      },
+      "date": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": ""
+      },
+      "disc": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": ""
+      }
+    },
+    "formats": [
+      "flac"
+    ],
+    "mixedFormats": false,
+    "qualities": [
+      {
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "count": 2,
+        "files": [
+          "01.flac",
+          "02.flac"
+        ]
+      }
+    ],
+    "mixedQuality": false,
+    "unreadable": [],
+    "multiDisc": false,
+    "discs": [
+      {
+        "disc": 1,
+        "trackCount": 2,
+        "contiguous": true
+      }
+    ],
+    "track": {
+      "count": 2,
+      "missingNumbers": 0,
+      "wrongTotals": 0,
+      "needsNormalize": false
+    },
+    "trackGaps": [],
+    "incomplete": false,
+    "missingRequired": [],
+    "noDuration": [],
+    "durationRepairable": [],
+    "art": {
+      "total": 2,
+      "withArt": 0,
+      "missing": 2,
+      "hasMissing": true,
+      "folderImages": []
+    },
+    "textIssues": [],
+    "filenameIssues": [],
+    "tracks": [
+      {
+        "file": "01.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "One",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": "1/2"
+      },
+      {
+        "file": "02.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Two",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": "2/2"
+      }
+    ]
+  },
+  "numbering that starts at 2": {
+    "ok": true,
+    "album": "numbering that starts at 2",
+    "trackCount": 2,
+    "groupCount": 1,
+    "splitFields": [],
+    "fields": {
+      "album": {
+        "distinct": [
+          {
+            "value": "Test Album",
+            "count": 2
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Album"
+      },
+      "album_artist": {
+        "distinct": [
+          {
+            "value": "Test Artist",
+            "count": 2
+          }
+        ],
+        "missing": 0,
+        "consistent": true,
+        "proposed": "Test Artist"
+      },
+      "date": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": ""
+      },
+      "disc": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": ""
+      }
+    },
+    "formats": [
+      "flac"
+    ],
+    "mixedFormats": false,
+    "qualities": [
+      {
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "count": 2,
+        "files": [
+          "02.flac",
+          "03.flac"
+        ]
+      }
+    ],
+    "mixedQuality": false,
+    "unreadable": [],
+    "multiDisc": false,
+    "discs": [
+      {
+        "disc": 1,
+        "trackCount": 2,
+        "contiguous": false
+      }
+    ],
+    "track": {
+      "count": 2,
+      "missingNumbers": 0,
+      "wrongTotals": 2,
+      "needsNormalize": true
+    },
+    "trackGaps": [
+      {
+        "disc": 1,
+        "missing": [
+          1
+        ]
+      }
+    ],
+    "incomplete": true,
+    "missingRequired": [],
+    "noDuration": [],
+    "durationRepairable": [],
+    "art": {
+      "total": 2,
+      "withArt": 0,
+      "missing": 2,
+      "hasMissing": true,
+      "folderImages": []
+    },
+    "textIssues": [],
+    "filenameIssues": [],
+    "tracks": [
+      {
+        "file": "02.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Two",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": "2/3"
+      },
+      {
+        "file": "03.flac",
+        "readable": true,
+        "formatName": "flac",
+        "sampleRate": 44100,
+        "bitDepth": 16,
+        "hasArt": false,
+        "duration": 1,
+        "title": "Three",
+        "artist": "Test Artist",
+        "artists": "",
+        "album": "Test Album",
+        "album_artist": "Test Artist",
+        "date": "",
+        "disc": "",
+        "track": "3/3"
+      }
+    ]
+  },
+  "no audio files": {
+    "ok": false,
+    "code": "no_audio_files",
+    "message": "No audio files found in album folder."
+  }
+}
