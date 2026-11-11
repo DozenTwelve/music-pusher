@@ -49,6 +49,25 @@
         "missing": 0,
         "consistent": true,
         "proposed": "1/1"
+      },
+      "release_date": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": "",
+        "followsDate": false
+      },
+      "album_version": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      },
+      "musicbrainz_albumid": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
       }
     },
     "formats": [
@@ -86,6 +105,7 @@
     "trackGaps": [],
     "incomplete": false,
     "missingRequired": [],
+    "mergeWarnings": [],
     "noDuration": [],
     "durationRepairable": [],
     "art": {
@@ -113,7 +133,20 @@
         "album_artist": "Test Artist",
         "date": "2024-03-01",
         "disc": "1/1",
-        "track": "1/3"
+        "track": "1/3",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "02 Second.flac",
@@ -130,7 +163,20 @@
         "album_artist": "Test Artist",
         "date": "2024-03-01",
         "disc": "1/1",
-        "track": "2/3"
+        "track": "2/3",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "03 Third.flac",
@@ -147,7 +193,20 @@
         "album_artist": "Test Artist",
         "date": "2024-03-01",
         "disc": "1/1",
-        "track": "3/3"
+        "track": "3/3",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       }
     ]
   },
@@ -197,6 +256,25 @@
         "missing": 3,
         "consistent": true,
         "proposed": ""
+      },
+      "release_date": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": "",
+        "followsDate": false
+      },
+      "album_version": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      },
+      "musicbrainz_albumid": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
       }
     },
     "formats": [
@@ -234,6 +312,7 @@
     "trackGaps": [],
     "incomplete": false,
     "missingRequired": [],
+    "mergeWarnings": [],
     "noDuration": [],
     "durationRepairable": [],
     "art": {
@@ -261,7 +340,20 @@
         "album_artist": "Artist A",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Artist A"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "02.flac",
@@ -278,7 +370,20 @@
         "album_artist": "Artist A",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Artist A"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "03.flac",
@@ -295,7 +400,20 @@
         "album_artist": "Artist B",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Artist B"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       }
     ]
   },
@@ -345,6 +463,25 @@
         "missing": 3,
         "consistent": true,
         "proposed": ""
+      },
+      "release_date": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": "",
+        "followsDate": false
+      },
+      "album_version": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      },
+      "musicbrainz_albumid": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
       }
     },
     "formats": [
@@ -382,6 +519,7 @@
     "trackGaps": [],
     "incomplete": false,
     "missingRequired": [],
+    "mergeWarnings": [],
     "noDuration": [],
     "durationRepairable": [],
     "art": {
@@ -409,7 +547,18 @@
         "album_artist": "",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Main"
+        ],
+        "artists_values": [],
+        "album_artist_values": [],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "02.flac",
@@ -426,7 +575,18 @@
         "album_artist": "",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Main"
+        ],
+        "artists_values": [],
+        "album_artist_values": [],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "03.flac",
@@ -443,7 +603,20 @@
         "album_artist": "",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Main"
+        ],
+        "artists_values": [
+          "Main; Guest"
+        ],
+        "album_artist_values": [],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       }
     ]
   },
@@ -494,6 +667,25 @@
         "missing": 3,
         "consistent": true,
         "proposed": ""
+      },
+      "release_date": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": "",
+        "followsDate": false
+      },
+      "album_version": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      },
+      "musicbrainz_albumid": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
       }
     },
     "formats": [
@@ -531,6 +723,7 @@
     "trackGaps": [],
     "incomplete": false,
     "missingRequired": [],
+    "mergeWarnings": [],
     "noDuration": [],
     "durationRepairable": [],
     "art": {
@@ -558,7 +751,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "02.flac",
@@ -575,7 +781,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "03.flac",
@@ -592,7 +811,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       }
     ]
   },
@@ -649,6 +881,25 @@
         "missing": 3,
         "consistent": true,
         "proposed": ""
+      },
+      "release_date": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": "",
+        "followsDate": false
+      },
+      "album_version": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      },
+      "musicbrainz_albumid": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
       }
     },
     "formats": [
@@ -686,6 +937,7 @@
     "trackGaps": [],
     "incomplete": false,
     "missingRequired": [],
+    "mergeWarnings": [],
     "noDuration": [],
     "durationRepairable": [],
     "art": {
@@ -730,7 +982,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "02.flac",
@@ -747,7 +1012,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "03.flac",
@@ -764,7 +1042,20 @@
         "album_artist": "Test  Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test  Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       }
     ]
   },
@@ -818,6 +1109,25 @@
         "consistent": true,
         "proposed": "",
         "multiDisc": true
+      },
+      "release_date": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": "",
+        "followsDate": false
+      },
+      "album_version": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": ""
+      },
+      "musicbrainz_albumid": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": ""
       }
     },
     "formats": [
@@ -874,6 +1184,7 @@
     ],
     "incomplete": true,
     "missingRequired": [],
+    "mergeWarnings": [],
     "noDuration": [],
     "durationRepairable": [],
     "art": {
@@ -901,7 +1212,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "1/2",
-        "track": "1/3"
+        "track": "1/3",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "CD1/02 Two.flac",
@@ -918,7 +1242,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "1/2",
-        "track": "2/3"
+        "track": "2/3",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "CD2/01 Three.flac",
@@ -935,7 +1272,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "2/2",
-        "track": "1/2"
+        "track": "1/2",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "CD2/03 Four.flac",
@@ -952,7 +1302,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "2/2",
-        "track": "3/2"
+        "track": "3/2",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       }
     ]
   },
@@ -1006,6 +1369,25 @@
         "consistent": true,
         "proposed": "",
         "multiDisc": true
+      },
+      "release_date": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": "",
+        "followsDate": false
+      },
+      "album_version": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": ""
+      },
+      "musicbrainz_albumid": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": ""
       }
     },
     "formats": [
@@ -1049,6 +1431,7 @@
     "trackGaps": [],
     "incomplete": false,
     "missingRequired": [],
+    "mergeWarnings": [],
     "noDuration": [],
     "durationRepairable": [],
     "art": {
@@ -1076,7 +1459,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "1",
-        "track": "1/4"
+        "track": "1/4",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "CD1/02 Two.flac",
@@ -1093,7 +1489,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "1",
-        "track": "2/4"
+        "track": "2/4",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "CD2/01 Three.flac",
@@ -1110,7 +1519,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "2",
-        "track": "1/4"
+        "track": "1/4",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "CD2/02 Four.flac",
@@ -1127,7 +1549,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "2",
-        "track": "2/4"
+        "track": "2/4",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       }
     ]
   },
@@ -1180,6 +1615,25 @@
         "missing": 1,
         "consistent": false,
         "proposed": "1"
+      },
+      "release_date": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": "",
+        "followsDate": false
+      },
+      "album_version": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      },
+      "musicbrainz_albumid": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
       }
     },
     "formats": [
@@ -1222,6 +1676,7 @@
     "trackGaps": [],
     "incomplete": false,
     "missingRequired": [],
+    "mergeWarnings": [],
     "noDuration": [],
     "durationRepairable": [],
     "art": {
@@ -1249,7 +1704,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "1",
-        "track": "1"
+        "track": "1",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "02.flac",
@@ -1266,7 +1734,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "2",
-        "track": "1"
+        "track": "1",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "03.flac",
@@ -1283,7 +1764,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": "2"
+        "track": "2",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       }
     ]
   },
@@ -1336,6 +1830,25 @@
         "missing": 3,
         "consistent": true,
         "proposed": ""
+      },
+      "release_date": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": "",
+        "followsDate": false
+      },
+      "album_version": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      },
+      "musicbrainz_albumid": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
       }
     },
     "formats": [
@@ -1373,6 +1886,7 @@
     "trackGaps": [],
     "incomplete": false,
     "missingRequired": [],
+    "mergeWarnings": [],
     "noDuration": [],
     "durationRepairable": [],
     "art": {
@@ -1400,7 +1914,20 @@
         "album_artist": "Test Artist",
         "date": "2024-03-01",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "02.flac",
@@ -1417,7 +1944,20 @@
         "album_artist": "Test Artist",
         "date": "2023-11-10",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "03.flac",
@@ -1434,7 +1974,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       }
     ]
   },
@@ -1485,6 +2038,25 @@
         "missing": 4,
         "consistent": true,
         "proposed": ""
+      },
+      "release_date": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": "",
+        "followsDate": false
+      },
+      "album_version": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": ""
+      },
+      "musicbrainz_albumid": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": ""
       }
     },
     "formats": [
@@ -1523,6 +2095,14 @@
     "trackGaps": [],
     "incomplete": false,
     "missingRequired": [],
+    "mergeWarnings": [
+      {
+        "reason": "no_album",
+        "files": [
+          "02.flac"
+        ]
+      }
+    ],
     "noDuration": [],
     "durationRepairable": [],
     "art": {
@@ -1550,7 +2130,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "02.flac",
@@ -1567,7 +2160,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "03.flac",
@@ -1584,7 +2190,18 @@
         "album_artist": "",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "04.flac",
@@ -1601,7 +2218,18 @@
         "album_artist": "",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Guest"
+        ],
+        "artists_values": [],
+        "album_artist_values": [],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       }
     ]
   },
@@ -1641,6 +2269,25 @@
         "proposed": ""
       },
       "disc": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": ""
+      },
+      "release_date": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": "",
+        "followsDate": false
+      },
+      "album_version": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": ""
+      },
+      "musicbrainz_albumid": {
         "distinct": [],
         "missing": 4,
         "consistent": true,
@@ -1697,6 +2344,7 @@
         ]
       }
     ],
+    "mergeWarnings": [],
     "noDuration": [],
     "durationRepairable": [],
     "art": {
@@ -1724,7 +2372,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "02.flac",
@@ -1741,7 +2402,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "03.flac",
@@ -1758,7 +2432,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [],
+        "artists_values": [
+          "Test Artist"
+        ],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "04.flac",
@@ -1775,7 +2462,18 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       }
     ]
   },
@@ -1819,6 +2517,25 @@
         "missing": 4,
         "consistent": true,
         "proposed": ""
+      },
+      "release_date": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": "",
+        "followsDate": false
+      },
+      "album_version": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": ""
+      },
+      "musicbrainz_albumid": {
+        "distinct": [],
+        "missing": 4,
+        "consistent": true,
+        "proposed": ""
       }
     },
     "formats": [
@@ -1857,6 +2574,7 @@
     "trackGaps": [],
     "incomplete": false,
     "missingRequired": [],
+    "mergeWarnings": [],
     "noDuration": [],
     "durationRepairable": [],
     "art": {
@@ -1918,7 +2636,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "02 Star.flac",
@@ -1935,7 +2666,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "03 Plain.flac",
@@ -1952,7 +2696,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test\u200b Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "I_m Bonus/04 It_s Late.flac",
@@ -1969,7 +2726,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       }
     ]
   },
@@ -2009,6 +2779,25 @@
         "proposed": ""
       },
       "disc": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      },
+      "release_date": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": "",
+        "followsDate": false
+      },
+      "album_version": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      },
+      "musicbrainz_albumid": {
         "distinct": [],
         "missing": 3,
         "consistent": true,
@@ -2058,6 +2847,7 @@
     "trackGaps": [],
     "incomplete": false,
     "missingRequired": [],
+    "mergeWarnings": [],
     "noDuration": [],
     "durationRepairable": [],
     "art": {
@@ -2085,7 +2875,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "02.flac",
@@ -2102,7 +2905,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "03.wav",
@@ -2119,7 +2935,18 @@
         "album_artist": "",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       }
     ]
   },
@@ -2163,6 +2990,25 @@
         "missing": 2,
         "consistent": true,
         "proposed": ""
+      },
+      "release_date": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": "",
+        "followsDate": false
+      },
+      "album_version": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": ""
+      },
+      "musicbrainz_albumid": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": ""
       }
     },
     "formats": [
@@ -2199,6 +3045,7 @@
     "trackGaps": [],
     "incomplete": false,
     "missingRequired": [],
+    "mergeWarnings": [],
     "noDuration": [],
     "durationRepairable": [],
     "art": {
@@ -2229,7 +3076,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "02.flac",
@@ -2246,7 +3106,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       }
     ]
   },
@@ -2290,6 +3163,25 @@
         "missing": 2,
         "consistent": true,
         "proposed": ""
+      },
+      "release_date": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": "",
+        "followsDate": false
+      },
+      "album_version": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": ""
+      },
+      "musicbrainz_albumid": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": ""
       }
     },
     "formats": [
@@ -2328,6 +3220,7 @@
     "trackGaps": [],
     "incomplete": false,
     "missingRequired": [],
+    "mergeWarnings": [],
     "noDuration": [],
     "durationRepairable": [],
     "art": {
@@ -2355,7 +3248,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "02.flac",
@@ -2372,7 +3278,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "03.flac",
@@ -2389,7 +3308,16 @@
         "album_artist": "",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [],
+        "artists_values": [],
+        "album_artist_values": [],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       }
     ]
   },
@@ -2433,6 +3361,25 @@
         "missing": 3,
         "consistent": true,
         "proposed": ""
+      },
+      "release_date": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": "",
+        "followsDate": false
+      },
+      "album_version": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
+      },
+      "musicbrainz_albumid": {
+        "distinct": [],
+        "missing": 3,
+        "consistent": true,
+        "proposed": ""
       }
     },
     "formats": [
@@ -2471,6 +3418,7 @@
     "trackGaps": [],
     "incomplete": false,
     "missingRequired": [],
+    "mergeWarnings": [],
     "noDuration": [
       "03.ogg",
       "Vol. 1/02.flac"
@@ -2503,7 +3451,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "03.ogg",
@@ -2520,7 +3481,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "Vol. 1/02.flac",
@@ -2537,7 +3511,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": ""
+        "track": "",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       }
     ]
   },
@@ -2581,6 +3568,25 @@
         "missing": 2,
         "consistent": true,
         "proposed": ""
+      },
+      "release_date": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": "",
+        "followsDate": false
+      },
+      "album_version": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": ""
+      },
+      "musicbrainz_albumid": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": ""
       }
     },
     "formats": [
@@ -2617,6 +3623,7 @@
     "trackGaps": [],
     "incomplete": false,
     "missingRequired": [],
+    "mergeWarnings": [],
     "noDuration": [],
     "durationRepairable": [],
     "art": {
@@ -2644,7 +3651,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": "1/2"
+        "track": "1/2",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "02.flac",
@@ -2661,7 +3681,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": "2/2"
+        "track": "2/2",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       }
     ]
   },
@@ -2701,6 +3734,25 @@
         "proposed": ""
       },
       "disc": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": ""
+      },
+      "release_date": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": "",
+        "followsDate": false
+      },
+      "album_version": {
+        "distinct": [],
+        "missing": 2,
+        "consistent": true,
+        "proposed": ""
+      },
+      "musicbrainz_albumid": {
         "distinct": [],
         "missing": 2,
         "consistent": true,
@@ -2748,6 +3800,7 @@
     ],
     "incomplete": true,
     "missingRequired": [],
+    "mergeWarnings": [],
     "noDuration": [],
     "durationRepairable": [],
     "art": {
@@ -2775,7 +3828,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": "2/3"
+        "track": "2/3",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       },
       {
         "file": "03.flac",
@@ -2792,7 +3858,20 @@
         "album_artist": "Test Artist",
         "date": "",
         "disc": "",
-        "track": "3/3"
+        "track": "3/3",
+        "artist_values": [
+          "Test Artist"
+        ],
+        "artists_values": [],
+        "album_artist_values": [
+          "Test Artist"
+        ],
+        "album_artists_values": [],
+        "compilation": "",
+        "musicbrainz_albumid": "",
+        "album_version": "",
+        "release_date": "",
+        "release_date_follows_date": false
       }
     ]
   },
