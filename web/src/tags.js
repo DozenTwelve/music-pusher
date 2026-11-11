@@ -128,6 +128,20 @@ export async function readTrack(taglib, file, bytes) {
   }
 }
 
+// The picture embedded in a track — the front cover when it has several — as
+// { mimeType, data }, or null.
+export async function readPicture(taglib, file, bytes) {
+  const handle = await taglib.open({ name: file, data: bytes });
+  try {
+    const pictures = handle.getPictures();
+    const picture = pictures.find((candidate) => candidate.type === 'FrontCover') || pictures[0];
+    // A copy: the picture must outlive the handle.
+    return picture ? { mimeType: picture.mimeType, data: picture.data.slice() } : null;
+  } finally {
+    handle.dispose();
+  }
+}
+
 // Returns the rewritten file as new bytes; `bytes` is left untouched.
 //   set:   { TAGLIB_NAME: value } — a string, an array of strings (written as
 //          separate values, never joined), or null to remove the tag outright.
@@ -157,6 +171,22 @@ export async function writeTrack(taglib, file, bytes, { set = {}, cover } = {}) 
         properties[name] = Array.isArray(value) ? value : [value];
       }
     }
+    const mp3 = handle.getFormat() === 'MP3';
+    // ffmpeg writes an MP3 comment as TXXX:comment, which TagLib reads as
+    // COMMENT — and writes back as a COMM frame next to it, so every save would
+    // leave the comment in the file twice. When the comment is not what is
+    // being written and no COMM frame exists yet, the property is kept out of
+    // the typed save (which drops the TXXX frame) and the frame is put back,
+    // byte for byte, by the raw pass.
+    const commentKey = Object.keys(properties).find((name) => name.toUpperCase() === 'COMMENT');
+    const strayComments =
+      mp3 && commentKey && !('COMMENT' in upperSet(set)) && handle.getId3v2Frames('COMM').length === 0
+        ? handle.getId3v2Frames('TXXX').map(({ data }) => data.slice()).filter((data) => txxxDescription(data).toUpperCase() === 'COMMENT')
+        : [];
+    if (strayComments.length > 0) {
+      delete properties[commentKey];
+    }
+
     handle.setProperties(properties);
     if (cover) {
       handle.setPictures([{ mimeType: 'image/jpeg', data: cover, type: 'FrontCover', description: '' }]);
@@ -165,8 +195,8 @@ export async function writeTrack(taglib, file, bytes, { set = {}, cover } = {}) 
       throw new Error(`TagLib could not save ${file}`);
     }
     const output = handle.getFileBuffer();
-    const needsPicardCase = handle.getFormat() === 'MP3' && PICARD_TXXX.some(([name]) => properties[name]);
-    return needsPicardCase ? picardCaseTxxx(taglib, file, output) : output;
+    const picardCase = mp3 && PICARD_TXXX.some(([name]) => properties[name]);
+    return picardCase || strayComments.length > 0 ? patchId3Frames(taglib, file, output, picardCase, strayComments) : output;
   } finally {
     handle.dispose();
   }
@@ -181,15 +211,23 @@ export async function writeTrack(taglib, file, bytes, { set = {}, cover } = {}) 
 // the patched frame alone as long as its value does not change.
 const PICARD_TXXX = [['MUSICBRAINZ_ALBUMID', 'MusicBrainz Album Id']];
 
-async function picardCaseTxxx(taglib, file, bytes) {
+const upperSet = (set) => Object.fromEntries(Object.keys(set).map((name) => [name.toUpperCase(), true]));
+
+// A TXXX frame body is one encoding byte, the description, a terminator, the value.
+const ID3_ENCODINGS = ['latin1', 'utf-16', 'utf-16be', 'utf-8'];
+const txxxDescription = (data) => new TextDecoder(ID3_ENCODINGS[data[0]] || 'latin1').decode(data.subarray(1)).split('\0')[0];
+
+// The raw-frame pass over a saved MP3: Picard's spelling for the TXXX frames
+// that need it, and the TXXX frames in `added` appended as they are.
+async function patchId3Frames(taglib, file, bytes, picardCase, added) {
   const handle = await taglib.open({ name: file, data: bytes });
   try {
-    let changed = false;
+    let changed = added.length > 0;
     // Frame body: one encoding byte, the description, NUL, the value.
     // ponytail: Latin-1 / UTF-8 bodies only, which is all TagLib writes for an
     // ASCII description; a UTF-16 body is left as it is.
     const bodies = handle.getId3v2Frames('TXXX').map(({ data }) => {
-      for (const [, description] of PICARD_TXXX) {
+      for (const [, description] of picardCase ? PICARD_TXXX : []) {
         const end = 1 + description.length;
         const stored = String.fromCharCode(...data.subarray(1, end));
         if (data[end] === 0 && stored !== description && stored.toUpperCase() === description.toUpperCase()) {
@@ -204,7 +242,7 @@ async function picardCaseTxxx(taglib, file, bytes) {
     if (!changed) {
       return bytes;
     }
-    handle.setId3v2Frames('TXXX', bodies);
+    handle.setId3v2Frames('TXXX', [...bodies, ...added]);
     if (!handle.save()) {
       throw new Error(`TagLib could not save ${file}`);
     }
