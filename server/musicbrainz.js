@@ -11,6 +11,7 @@
 // via `--search-id` — nothing here writes a tag.
 
 import net from 'node:net';
+import { buildQuery, summarize, sortCandidates } from '../shared/musicbrainz.js';
 
 // The deployment box resolves musicbrainz.org to both an A and a AAAA record but
 // has no working route to the IPv6 one, so a connection that starts there stalls
@@ -31,49 +32,6 @@ const MB_ENDPOINT = 'https://musicbrainz.org/ws/2/release';
 const USER_AGENT = 'music-pusher/0.1 ( https://github.com/ )';
 const TIMEOUT_MS = 20000;
 const MAX_RESULTS = 8;
-
-// Lucene metacharacters in a quoted phrase would otherwise make the query fail
-// to parse — album names with brackets or a colon are common enough to matter.
-function luceneEscape(value) {
-  return String(value).replace(/[+\-&|!(){}[\]^"~*?:\\/]/g, '\\$&');
-}
-
-function buildQuery({ artist, album, tracks }) {
-  const terms = [`release:"${luceneEscape(album)}"`];
-  if (artist) {
-    terms.push(`artist:"${luceneEscape(artist)}"`);
-  }
-  // A soft signal, deliberately not a filter: a release whose track count
-  // differs is usually a different edition rather than a wrong album, and the
-  // user is the one deciding. It only nudges the ranking.
-  if (Number.isInteger(tracks) && tracks > 0) {
-    terms.push(`tracks:${tracks}`);
-  }
-  return terms.join(' AND ');
-}
-
-function summarize(release, expectedTracks) {
-  const media = Array.isArray(release.media) ? release.media : [];
-  const trackCount = media.reduce((sum, m) => sum + (m['track-count'] || 0), 0);
-  const credit = Array.isArray(release['artist-credit']) ? release['artist-credit'] : [];
-  const labels = Array.isArray(release['label-info']) ? release['label-info'] : [];
-
-  return {
-    id: release.id,
-    title: release.title || '',
-    artist: credit.map((c) => c.name || c.artist?.name || '').filter(Boolean).join(', '),
-    date: release.date || '',
-    country: release.country || '',
-    trackCount,
-    // Surfaced so the user can tell two same-titled editions apart at a glance —
-    // which is the whole point of showing them a list.
-    disambiguation: release.disambiguation || '',
-    format: media.map((m) => m.format).filter(Boolean).join(' + '),
-    label: labels.map((l) => l.label?.name).filter(Boolean).join(', '),
-    catalogNumber: labels.map((l) => l['catalog-number']).filter(Boolean).join(', '),
-    matchesTrackCount: expectedTracks == null || trackCount === expectedTracks
-  };
-}
 
 export async function searchReleases({ artist, album, tracks }) {
   if (!album || String(album).trim() === '') {
@@ -116,9 +74,7 @@ export async function searchReleases({ artist, album, tracks }) {
   const expected = Number.isInteger(tracks) && tracks > 0 ? tracks : null;
   const candidates = releases.map((r) => summarize(r, expected));
 
-  // Same track count first — the strongest cheap signal that this is the same
-  // edition — then MusicBrainz's own relevance order within each group.
-  candidates.sort((a, b) => Number(b.matchesTrackCount) - Number(a.matchesTrackCount));
+  sortCandidates(candidates);
 
   return { ok: true, query: { artist, album, tracks }, candidates };
 }

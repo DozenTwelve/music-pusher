@@ -14,8 +14,8 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { config, expandHome } from './config.js';
 import { runProcess } from './metadata/probe.js';
-import { albumBase } from './metadata/inspect.js';
-import { normalizeTagValue } from './metadata/text.js';
+import { albumBase } from '../shared/inspect.js';
+import { normalizeTagValue } from '../shared/text.js';
 import { withAlbumLock } from './metadata/lock.js';
 import { AUDIO_EXTENSIONS } from '../shared/extensions.js';
 

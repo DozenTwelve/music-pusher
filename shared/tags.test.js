@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeDate } from './fix.js';
+import { normalizeDate } from './tags.js';
 
 test('normalizeDate accepts the separators a person types', () => {
   // The one that started this: typed into the fix form, written verbatim by

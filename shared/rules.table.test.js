@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeDate } from './fix.js';
-import { parseNumberPair, leadingTrackNumber } from './probe.js';
+import { normalizeDate, parseNumberPair, leadingTrackNumber } from './tags.js';
 import { analyzeText, normalizeTagValue, suggestFilenameFix, TEXT_FIELDS } from './text.js';
 import { albumBase } from './inspect.js';
 

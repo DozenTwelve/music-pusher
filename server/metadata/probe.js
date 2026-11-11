@@ -117,24 +117,3 @@ export async function probeTags(absPath) {
   }
   return tags;
 }
-
-// "1/8" or "1" -> { num: 1, total: 8|null }
-export function parseNumberPair(value) {
-  if (value == null) {
-    return { num: null, total: null };
-  }
-  const text = String(value).trim();
-  const match = text.match(/^(\d+)(?:\s*\/\s*(\d+))?$/);
-  if (!match) {
-    return { num: null, total: null };
-  }
-  return {
-    num: Number.parseInt(match[1], 10),
-    total: match[2] ? Number.parseInt(match[2], 10) : null
-  };
-}
-
-export function leadingTrackNumber(fileName) {
-  const match = path.basename(fileName).match(/^\s*(\d{1,3})\b/);
-  return match ? Number.parseInt(match[1], 10) : null;
-}

@@ -1,4 +1,4 @@
-import path from 'node:path';
+import { extname } from './paths.js';
 
 const cp = String.fromCharCode;
 
@@ -20,7 +20,7 @@ function rangeClass(ranges, flags) {
 const APOSTROPHE_PATTERN = /([A-Za-z])_(t|s|m|re|ve|ll|d)\b/g;
 
 export function suggestFilenameFix(fileName) {
-  const ext = path.extname(fileName);
+  const ext = extname(fileName);
   const base = fileName.slice(0, fileName.length - ext.length);
   const fixedBase = base.replace(APOSTROPHE_PATTERN, "$1'$2");
   if (fixedBase === base) {
