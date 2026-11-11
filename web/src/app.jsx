@@ -111,10 +111,9 @@ const quality = ({ sampleRate, bitDepth }) =>
 // A headline with its [[number and counted word]] pairs kept from breaking apart.
 const unbroken = (line) => line.split(/\[\[(.+?)\]\]/).map((part, index) => (index % 2 ? <span className="nowrap" key={index}>{part}</span> : part));
 
-// A footer line whose [[marked words]] are a link to the project's repository:
-// the page's only way out, an ordinary link that fetches nothing until followed.
+// The project's repository: the page's only way out, as ordinary links that
+// fetch nothing until followed.
 const REPOSITORY = 'https://github.com/DozenTwelve/music-pusher';
-const linked = (line) => line.split(/\[\[(.+?)\]\]/).map((part, index) => (index % 2 ? <a href={REPOSITORY} key={index}>{part}</a> : part));
 
 // One thing that cannot be fixed, as a sentence and the files it is about.
 function cannotLine(t, entry) {
@@ -709,14 +708,26 @@ function App({ initialLanguage }) {
       </main>
       <footer className="container">
         <div className="foot">
-          <div className="foot__lines">
-            <p>{t('footer.taglib')}</p>
-            <p>{linked(t('footer.source'))}</p>
-            <p>{linked(t('footer.selfhost'))}</p>
-          </div>
-          <a href="licenses/taglib-wasm-NOTICE.txt">{t('footer.notice')}</a>
-          <a href="licenses/LGPL-2.1.txt">{t('footer.lgpl')}</a>
-          <a href="licenses/third-party.txt">{t('footer.all')}</a>
+          <dl>
+            <dt>{t('footer.source')}</dt>
+            <dd>
+              <a href={REPOSITORY}>GitHub</a>
+            </dd>
+            <dt>{t('footer.selfhost')}</dt>
+            <dd>
+              <a href={REPOSITORY}>Music Pusher</a>
+            </dd>
+          </dl>
+          <dl>
+            <dt>{t('footer.tags')}</dt>
+            <dd>{t('footer.taglib')}</dd>
+            <dt>{t('footer.licences')}</dt>
+            <dd>
+              <a href="licenses/taglib-wasm-NOTICE.txt">{t('footer.notice')}</a>
+              <a href="licenses/LGPL-2.1.txt">{t('footer.lgpl')}</a>
+              <a href="licenses/third-party.txt">{t('footer.all')}</a>
+            </dd>
+          </dl>
         </div>
       </footer>
     </div>

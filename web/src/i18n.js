@@ -36,8 +36,7 @@ export function saveLanguage(code) {
 }
 
 // In a headline, [[…]] marks a number with the word it counts ("3 albums",
-// "10 首"): the page keeps what is inside on one line. In the footer it marks
-// the words that are the link.
+// "10 首"): the page keeps what is inside on one line.
 const count = (n, one, many) => (n === 1 ? one : many.replace('{n}', n));
 const tracks = (n) => count(n, '1 track', '{n} tracks');
 
@@ -171,9 +170,12 @@ const en = {
   'error.bad_image': 'That image can’t be read. Try a JPEG or a PNG.',
   'error.unexpected': 'That failed: {message}',
 
-  'footer.taglib': 'Tags are read and written by TagLib, under the LGPL.',
-  'footer.source': 'The source is on [[GitHub]].',
-  'footer.selfhost': 'To run it on your own machine, the same repository has [[Music Pusher]]: upload albums to your server, fix them, and import them into your library with beets for Navidrome.',
+  // The footer: a label and what it points to, never a sentence.
+  'footer.source': 'Source',
+  'footer.selfhost': 'Self-hosted version',
+  'footer.tags': 'Tags',
+  'footer.taglib': 'TagLib, under the LGPL',
+  'footer.licences': 'Licences',
   'footer.notice': 'TagLib notice',
   'footer.lgpl': 'LGPL 2.1',
   'footer.all': 'All licences'
@@ -304,9 +306,11 @@ const zh = {
   'error.bad_image': '这张图片读不出来，换一张 JPEG 或 PNG。',
   'error.unexpected': '失败了：{message}',
 
-  'footer.taglib': '标签由 TagLib 读写，采用 LGPL 许可。',
-  'footer.source': '源代码在 [[GitHub]] 上。',
-  'footer.selfhost': '想装在自己的机器上，同一个仓库里有 [[Music Pusher]]：把专辑传到自己的服务器，修好，再用 beets 导入 Navidrome 的音乐库。',
+  'footer.source': '源代码',
+  'footer.selfhost': '自托管版',
+  'footer.tags': '标签读写',
+  'footer.taglib': 'TagLib，LGPL 许可',
+  'footer.licences': '许可',
   'footer.notice': 'TagLib 声明',
   'footer.lgpl': 'LGPL 2.1',
   'footer.all': '全部许可'
