@@ -21,12 +21,28 @@ _▶ Watch the 5-minute walkthrough: upload → analyze → fix → import._
 
 ---
 
+## Just have one broken album?
+
+**You don't need to install anything.** Open
+**[album.diamonddoge.org](https://album.diamonddoge.org)**, drop the album in
+(a folder or a `.zip`), and download the fixed `.zip` — the tags and cover
+repaired so Navidrome reads it as one album.
+
+- **Nothing is uploaded.** The files are read and rewritten in the browser tab,
+  on your own computer.
+- **Desktop Firefox or Chrome.**
+- **FLAC, MP3 and M4A**, up to 2 GB an album.
+
+The rest of this README is for people who want it **on their own server**, wired
+to beets and Navidrome.
+
 ## The problem this solves
 
 You self-host your music. You import an album, open Navidrome, and:
 
-- The **one album shows up as three** — split by disc, or by a stray "feat."
-  artist, or a release date that differs by one track.
+- The **one album shows up as three** — split by an album name that differs by
+  one invisible space, by tracks that have no album artist and don't share an
+  artist, or by a release date that differs on one track.
 - The **cover art is missing** on half the tracks, even though there's a
   perfectly good `cover.jpg` sitting right there in the folder.
 - A track is titled **`Don_t Stop`** because the filename lost its apostrophe.
@@ -53,11 +69,37 @@ one-click fix:
 
 | You see… | The actual cause | What music-pusher does |
 | --- | --- | --- |
-| One album split into several | Per-track drift in `album` / `album-artist` / `date`, or unmarked multi-disc structure | Unifies the field to one value, renumbers tracks per disc, then **re-inspects to confirm it collapsed to a single group** |
+| One album split into several | Per-track drift in what Navidrome files an album by: album, album artist, album version or **release date** — or a MusicBrainz album id on only some tracks (see below) | Unifies the field to one value, renumbers tracks per disc, then **re-inspects to confirm it collapsed to a single group** |
 | Cover art missing on some/all tracks | The image is a loose `cover.jpg` in the folder, never embedded into the audio | Embeds an uploaded image into every track in place with ffmpeg |
 | Titles like `Don_t` | Apostrophes mangled in filenames/tags | Repairs the filename and tag text |
 | Broken sorting/search | Control-character / invisible-character damage in tag text | Repairs only the text it can confidently recover |
 | "Did the fix work?" | No easy way to verify after editing | Every fix re-runs the inspection so you see the album is actually whole |
+
+**What actually splits an album.** The rules follow Navidrome's own album
+identity (default settings, checked against a real Navidrome 0.63.2 scan — see
+[`shared/identity.js`](shared/identity.js)). Two tracks are one album when they
+agree on the first of these that has a value:
+
+1. the **MusicBrainz album id**, when it's a valid UUID — so an id on only some
+   tracks splits the album, and one shared id holds it together whatever the
+   names say;
+2. otherwise **album artist + album + album version + release date**, together.
+
+The details that bite:
+
+- **`DATE` is not the release date.** Tracks that differ in `DATE` stay one
+  album (its date just shows blank). A differing **release date** —
+  `RELEASEDATE`, `YEAR`, or an M4A's date — does split it, and `2020` and
+  `2020-05-01` count as different dates.
+- **No album artist?** The track's first artist stands in. A lone
+  `Artist feat. Guest` is cut at the "feat.", so it does *not* split; two
+  different artists do — unless the compilation flag is set, which files the
+  album under "Various Artists".
+- **Names are compared almost literally.** Letter case and curly-vs-straight
+  quotes and dashes are ignored; a non-breaking space, a trailing space, or the
+  same letters composed differently (NFC vs NFD) make a different album.
+- **Discs and folders split nothing.** Disc numbers aren't part of the identity,
+  and identical tags in two folders are still one album.
 
 ## How it fits together
 
@@ -338,6 +380,26 @@ put it behind a reverse proxy that handles auth (and a VPN is better still).
 Built defensively where it counts: path-traversal-checked uploads,
 `spawn(..., { shell: false })` everywhere, a single-active-import lock, and
 Multer size/count limits.
+
+## The public page (`web/`)
+
+[album.diamonddoge.org](https://album.diamonddoge.org) is built from `web/`: a
+static page that does the cleaning **in the browser tab** (zip or folder in, zip
+out) with no server behind it. It shares its rules with the server — both import
+the dependency-free modules in `shared/`, so the page and the self-hosted app
+agree on what's wrong with an album and how to fix it.
+
+```bash
+cd web
+npm install
+npm run dev      # Vite dev server
+npm test         # the page's own tests (the shared rules run under the root `npm test`)
+npm run build    # static site into web/dist
+npm run deploy   # build, then upload web/dist to Cloudflare Pages (project `album-cleaner`)
+```
+
+`npm run deploy` runs `npx wrangler pages deploy` and needs a Cloudflare login
+(`npx wrangler login`) with access to the `album-cleaner` Pages project.
 
 ## License
 
