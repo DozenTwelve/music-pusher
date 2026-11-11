@@ -387,7 +387,7 @@ Multer size/count limits.
 static page that does the cleaning **in the browser tab** (zip or folder in, zip
 out) with no server behind it. It shares its rules with the server — both import
 the dependency-free modules in `shared/`, so the page and the self-hosted app
-agree on what's wrong with an album and how to fix it.
+agree on what's wrong with an album.
 
 ```bash
 cd web
