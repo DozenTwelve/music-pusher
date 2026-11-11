@@ -713,14 +713,12 @@ function App({ initialLanguage }) {
             <dd>
               <a href={REPOSITORY}>GitHub</a>
             </dd>
-            <dt>{t('footer.selfhost')}</dt>
-            <dd>
-              <a href={REPOSITORY}>Music Pusher</a>
-            </dd>
           </dl>
           <dl>
             <dt>{t('footer.tags')}</dt>
             <dd>{t('footer.taglib')}</dd>
+          </dl>
+          <dl>
             <dt>{t('footer.licences')}</dt>
             <dd>
               <a href="licenses/taglib-wasm-NOTICE.txt">{t('footer.notice')}</a>

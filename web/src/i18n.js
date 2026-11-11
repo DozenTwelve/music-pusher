@@ -171,8 +171,7 @@ const en = {
   'error.unexpected': 'That failed: {message}',
 
   // The footer: a label and what it points to, never a sentence.
-  'footer.source': 'Source',
-  'footer.selfhost': 'Self-hosted version',
+  'footer.source': 'Source and self-hosted version',
   'footer.tags': 'Tags',
   'footer.taglib': 'TagLib, under the LGPL',
   'footer.licences': 'Licences',
@@ -306,8 +305,7 @@ const zh = {
   'error.bad_image': '这张图片读不出来，换一张 JPEG 或 PNG。',
   'error.unexpected': '失败了：{message}',
 
-  'footer.source': '源代码',
-  'footer.selfhost': '自托管版',
+  'footer.source': '源代码和自托管版',
   'footer.tags': '标签读写',
   'footer.taglib': 'TagLib，LGPL 许可',
   'footer.licences': '许可',
