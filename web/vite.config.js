@@ -7,7 +7,8 @@ const read = (file) => fs.readFileSync(new URL(`./node_modules/${file}`, import.
 // the build, where the page's footer links to them, next to the licences of
 // everything else in the bundle.
 function licenses() {
-  const bundled = ['taglib-wasm', 'fflate', 'react', 'react-dom', 'scheduler'];
+  // The Archivo font files are bundled too, under the SIL Open Font License.
+  const bundled = ['taglib-wasm', 'fflate', 'react', 'react-dom', 'scheduler', '@fontsource-variable/archivo'];
   return {
     name: 'licenses',
     generateBundle() {

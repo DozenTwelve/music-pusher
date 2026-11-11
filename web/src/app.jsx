@@ -139,10 +139,10 @@ function shelfRows(t, albums) {
       album.artist ?? t('shelf.unknown_artist'),
       ...(differ('date') ? [album.date || t('shelf.no_date')] : []),
       ...(differ('version') ? [album.version || t('shelf.no_version')] : [])
-    ].join(', ')
+    ].join(t('comma'))
   }));
   const seen = (row) => `${normalizeTagValue(row.album)}\n${normalizeTagValue(row.detail)}`.toLowerCase();
-  return rows.map((row) => (rows.filter((other) => seen(other) === seen(row)).length > 1 ? { ...row, detail: `${row.detail}, ${t('shelf.unseen')}` } : row));
+  return rows.map((row) => (rows.filter((other) => seen(other) === seen(row)).length > 1 ? { ...row, detail: `${row.detail}${t('comma')}${t('shelf.unseen')}` } : row));
 }
 
 // --- Pieces ------------------------------------------------------------------------
@@ -172,26 +172,47 @@ function Progress({ t, progress }) {
   );
 }
 
-// The square the album sits in: a place to drop it, then its cover, then what
-// Navidrome makes of it.
-function Sleeve({ t, cover, albums, caption, children }) {
+// A sleeve: the album's cover, or whatever stands in the square without one.
+function Square({ t, cover, children }) {
+  return <div className="square">{cover ? <img src={cover.url} alt={t('cover.alt')} width="360" height="360" /> : children ?? <p className="square__empty">{t('cover.none')}</p>}</div>;
+}
+
+// The rack: one sleeve for each album Navidrome would make of these tracks.
+const MOST_TILES = 6;
+function Rack({ t, cover, albums, caption }) {
+  const rows = shelfRows(t, albums);
   return (
-    <figure className="sleeve">
-      <div className="sleeve__square">{cover ? <img src={cover.url} alt={t('cover.alt')} width="400" height="400" /> : children}</div>
-      {albums && (
-        <figcaption>
-          <p className="sleeve__caption">{caption}</p>
-          <ul className="shelf">
-            {shelfRows(t, albums).map((row, index) => (
-              <li key={index}>
-                <strong>{row.album}</strong>
-                <span>{row.detail}</span>
-                <span className="num">{t('shelf.tracks', { n: row.tracks })}</span>
-              </li>
-            ))}
-          </ul>
-        </figcaption>
-      )}
+    <figure className="rack">
+      <figcaption>{caption}</figcaption>
+      <ul className="tiles">
+        {rows.slice(0, MOST_TILES).map((row, index) => (
+          <li className="tile" key={index}>
+            <Square t={t} cover={cover} />
+            <strong>{row.album}</strong>
+            <span>{row.detail}</span>
+            <span className="num">{t('shelf.tracks', { n: row.tracks })}</span>
+          </li>
+        ))}
+      </ul>
+      {rows.length > MOST_TILES && <p className="small">{t('shelf.more', { n: rows.length - MOST_TILES })}</p>}
+    </figure>
+  );
+}
+
+// What it was before the fix, small, beside what it is now.
+function Was({ t, cover, albums }) {
+  return (
+    <figure className="was">
+      <figcaption>{t('shelf.was', { n: albums.length })}</figcaption>
+      <ul>
+        {albums.slice(0, MOST_TILES).map((album, index) => (
+          <li key={index}>
+            <Square t={t} cover={cover}>
+              <span />
+            </Square>
+          </li>
+        ))}
+      </ul>
     </figure>
   );
 }
@@ -294,18 +315,20 @@ function Fix({ t, fix, coverName, onChange }) {
   );
 }
 
-function CannotFix({ t, entries }) {
+// `coverPicker` is the control that fills the one gap the user can fill.
+function CannotFix({ t, entries, coverPicker }) {
   if (entries.length === 0) {
     return null;
   }
   return (
-    <section className="block">
+    <section className="block cannot">
       <h2>{t('cannot.title')}</h2>
       <ul className="plain">
         {entries.map((entry) => (
           <li key={entry.code}>
             {cannotLine(t, entry)}
             {entry.files?.length > 0 && entry.code !== 'no_cover' && <span className="files">{fileNames(t, entry.files)}</span>}
+            {entry.code === 'no_cover' && coverPicker && <span className="files">{coverPicker}</span>}
           </li>
         ))}
       </ul>
@@ -501,101 +524,103 @@ function App({ initialLanguage }) {
   if (step === 'arrive') {
     main = (
       <>
-        <div className="words">
-          <h1 className="headline" ref={title} tabIndex={-1}>
-            {t('arrive.title')}
-          </h1>
-          <p className="lead">{t('arrive.lede')}</p>
-          <p className="private">{t('arrive.private')}</p>
-        </div>
-        <section className="side" aria-label={t('arrive.drop')}>
-          <Sleeve t={t}>
-            <div className="dropzone">
-              <p className="dropzone__title">{t(over ? 'arrive.release' : 'arrive.drop')}</p>
-              <div className="actions">
+        <h1 className="headline" ref={title} tabIndex={-1}>
+          {t('arrive.title')}
+        </h1>
+        <div className="row" data-tiles="one">
+          <section className="rack" aria-label={t('arrive.drop')}>
+            <Square t={t}>
+              <div className="drop">
+                <p className="drop__title">{t(over ? 'arrive.release' : 'arrive.drop')}</p>
                 <FilePicker label={t('arrive.folder')} onFiles={takeFiles} webkitdirectory="" />
                 <FilePicker label={t('arrive.zip')} onFiles={takeFiles} accept=".zip,application/zip" />
               </div>
-              {alert || <p className="small">{t('arrive.formats', { album: t.size(LIMITS.album) })}</p>}
-            </div>
-          </Sleeve>
-        </section>
+            </Square>
+          </section>
+          <div className="body">
+            <p className="lead">{t('arrive.lede')}</p>
+            <p className="lead lead--strong">{t('arrive.private')}</p>
+            {alert || <p className="small">{t('arrive.formats', { album: t.size(LIMITS.album) })}</p>}
+          </div>
+        </div>
       </>
     );
   } else if (busy) {
     main = (
       <>
-        <div className="words">
-          <h1 className="headline" ref={title} tabIndex={-1}>
-            {t(`${step}.title`)}
-          </h1>
-          <Progress t={t} progress={running} />
-        </div>
-        <div className="side">
-          <Sleeve t={t} cover={album?.cover}>
-            <div className="dropzone" aria-hidden="true" />
-          </Sleeve>
+        <h1 className="headline" ref={title} tabIndex={-1}>
+          {t(`${step}.title`)}
+        </h1>
+        <div className="row" data-tiles="one">
+          <div className="rack">
+            <Square t={t} cover={album?.cover}>
+              <span />
+            </Square>
+          </div>
+          <div className="body">
+            <Progress t={t} progress={running} />
+          </div>
         </div>
       </>
     );
   } else if (step === 'plan') {
     const { verdict, cannotFix, cover } = album.inspected;
-    const [headline, ...rest] = verdictLines(t, verdict);
+    const [headline, ...rest] = verdictLines(t, { ...verdict, fixes: fixes.length });
     const cannot = [...cannotFix, ...(album.read.unsupported.length > 0 ? [{ code: 'unsupported', files: album.read.unsupported }] : [])];
+    const albums = shelf(album.read.tracks);
     const anyOn = fixes.some((fix) => fix.on);
     main = (
       <>
-        <div className="words">
-          <h1 className="headline" ref={title} tabIndex={-1}>
-            {headline}
-          </h1>
-          {rest.map((line) => (
-            <p className="lead" key={line}>
-              {line}
-            </p>
-          ))}
-          {album.encoding && (
-            <p className="note">
-              {album.encoding.name
-                ? t('encoding.guessed', { encoding: album.encoding.name.toUpperCase().replace('_', ' '), sample: basename(album.read.tracks[0]?.file || album.entries[0].path) })
-                : t('encoding.unknown')}
-            </p>
-          )}
-          {alert}
-          {fixes.length > 0 && (
-            <section className="block">
-              <h2>{t('plan.title')}</h2>
-              <ul className="fixes">
-                {fixes.map((fix) => (
-                  <Fix key={fix.id} t={t} fix={fix} coverName={cover?.guess ? basename(cover.path) : null} onChange={change(fix.id)} />
-                ))}
-              </ul>
-            </section>
-          )}
-          <div className="actions">
+        <h1 className="headline" ref={title} tabIndex={-1}>
+          {headline}
+        </h1>
+        {rest.map((line) => (
+          <p className="lead" key={line}>
+            {line}
+          </p>
+        ))}
+        {album.encoding && (
+          <p className="note">
+            {album.encoding.name
+              ? t('encoding.guessed', { encoding: album.encoding.name.toUpperCase().replace('_', ' '), sample: basename(album.read.tracks[0]?.file || album.entries[0].path) })
+              : t('encoding.unknown')}
+          </p>
+        )}
+        {alert}
+        <div className="row" data-tiles={albums.length > 1 ? 'many' : 'one'}>
+          <Rack t={t} cover={album.cover} albums={albums} caption={t('shelf.before')} />
+          <div className="body">
             {fixes.length > 0 && (
-              <button type="button" className="button button--primary" disabled={!anyOn} aria-describedby={anyOn ? undefined : 'nothing-on'} onClick={clean}>
-                {t('action.clean')}
-              </button>
+              <section className="block">
+                <h2>{t('plan.title')}</h2>
+                <ul className="fixes">
+                  {fixes.map((fix) => (
+                    <Fix key={fix.id} t={t} fix={fix} coverName={cover?.guess ? basename(cover.path) : null} onChange={change(fix.id)} />
+                  ))}
+                </ul>
+              </section>
             )}
-            <button type="button" className="button" onClick={startOver}>
-              {t('action.another')}
-            </button>
-          </div>
-          {fixes.length > 0 && !anyOn && (
-            <p className="small" id="nothing-on">
-              {t('plan.none')}
-            </p>
-          )}
-          <CannotFix t={t} entries={cannot} />
-        </div>
-        <div className="side">
-          <Sleeve t={t} cover={album.cover} albums={shelf(album.read.tracks)} caption={t('shelf.before')}>
-            <div className="dropzone">
-              <p className="dropzone__title">{t('cover.none')}</p>
-              <FilePicker label={t('cover.add')} onFiles={([file]) => addCover(file)} accept="image/*" />
+            <div className="actions">
+              {fixes.length > 0 && (
+                <button type="button" className="button button--primary" disabled={!anyOn} aria-describedby={anyOn ? undefined : 'nothing-on'} onClick={clean}>
+                  {t('action.clean')}
+                </button>
+              )}
+              <button type="button" className="button" onClick={startOver}>
+                {t('action.another')}
+              </button>
             </div>
-          </Sleeve>
+            {fixes.length > 0 && !anyOn && (
+              <p className="small" id="nothing-on">
+                {t('plan.none')}
+              </p>
+            )}
+          </div>
+          <CannotFix
+            t={t}
+            entries={cannot}
+            coverPicker={album.cover ? null : <FilePicker label={t('cover.add')} onFiles={([file]) => addCover(file)} accept="image/*" />}
+          />
         </div>
       </>
     );
@@ -603,29 +628,33 @@ function App({ initialLanguage }) {
     const { after, changed, failed } = result;
     const [headline, ...rest] = verdictLines(t, after.verdict, true);
     const hasCover = after.album.tracks.some((track) => track.hasArt) || after.cover;
+    const before = shelf(album.read.tracks);
+    const albums = shelf(after.album.tracks);
     main = (
       <>
-        <div className="words">
-          <h1 className="headline" ref={title} tabIndex={-1}>
-            {headline}
-          </h1>
-          {rest.map((line) => (
-            <p className="lead" key={line}>
-              {line}
-            </p>
-          ))}
-          <p className="note">{t('after.proof')}</p>
-          <div className="actions">
-            <a className="button button--primary" href={result.url} download={`${album.name}.zip`}>
-              {t('action.download')}
-              <span className="button__meta num">{t.size(result.size)}</span>
-            </a>
-            <button type="button" className="button" onClick={startOver}>
-              {t('action.again')}
-            </button>
-          </div>
-          <section className="block">
+        <h1 className="headline" ref={title} tabIndex={-1}>
+          {headline}
+        </h1>
+        {rest.map((line) => (
+          <p className="lead" key={line}>
+            {line}
+          </p>
+        ))}
+        <div className="row" data-tiles={albums.length > 1 ? 'many' : 'one'}>
+          <Rack t={t} cover={hasCover ? album.cover : null} albums={albums} caption={t('shelf.after')} />
+          <div className="body">
+            <div className="actions">
+              <a className="button button--primary" href={result.url} download={`${album.name}.zip`}>
+                {t('action.download')}
+                <span className="button__meta num">{t.size(result.size)}</span>
+              </a>
+              <button type="button" className="button" onClick={startOver}>
+                {t('action.again')}
+              </button>
+            </div>
             <ul className="plain">
+              <li>{t('done.next')}</li>
+              <li>{t('after.proof')}</li>
               <li>{t('done.changed', { n: changed })}</li>
               {failed.length > 0 && (
                 <li>
@@ -634,18 +663,12 @@ function App({ initialLanguage }) {
                 </li>
               )}
             </ul>
-          </section>
+            {before.length !== albums.length && <Was t={t} cover={album.cover} albums={before} />}
+          </div>
           <CannotFix
             t={t}
             entries={[...after.cannotFix, ...(after.album.unsupported.length > 0 ? [{ code: 'unsupported', files: after.album.unsupported }] : [])]}
           />
-        </div>
-        <div className="side">
-          <Sleeve t={t} cover={hasCover ? album.cover : null} albums={shelf(after.album.tracks)} caption={t('shelf.after')}>
-            <div className="dropzone">
-              <p className="dropzone__title">{t('cover.none')}</p>
-            </div>
-          </Sleeve>
         </div>
       </>
     );
@@ -653,20 +676,20 @@ function App({ initialLanguage }) {
 
   return (
     <div className="shell" data-over={over && !busy ? '' : undefined}>
-      <header className="bar">
-        <div className="container bar__inner">
-          <p className="wordmark">{t('app')}</p>
-          <LanguageSwitch lang={lang} t={t} onChange={(code) => (saveLanguage(code), setLang(code))} />
-        </div>
+      <header className="container bar">
+        <p className="wordmark">{t('app')}</p>
+        <LanguageSwitch lang={lang} t={t} onChange={(code) => (saveLanguage(code), setLang(code))} />
       </header>
       <main className="container stage" data-step={step}>
         {main}
       </main>
-      <footer className="container foot">
-        <p>{t('footer.taglib')}</p>
-        <a href="licenses/taglib-wasm-NOTICE.txt">{t('footer.notice')}</a>
-        <a href="licenses/LGPL-2.1.txt">{t('footer.lgpl')}</a>
-        <a href="licenses/third-party.txt">{t('footer.all')}</a>
+      <footer className="container">
+        <div className="foot">
+          <p>{t('footer.taglib')}</p>
+          <a href="licenses/taglib-wasm-NOTICE.txt">{t('footer.notice')}</a>
+          <a href="licenses/LGPL-2.1.txt">{t('footer.lgpl')}</a>
+          <a href="licenses/third-party.txt">{t('footer.all')}</a>
+        </div>
       </footer>
     </div>
   );
