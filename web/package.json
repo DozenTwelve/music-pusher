@@ -1,0 +1,19 @@
+{
+  "name": "music-pusher-web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "node --conditions=browser --test",
+    "measure": "node --conditions=browser measure.js"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3",
+    "taglib-wasm": "^2.4.1"
+  },
+  "devDependencies": {
+    "vite": "^8.3.8"
+  }
+}

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>web spike: tags in the browser</title>
+    <style>
+      body { font: 14px/1.4 system-ui, sans-serif; margin: 1rem; }
+      table { border-collapse: collapse; margin: 1rem 0; }
+      th, td { border: 1px solid #999; padding: 2px 6px; text-align: left; white-space: nowrap; }
+      pre { background: #eee; padding: 0.5rem; overflow: auto; }
+      body.over { outline: 4px dashed #06c; outline-offset: -8px; }
+    </style>
+  </head>
+  <body>
+    <h1>Tags in the browser (spike)</h1>
+    <p>Drop an album folder or a .zip anywhere on this page, or pick one:</p>
+    <p>
+      <label>Folder <input id="folder" type="file" webkitdirectory /></label>
+      <label>Zip <input id="zip" type="file" accept=".zip" /></label>
+    </p>
+    <p>
+      <button id="write" disabled>Write test tags + cover</button>
+      <a id="download" hidden>Download zip</a>
+    </p>
+    <p id="status">Loading TagLib…</p>
+    <table id="tracks"></table>
+    <pre id="report"></pre>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
