@@ -556,9 +556,15 @@ function App({ initialLanguage }) {
             </div>
           </section>
           <div className="body">
-            <p className="lead">{t('arrive.lede')}</p>
-            <p className="lead lead--strong">{t('arrive.private')}</p>
+            <ol className="steps">
+              <li>{t('arrive.in')}</li>
+              <li>{t('arrive.fix')}</li>
+              <li>{t('arrive.out')}</li>
+            </ol>
             {alert}
+            <p className="promise">
+              <strong>{t('arrive.private')}</strong> <span>{t('arrive.local')}</span>
+            </p>
           </div>
         </div>
       </>

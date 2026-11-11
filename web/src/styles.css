@@ -8,9 +8,9 @@
 @import url("./tokens.css");
 @import url("./base.css");
 
-:lang(zh) :is(h1, h2, .wordmark, .drop__title, .button) { letter-spacing: 0; }
+:lang(zh) :is(h1, h2, .wordmark, .drop__title, .promise strong, .button) { letter-spacing: 0; }
 /* The condensed cut is a Latin voice. Beside Chinese it only looks pinched, so there the face runs at its normal width and size does the work. */
-:lang(zh) :is(.headline, .drop__title, .block h2, .wordmark, .phone h1, .phone p) { font-stretch: 100%; }
+:lang(zh) :is(.headline, .drop__title, .promise strong, .block h2, .wordmark, .phone h1, .phone p) { font-stretch: 100%; }
 
 /* --- Shell ----------------------------------------------------------------- */
 
@@ -45,7 +45,6 @@
 :lang(zh) .headline { max-width: 18em; font-size: 4rem; font-weight: 600; line-height: 1.15; }
 .nowrap { white-space: nowrap; }
 .lead { max-width: 36rem; color: var(--color-ink-2); font-size: var(--text-lead); line-height: 1.4; }
-.lead--strong { color: var(--color-ink); font-weight: 600; }
 .note, .small { max-width: 44rem; color: var(--color-muted); font-size: var(--text-sm); }
 .warning { max-width: 44rem; font-weight: 600; }
 .alert { max-width: 44rem; padding: var(--space-sm) var(--space-md); background: var(--color-ink); color: var(--color-paper); font-weight: 600; }
@@ -92,6 +91,23 @@
 .shell[data-over]::after { content: ""; position: fixed; inset: 0; border: var(--space-xs) solid var(--color-ink); pointer-events: none; }
 .shell[data-over] .square:has(.drop) { background: var(--color-ink); color: var(--color-paper); }
 .shell[data-over] .pickers { visibility: hidden; }
+
+/* --- Beside the empty sleeve: what happens, and the promise ----------------- */
+
+/* The column is as tall as the sleeve: the list hangs from a rule on its top edge
+   and the promise stands on its bottom edge. The height is the sleeve's own, four
+   columns of the row's twelve; taller content simply grows past it. */
+.stage[data-step="arrive"] .row { container-type: inline-size; }
+.stage[data-step="arrive"] .body { align-content: space-between; min-height: calc((100cqi - 11 * var(--gap-columns)) / 3 + 3 * var(--gap-columns)); }
+/* Three things in the order they happen, numbered and ruled like a track list. */
+.steps { justify-self: stretch; margin: 0; padding: 0; list-style: none; counter-reset: step; border-top: var(--rule) solid var(--color-ink); font-size: var(--text-lead); line-height: 1.4; }
+.steps li { display: grid; grid-template-columns: var(--space-xl) minmax(0, 1fr); padding-block: var(--space-sm); counter-increment: step; text-wrap: balance; }
+.steps li + li { border-top: var(--rule-hair) solid var(--color-rule); }
+.steps li::before { content: counter(step); color: var(--color-muted); font-variant-numeric: tabular-nums; }
+/* The one sentence a stranger needs, in the voice of the sleeve's own title. */
+.promise { justify-self: stretch; display: grid; gap: var(--space-2xs); padding-top: var(--space-sm); border-top: var(--rule) solid var(--color-ink); color: var(--color-ink-2); text-wrap: balance; }
+.promise strong { color: var(--color-ink); font-size: var(--text-section); font-stretch: 75%; font-weight: 800; letter-spacing: var(--tracking-display); line-height: 1.05; }
+:lang(zh) .promise strong { font-weight: 600; line-height: 1.25; }
 
 .was { display: grid; gap: var(--space-xs); padding-top: var(--space-md); border-top: var(--rule-hair) solid var(--color-rule); width: 100%; }
 .was figcaption { font-weight: 600; }
@@ -194,6 +210,7 @@ progress:indeterminate { animation: waiting 1.2s var(--ease-out) infinite altern
   .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .row[data-tiles] :is(.rack, .body, .cannot) { grid-column: 1 / -1; grid-row: auto; }
   .row[data-tiles="one"] .tiles { grid-template-columns: minmax(0, 16rem); }
+  .stage[data-step="arrive"] .body { min-height: 0; }
 }
 @media (max-width: 40rem) {
   .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
