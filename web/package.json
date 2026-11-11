@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "test": "node --conditions=browser --test",
+    "deploy": "vite build && npx wrangler pages deploy dist --project-name album-cleaner --branch main",
     "measure": "node --conditions=browser measure.js"
   },
   "dependencies": {
