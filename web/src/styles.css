@@ -37,6 +37,8 @@ a.wordmark { text-decoration: none; }
 .foot dl { display: flex; align-items: baseline; gap: var(--space-md); margin: 0; }
 .foot dt { font-weight: 600; white-space: nowrap; }
 .foot dd { display: flex; flex-wrap: wrap; gap: 0 var(--space-md); margin: 0; color: var(--color-ink-2); white-space: nowrap; }
+/* Small print, but a finger-sized target: the line's height plus a little. */
+.foot a { display: inline-block; padding-block: 3px; }
 @media (hover: hover) { .foot a:hover { color: var(--color-ink); } }
 .foot__note { padding-bottom: var(--space-lg); color: var(--color-muted); font-size: var(--text-sm); }
 

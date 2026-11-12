@@ -3,7 +3,7 @@
 // keeps the user's choices.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createRoot } from 'react-dom/client';
+import { hydrateRoot } from 'react-dom/client';
 import wasmUrl from '../node_modules/taglib-wasm/dist/taglib-web.wasm?url';
 import { basename } from '../../shared/paths.js';
 import { planWrites } from '../../shared/plan.js';
@@ -628,6 +628,8 @@ function App({ language }) {
   );
 }
 
+// The start screen is already in the page, drawn by the build from the same
+// components (site/render.js): React takes it over rather than drawing it again.
 export function mount(element, language) {
-  createRoot(element).render(<App language={language} />);
+  hydrateRoot(element, <App language={language} />);
 }
