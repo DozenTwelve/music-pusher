@@ -151,7 +151,7 @@ music-pusher shells out to real binaries, so they must exist on the machine
 **before** you start it. On the host:
 
 ```bash
-# Node.js 18 or newer
+# Node.js 22.13 or newer (node:sqlite without a flag, zlib.crc32)
 node --version
 
 # ffmpeg — provides BOTH ffmpeg and ffprobe

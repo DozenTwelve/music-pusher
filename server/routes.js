@@ -205,9 +205,14 @@ apiRouter.post('/library/repair', async (req, res) => {
 });
 
 // An upload into an album that is importing, or being fixed, is refused per
-// file by the storage engine (upload.js). Multer has already removed what this
-// request wrote by the time the error reaches here; it only needs a 409 rather
-// than the generic 500 the app-level handler would give it.
+// file by the storage engine (upload.js); this turns that into a 409 rather
+// than the generic 500 the app-level handler would give it. By the time the
+// error arrives, multer has already deleted every file this request finished
+// writing. That is not always only new files: a file this request wrote over
+// a same-named file already staged (into another album, or into this one before
+// it went busy) is deleted too, and the earlier copy is gone with it. Every
+// multer error takes the same path; avoiding it would mean multer never
+// overwriting in place.
 function receiveUpload(req, res, next) {
   uploadMiddleware.any()(req, res, (error) => {
     if (error?.code === 'album_busy') {

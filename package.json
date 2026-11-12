@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "check": "bash scripts/doctor.sh",
     "test": "node --test \"server/**/*.test.js\" \"shared/**/*.test.js\" \"client/src/**/*.test.js\"",
