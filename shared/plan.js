@@ -90,58 +90,103 @@ function repairText(track, set) {
 
 // --- Track numbers --------------------------------------------------------------
 
-// "n/total" per disc, for the tracks whose number is missing or whose total is
-// not the disc's track count. Two kinds of disc are left alone, because their
-// totals are not what is wrong with them:
-//   - one the diagnosis found tracks missing from: its total counts the tracks
-//     that are not here, and rewriting it to the file count would erase the one
-//     trace of them (a track with no number still gets one, under that total);
-//   - one where two tracks share a number: usually two discs with no disc tag,
-//     where "1/10" and "1/8" are right and "1/18" twice would be wrong.
-function trackNumbers(report, tracks) {
-  const discOf = (track) => parseNumberPair(track.disc).num ?? 1;
-  const discs = new Map();
-  for (const track of tracks) {
-    const disc = discOf(track);
-    if (!discs.has(disc)) {
-      discs.set(disc, []);
+const numberOf = (track) => parseNumberPair(track.track).num ?? leadingTrackNumber(track.file);
+const byPath = (a, b) => a.localeCompare(b, undefined, { numeric: true });
+
+// The disc of each track, as file -> disc, and whether the discs come from the
+// folders. A track's disc is its disc tag (none is disc 1), but when no track
+// has one and the tracks sit in folders whose numbering starts over
+// (CD1/01…, CD2/01…), each folder is a disc, in path order. Numbering that runs
+// on from one folder into the next is one disc. An unreadable file is on the
+// disc of the tracks beside it, and on none when no track is.
+function discsOf(tracks) {
+  const readable = tracks.filter((track) => track.readable);
+  const folders = [...new Set(tracks.map((track) => dirname(track.file)))].sort(byPath);
+  let last = 0;
+  const runsOn = folders.every((folder) => {
+    const numbers = readable.filter((track) => dirname(track.file) === folder).map(numberOf).filter((num) => num != null);
+    const ok = numbers.length > 0 && Math.min(...numbers) > last;
+    last = Math.max(...numbers);
+    return ok;
+  });
+  const byFolder = folders.length > 1 && !runsOn && !readable.some((track) => parseNumberPair(track.disc).num != null);
+  const discs = new Map(
+    readable.map((track) => [track.file, byFolder ? folders.indexOf(dirname(track.file)) + 1 : (parseNumberPair(track.disc).num ?? 1)])
+  );
+  for (const track of tracks.filter((candidate) => !candidate.readable)) {
+    const beside = readable.find((other) => dirname(other.file) === dirname(track.file));
+    if (beside) {
+      discs.set(track.file, discs.get(beside.file));
     }
-    discs.get(disc).push(track);
   }
-  const incomplete = new Set(report.trackGaps.map((gap) => gap.disc));
+  return { discs, byFolder };
+}
+
+// "n/total" per disc, for the tracks whose number is missing or whose total is
+// not the disc's track count — and DISCNUMBER on every track when the discs
+// come from the folders. Two kinds of disc keep their numbers, because their
+// totals are not what is wrong with them:
+//   - one with tracks missing: its total counts the tracks that are not here,
+//     and rewriting it to the file count would erase the one trace of them (a
+//     track with no number still gets one, under that total);
+//   - one where two tracks share a number, from a tag or a file name: nothing
+//     says which is which, and numbering both would write the clash in.
+// -> { writes: file -> set, unnumbered, duplicated, gaps, discs }: `gaps` as
+// the diagnosis reports them, or found per folder; `discs` the folder count
+// when the discs are the folders, else 0.
+function trackNumbers(report, tracks) {
+  const { discs: discOf, byFolder } = discsOf(tracks);
+  const discs = new Map();
+  for (const track of tracks.filter((candidate) => discOf.has(candidate.file))) {
+    const disc = discOf.get(track.file);
+    discs.set(disc, [...(discs.get(disc) || []), track]);
+  }
+  const gaps = byFolder ? [] : report.trackGaps;
   const writes = new Map();
+  const write = (file, name, value) => writes.set(file, { ...writes.get(file), [name]: value });
   const unnumbered = [];
   const duplicated = [];
 
-  for (const [disc, members] of discs) {
-    const pairs = members.map((track) => parseNumberPair(track.track));
-    const tagged = pairs.map((pair) => pair.num).filter((num) => num != null);
-    if (new Set(tagged).size < tagged.length) {
+  for (const [disc, members] of [...discs].sort((a, b) => a[0] - b[0])) {
+    const readable = members.filter((track) => track.readable);
+    if (byFolder) {
+      readable.forEach((track) => write(track.file, 'DISCNUMBER', String(disc)));
+    }
+    const numbers = readable.map(numberOf).filter((num) => num != null);
+    if (new Set(numbers).size < numbers.length) {
       duplicated.push(disc);
       continue;
     }
+    if (byFolder) {
+      const missing = Array.from({ length: Math.max(0, ...numbers) }, (_, i) => i + 1).filter((num) => !numbers.includes(num));
+      if (missing.length > 0) {
+        gaps.push({ disc, missing });
+      }
+    }
+    const incomplete = gaps.some((gap) => gap.disc === disc);
+    const pairs = members.map((track) => parseNumberPair(track.track));
     const totals = [...new Set(pairs.map((pair) => pair.total).filter((total) => total != null))];
     members.forEach((track, i) => {
       if (!track.readable) {
         return;
       }
-      const num = pairs[i].num ?? leadingTrackNumber(track.file);
+      const num = numberOf(track);
       if (num == null) {
         unnumbered.push(track.file);
         return;
       }
-      if (incomplete.has(disc)) {
+      if (incomplete) {
         if (pairs[i].num == null) {
-          writes.set(track.file, totals.length === 1 ? `${num}/${totals[0]}` : String(num));
+          write(track.file, 'TRACKNUMBER', totals.length === 1 ? `${num}/${totals[0]}` : String(num));
         }
         return;
       }
       if (pairs[i].num !== num || pairs[i].total !== members.length) {
-        writes.set(track.file, `${num}/${members.length}`);
+        write(track.file, 'TRACKNUMBER', `${num}/${members.length}`);
       }
     });
   }
-  return { writes, unnumbered, duplicated: duplicated.sort((a, b) => a - b) };
+  return { writes, unnumbered, duplicated, gaps, discs: byFolder ? discs.size : 0 };
 }
 
 // --- Release date ---------------------------------------------------------------
@@ -201,7 +246,7 @@ export function chooseCover(report, tracks, context = {}) {
   if (named) {
     return { kind: 'file', path: named };
   }
-  const withArt = tracks.find((track) => track.readable && track.hasArt);
+  const withArt = tracks.find((track) => track.readable && track.hasFrontCover);
   if (withArt) {
     return { kind: 'embedded', file: withArt.file };
   }
@@ -231,8 +276,8 @@ export function planWrites(report, tracks, fixes, context = {}) {
     readable.forEach((track) => repairText(track, setOf(track)));
   }
   if (chosen('track_numbers')) {
-    for (const [file, value] of trackNumbers(report, tracks).writes) {
-      files.get(file).set.TRACKNUMBER = value;
+    for (const [file, set] of trackNumbers(report, tracks).writes) {
+      Object.assign(files.get(file).set, set);
     }
   }
   if (typed('date')) {
@@ -273,20 +318,32 @@ export function planWrites(report, tracks, fixes, context = {}) {
   }
 
   if (chosen('filenames')) {
-    const taken = new Set(context.paths || tracks.map((track) => track.file));
-    for (const { file, suggested } of report.filenameIssues) {
-      const target = dirname(file) + suggested;
-      if (!taken.has(target)) {
-        taken.add(target);
-        files.get(file).rename = target;
+    const paths = context.paths || tracks.map((track) => track.file);
+    const taken = new Set(paths);
+    // A cue sheet names the audio files it plays, so its folder keeps its names.
+    const cued = new Set(paths.filter((path) => extname(path).toLowerCase() === '.cue').map(dirname));
+    for (const { file, suggested } of report.filenameIssues.filter((issue) => !cued.has(dirname(issue.file)))) {
+      // The other files of the track's name go with it: the lyrics above all,
+      // which Navidrome finds by that name.
+      const name = basename(file).slice(0, basename(file).length - extname(file).length);
+      const renamed = suggested.slice(0, suggested.length - extname(suggested).length);
+      const moves = [file, ...paths.filter((path) => !files.has(path) && dirname(path) === dirname(file) && basename(path).startsWith(`${name}.`))].map(
+        (path) => [path, dirname(file) + renamed + basename(path).slice(name.length)]
+      );
+      if (moves.every(([, target]) => !taken.has(target))) {
+        for (const [path, target] of moves) {
+          taken.add(target);
+          files.set(path, { ...(files.get(path) || { file: path, set: {}, cover: false }), rename: target });
+        }
       }
     }
   }
 
   const cover = chooseCover(report, tracks, context);
+  // Into the tracks without one; a track's other pictures stay where they are.
   if (cover && chosen('cover_embed')) {
     for (const track of readable) {
-      files.get(track.file).cover = !(cover.kind === 'embedded' && cover.file === track.file);
+      files.get(track.file).cover = !track.hasFrontCover;
     }
   }
   const root = commonDir(tracks.map((track) => track.file));
@@ -391,7 +448,7 @@ export function planAlbum(report, tracks, context = {}) {
   }
   const numbers = trackNumbers(report, tracks);
   if (numbers.writes.size > 0) {
-    offer({ id: 'track_numbers', count: numbers.writes.size });
+    offer({ id: 'track_numbers', count: numbers.writes.size, ...(numbers.discs && { discs: numbers.discs }) });
   }
   const repairs = readable.map((track) => ({ track, set: {} })).map((entry) => ({ ...entry, count: repairText(entry.track, entry.set) }));
   const repaired = repairs.reduce((sum, entry) => sum + entry.count, 0);
@@ -412,7 +469,7 @@ export function planAlbum(report, tracks, context = {}) {
       fixes.at(-1).renames = renames;
     }
   }
-  const noArt = readable.filter((track) => !track.hasArt).length;
+  const noArt = readable.filter((track) => !track.hasFrontCover).length;
   if (cover && noArt > 0) {
     offer({ id: 'cover_embed', missing: noArt, total: readable.length });
   }
@@ -427,8 +484,8 @@ export function planAlbum(report, tracks, context = {}) {
   const missing = (field) => report.missingRequired.find((entry) => entry.field === field)?.files || [];
   const cannotFix = [
     { code: 'unreadable', files: report.unreadable },
-    { code: 'gaps', discs: report.trackGaps, multiDisc: report.multiDisc },
-    { code: 'duplicate_numbers', discs: numbers.duplicated, multiDisc: report.multiDisc },
+    { code: 'gaps', discs: numbers.gaps, multiDisc: report.multiDisc || numbers.discs > 0 },
+    { code: 'duplicate_numbers', discs: numbers.duplicated, multiDisc: report.multiDisc || numbers.discs > 0 },
     { code: 'no_track_number', files: numbers.unnumbered },
     { code: 'mixed_formats', formats: report.mixedFormats ? report.formats : [] },
     { code: 'mixed_quality', qualities: report.mixedQuality ? report.qualities.map(({ files, ...quality }) => quality) : [] },

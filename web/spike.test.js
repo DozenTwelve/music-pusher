@@ -273,6 +273,7 @@ for (const container of CONTAINERS) {
         sampleRate: 44100,
         bitDepth: container.bitDepth,
         hasArt: false,
+        hasFrontCover: false,
         duration: null,
         title: 'One',
         artist: 'A',
@@ -297,6 +298,7 @@ for (const container of CONTAINERS) {
     );
     assert.deepEqual(properties.GENRE, ['Pop']);
     assert.equal((await read(withArt)).hasArt, true);
+    assert.equal((await read(withArt)).hasFrontCover, true);
   });
 
   test(`${container.name}: write tags, ARTISTS and a cover without touching the audio`, async () => {
@@ -363,6 +365,78 @@ test('flac: conventional uppercase keys, ARTISTS as two separate comments', asyn
     ]
   );
   assert.equal((await probe(target)).tags.artists, 'A;B');
+});
+
+// The pictures as ffprobe sees them, in order: [comment, bytes].
+async function pictures(file) {
+  const { stdout } = await run('ffprobe', ['-v', 'error', '-show_entries', 'stream=index,codec_type:stream_tags=comment', '-of', 'json', file]);
+  const streams = JSON.parse(stdout.toString()).streams.filter((stream) => stream.codec_type === 'video');
+  return Promise.all(
+    streams.map(async ({ index, tags }) => [tags?.comment, new Uint8Array(await ffmpeg('-i', file, '-map', `0:${index}`, '-c', 'copy', '-f', 'image2pipe', '-'))])
+  );
+}
+// A track carrying these pictures, put there by TagLib itself: [[type, file], …].
+async function withPictures(container, list) {
+  const source = await fixture(container);
+  const handle = await taglib.open({ name: path.basename(source), data: await bytesOf(source) });
+  try {
+    const data = await Promise.all(list.map(([, file]) => bytesOf(file)));
+    handle.setPictures(list.map(([type], i) => ({ mimeType: 'image/jpeg', data: data[i], type, description: '' })));
+    assert.ok(handle.save());
+    const target = source.replace(/(\.\w+)$/, '.pictures$1');
+    await fsp.writeFile(target, handle.getFileBuffer());
+    return target;
+  } finally {
+    handle.dispose();
+  }
+}
+
+for (const container of [FLAC, MP3]) {
+  test(`${container.name}: a cover goes in first, and the other pictures stay`, async () => {
+    const backOnly = await withPictures(container, [['BackCover', cover]]);
+    // A back cover is a picture, not the cover.
+    assert.equal((await read(backOnly)).hasArt, true);
+    assert.equal((await read(backOnly)).hasFrontCover, false);
+    const target = await rewrite(backOnly, { cover: await bytesOf(cover2) });
+    assert.deepEqual(await pictures(target), [
+      ['Cover (front)', await bytesOf(cover2)],
+      ['Cover (back)', await bytesOf(cover)]
+    ]);
+    assert.equal((await read(target)).hasFrontCover, true);
+
+    // A front cover already there is the one replaced; the back cover stays.
+    const both = await withPictures(container, [['FrontCover', cover], ['BackCover', cover]]);
+    assert.deepEqual((await pictures(await rewrite(both, { cover: await bytesOf(cover2) }))).map(([comment, data]) => [comment, data.length]), [
+      ['Cover (front)', (await bytesOf(cover2)).length],
+      ['Cover (back)', (await bytesOf(cover)).length]
+    ]);
+    // Tags alone leave every picture as it was.
+    assert.deepEqual(await pictures(await rewrite(both, { set: { TITLE: 'x' } })), await pictures(both));
+  });
+}
+
+// An untyped picture, as ffmpeg embeds one, is taken for the cover.
+test('flac and mp3: the picture ffmpeg embeds counts as the front cover', async () => {
+  for (const container of [FLAC, MP3]) {
+    assert.equal((await read(await fixture(container, { art: true }))).hasFrontCover, true, container.name);
+    assert.equal((await read(await fixture(container))).hasFrontCover, false, container.name);
+  }
+});
+
+// ID3v1 holds Latin-1 only: TagLib would copy the ID3v2 tag into one on every
+// save, with "?" for every character it cannot hold.
+const id3v1 = (bytes) => (bytes.length >= 128 ? new TextDecoder('latin1').decode(bytes.subarray(-128, -125)) === 'TAG' : false);
+test('mp3: a rewrite adds no ID3v1 tag, and keeps one that was there', async () => {
+  for (const container of [MP3, MP3_V23]) {
+    const source = await fixture(container);
+    assert.equal(id3v1(await bytesOf(source)), false);
+    const target = await rewrite(source, { set: { TITLE: '空洞', MUSICBRAINZ_ALBUMID: '11111111-2222-4333-8444-555555555555' } });
+    assert.equal(id3v1(await bytesOf(target)), false, container.name);
+    assert.equal((await probe(target)).tags.title, '空洞');
+  }
+  const withV1 = await fixture({ ...MP3, args: ['-write_id3v1', '1'] });
+  assert.equal(id3v1(await bytesOf(withV1)), true);
+  assert.equal(id3v1(await bytesOf(await rewrite(withV1, { set: { TITLE: 'Two' } }))), true);
 });
 
 test('garbage and truncated files are unreadable, not tracks with empty tags', async () => {
@@ -730,9 +804,10 @@ test('diagnoseAlbum: the server reader and the browser reader agree, bar a known
   const files = fs.readdirSync(dir).filter((f) => !f.endsWith('.jpg')).sort((a, b) => a.localeCompare(b));
   const tracks = [];
   for (const file of files) {
-    // `properties` is extra to the record the server builds; leave it out so
-    // the diff shows only where the shared fields disagree.
-    const { properties, ...track } = await readTrack(taglib, file, await bytesOf(path.join(dir, file)));
+    // `properties` and `hasFrontCover` are extra to the record the server
+    // builds; leave them out so the diff shows only where the shared fields
+    // disagree.
+    const { properties, hasFrontCover, ...track } = await readTrack(taglib, file, await bytesOf(path.join(dir, file)));
     tracks.push(track);
   }
   const browser = diagnoseAlbum(album, tracks, server.art.folderImages);
