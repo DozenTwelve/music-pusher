@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "check": "bash scripts/doctor.sh",
-    "test": "node --test \"server/**/*.test.js\" \"shared/**/*.test.js\"",
+    "test": "node --test \"server/**/*.test.js\" \"shared/**/*.test.js\" \"client/src/**/*.test.js\"",
     "dev": "node server/index.js",
     "start": "node server/index.js",
     "build": "npm run client:build",
