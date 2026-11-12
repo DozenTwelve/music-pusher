@@ -1,8 +1,11 @@
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
+import { AUDIO_EXTENSIONS } from '../upload.js';
 import { listAudioFiles, probeTags, runProcess, TEMP_PREFIX } from './probe.js';
 import { normalizeDate, parseNumberPair, leadingTrackNumber } from '../../shared/tags.js';
+import { normalizeReleaseDate } from '../../shared/identity.js';
+import { discsOf } from '../../shared/plan.js';
 import { analyzeText, suggestFilenameFix, TEXT_FIELDS } from '../../shared/text.js';
 import { inspectAlbum } from './inspect.js';
 import { withAlbumLock } from './lock.js';
@@ -12,19 +15,23 @@ const UNIFIABLE_FIELDS = ['date', 'album', 'album_artist', 'disc'];
 
 const MP4_EXTENSIONS = new Set(['.m4a', '.aac', '.alac', '.mp4', '.m4b']);
 const VORBIS_EXTENSIONS = new Set(['.flac', '.ogg', '.opus']);
+// Ogg keeps its Vorbis comments on the audio stream; a FLAC on the container.
+const OGG_EXTENSIONS = new Set(['.ogg', '.opus']);
 
-// Vorbis comments (FLAC/OGG/Opus) use conventional uppercase keys. ffmpeg's
-// generic keys get written verbatim and many players then miss them, so map to
-// the standard names for those containers. MP4 and MP3 handle the generic keys
-// correctly, so leave them untouched.
+// Vorbis comments (FLAC/OGG/Opus) use conventional uppercase keys. A generic
+// key with no Vorbis counterpart in ffmpeg (`title`, `date`, …) would be
+// written lowercase, so those are named in uppercase. The three ffmpeg does
+// translate — ALBUMARTIST, TRACKNUMBER, DISCNUMBER, which it reads in as
+// album_artist, track and disc — must keep their generic names: written as
+// ALBUMARTIST, the value goes in next to the one read as album_artist instead
+// of replacing it, and the file ends up with both (`ALBUMARTIST=Art ` and
+// `ALBUMARTIST=Art`). MP4 and MP3 handle the generic keys correctly, so leave
+// them untouched.
 const VORBIS_KEY = {
   title: 'TITLE',
   artist: 'ARTIST',
   date: 'DATE',
-  album: 'ALBUM',
-  album_artist: 'ALBUMARTIST',
-  disc: 'DISCNUMBER',
-  track: 'TRACKNUMBER'
+  album: 'ALBUM'
 };
 
 function metadataKeyFor(field, ext) {
@@ -51,8 +58,9 @@ async function rewriteTags(absPath, fields, reencode = false) {
 
   const codecArgs = reencode ? ['-c:a', 'flac', '-c:v', 'copy'] : ['-c', 'copy'];
   const args = ['-v', 'error', '-i', absPath, '-map', '0', ...codecArgs, '-map_metadata', '0'];
+  const metadataFlag = OGG_EXTENSIONS.has(ext) ? '-metadata:s:a:0' : '-metadata';
   for (const [field, value] of fields) {
-    args.push('-metadata', `${metadataKeyFor(field, ext)}=${value}`);
+    args.push(metadataFlag, `${metadataKeyFor(field, ext)}=${value}`);
   }
   if (MP4_EXTENSIONS.has(ext)) {
     args.push('-movflags', '+faststart');
@@ -71,6 +79,108 @@ export async function fixAlbum(album, options = {}) {
   // Shared with cover embeds: both rename temp files over the same tracks, so
   // only one may touch an album at a time.
   return withAlbumLock(album, 'fix_busy', () => runFix(album, options));
+}
+
+// Disc and track number for every file, counted per disc. The disc is the one
+// the web plan picks (shared/plan.js discsOf): the disc tag, else 1 — or each
+// folder in name order when no track has a disc tag and the numbering starts
+// over in every folder (CD1/01…, CD2/01…). A disc where two files claim the
+// same number keeps the numbers it has: writing them would bake the collision
+// into the tags. Those files come back as errors.
+function numberTracks(files, scan, albumPath, unifiedDisc) {
+  const rel = (absPath) => path.relative(albumPath, absPath);
+  const records = files.map((absPath) => {
+    const tags = scan.get(absPath);
+    return {
+      file: rel(absPath),
+      readable: Boolean(tags.__ok),
+      track: tags.track || tags.tracknumber || '',
+      disc: unifiedDisc ?? (tags.disc || tags.disk || tags.discnumber || '')
+    };
+  });
+  const { discs: discOf, byFolder } = discsOf(records);
+  const discCount = new Set(discOf.values()).size;
+
+  const meta = new Map();
+  const discs = new Map();
+  for (const [i, absPath] of files.entries()) {
+    const discNum = discOf.get(records[i].file);
+    const num = parseNumberPair(records[i].track).num ?? leadingTrackNumber(absPath);
+    const entry = { discNum, num: discNum == null ? null : num, discTag: byFolder && discNum != null ? `${discNum}/${discCount}` : null };
+    meta.set(absPath, entry);
+    if (discNum == null) {
+      continue;
+    }
+    if (!discs.has(discNum)) {
+      discs.set(discNum, []);
+    }
+    discs.get(discNum).push([absPath, entry]);
+  }
+
+  const errors = [];
+  for (const [discNum, onDisc] of discs) {
+    let clash = false;
+    for (const [absPath, entry] of onDisc) {
+      entry.total = onDisc.length;
+      const others = onDisc.filter(([other, e]) => other !== absPath && entry.num != null && e.num === entry.num);
+      if (others.length > 0) {
+        clash = true;
+        errors.push({
+          file: rel(absPath),
+          message: `track ${entry.num} is also ${others.map(([other]) => rel(other)).join(', ')}; track numbers on disc ${discNum} left as they are`
+        });
+      }
+    }
+    if (clash) {
+      for (const [, entry] of onDisc) {
+        entry.num = null;
+      }
+    }
+  }
+  return { meta, errors };
+}
+
+// ffmpeg cannot write an m4a's freeform atoms back, so a rewrite loses a
+// RELEASEDATE (or YEAR) atom and ©day is the release date from then on. Where
+// the release date came from one of those atoms, the rewrite would move it to
+// whatever ©day says, so a fix that does not set the date is refused unless
+// the two agree. A date the user sets is the release date they asked for, and
+// where the release date was ©day already, writing ©day is how it is fixed.
+function releaseDateLoss(tags, fields) {
+  const sources = [tags.releasedate, tags.date, tags.year];
+  const from = sources.findIndex((value) => value && normalizeReleaseDate(value));
+  if (from === -1 || from === 1 || fields.some(([field]) => field === 'date')) {
+    return null;
+  }
+  const before = normalizeReleaseDate(sources[from]);
+  const after = normalizeReleaseDate(tags.date || '');
+  if (after === before) {
+    return null;
+  }
+  return (
+    `ffmpeg cannot keep this m4a's ${from === 0 ? 'RELEASEDATE' : 'YEAR'} tag, so the rewrite would move ` +
+    `its release date ${before} to ${after || 'nothing'} and could split the album; left as it is`
+  );
+}
+
+// A total kept in a tag of its own (Vorbis TRACKTOTAL, TOTALTRACKS, …) is
+// rewritten along with an "n/total" number, so the two cannot disagree.
+const TOTAL_TAGS = { track: ['tracktotal', 'totaltracks'], disc: ['disctotal', 'totaldiscs'] };
+
+function totalFields(tags, fields) {
+  return fields.flatMap(([field, value]) => {
+    const { total } = parseNumberPair(value);
+    return total == null
+      ? []
+      : (TOTAL_TAGS[field] || []).filter((key) => tags[key] != null).map((key) => [key.toUpperCase(), String(total)]);
+  });
+}
+
+async function exists(target) {
+  return fsp.access(target).then(
+    () => true,
+    () => false
+  );
 }
 
 function currentFieldValue(tags, field) {
@@ -130,18 +240,9 @@ async function runFix(album, options = {}) {
 
   let trackMeta = null;
   if (normalizeTracks) {
-    trackMeta = new Map();
-    const discCounts = new Map();
-    for (const absPath of files) {
-      const tags = scan.get(absPath);
-      const discNum = parseNumberPair(tags.disc || tags.disk || tags.discnumber).num ?? 1;
-      const num = parseNumberPair(tags.track || tags.tracknumber).num ?? leadingTrackNumber(absPath);
-      trackMeta.set(absPath, { discNum, num });
-      discCounts.set(discNum, (discCounts.get(discNum) || 0) + 1);
-    }
-    for (const meta of trackMeta.values()) {
-      meta.total = discCounts.get(meta.discNum);
-    }
+    const numbered = numberTracks(files, scan, albumPath, unify.disc);
+    trackMeta = numbered.meta;
+    errors.push(...numbered.errors);
   }
 
   for (const absPath of files) {
@@ -153,7 +254,10 @@ async function runFix(album, options = {}) {
 
     if (normalizeTracks) {
       const meta = trackMeta.get(absPath);
-      if (meta && meta.num != null) {
+      if (meta.discTag) {
+        fields.push(['disc', meta.discTag]);
+      }
+      if (meta.num != null) {
         fields.push(['track', `${meta.num}/${meta.total}`]);
       }
     }
@@ -185,6 +289,16 @@ async function runFix(album, options = {}) {
       continue;
     }
 
+    if (fields.length > 0) {
+      const tags = scan.get(absPath) ?? (await probeTags(absPath));
+      const loss = MP4_EXTENSIONS.has(path.extname(absPath).toLowerCase()) && releaseDateLoss(tags, fields);
+      if (loss) {
+        errors.push({ file: path.relative(albumPath, absPath), message: loss });
+        continue;
+      }
+      fields.push(...totalFields(tags, fields));
+    }
+
     try {
       await rewriteTags(absPath, fields, reencode);
       changes.push({
@@ -196,6 +310,10 @@ async function runFix(album, options = {}) {
     }
   }
 
+  // A track's lyrics (.lrc) and anything else named after it (`01 x.jpg`,
+  // `01 x.en.lrc`) move with it, or the player loses them. A .cue sheet names
+  // the files it plays, in whatever encoding its ripper used, so a track with
+  // one in its folder keeps its name rather than have the sheet rewritten.
   const renames = [];
   if (fixFilenames) {
     for (const absPath of files) {
@@ -205,17 +323,38 @@ async function runFix(album, options = {}) {
       if (!suggested) {
         continue;
       }
-      const target = path.join(dir, suggested);
+      const ext = path.extname(base);
+      const stem = base.slice(0, base.length - ext.length);
+      const newStem = suggested.slice(0, suggested.length - ext.length);
       try {
+        const siblings = await fsp.readdir(dir);
+        if (siblings.some((name) => path.extname(name).toLowerCase() === '.cue')) {
+          throw new Error('a .cue sheet in its folder may name it');
+        }
+        const moves = [
+          [base, suggested],
+          ...siblings
+            .filter(
+              (name) =>
+                name.startsWith(`${stem}.`) &&
+                name !== base &&
+                !AUDIO_EXTENSIONS.has(path.extname(name).toLowerCase())
+            )
+            .map((name) => [name, newStem + name.slice(stem.length)])
+        ];
         // Avoid clobbering an existing file.
-        await fsp.access(target).then(
-          () => {
-            throw new Error('target already exists');
-          },
-          () => {}
-        );
-        await fsp.rename(absPath, target);
-        renames.push({ from: path.relative(albumPath, absPath), to: path.relative(albumPath, target) });
+        for (const [, to] of moves) {
+          if (await exists(path.join(dir, to))) {
+            throw new Error(`${to} already exists`);
+          }
+        }
+        for (const [from, to] of moves) {
+          await fsp.rename(path.join(dir, from), path.join(dir, to));
+          renames.push({
+            from: path.relative(albumPath, path.join(dir, from)),
+            to: path.relative(albumPath, path.join(dir, to))
+          });
+        }
       } catch (error) {
         errors.push({ file: path.relative(albumPath, absPath), message: `rename failed: ${error.message}` });
       }

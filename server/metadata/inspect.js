@@ -80,6 +80,13 @@ function identityFields(tags) {
   };
 }
 
+// A track or disc number with its total, as "3/10". Vorbis comments usually
+// keep the total in a comment of its own (TRACKTOTAL or TOTALTRACKS, DISCTOTAL
+// or TOTALDISCS), which ffprobe reports apart from the number.
+function withTotal(number, total) {
+  return number && total && !number.includes('/') ? `${number}/${total}` : number || '';
+}
+
 // How many ffprobe processes may run at once while scanning an album.
 const PROBE_CONCURRENCY = 8;
 
@@ -107,8 +114,8 @@ export async function inspectAlbum(album) {
       album: tags.album || '',
       album_artist: tags.album_artist || tags.albumartist || '',
       date: tags.date || tags.year || '',
-      disc: tags.disc || tags.disk || tags.discnumber || '',
-      track: tags.track || tags.tracknumber || '',
+      disc: withTotal(tags.disc || tags.disk || tags.discnumber, tags.disctotal || tags.totaldiscs),
+      track: withTotal(tags.track || tags.tracknumber, tags.tracktotal || tags.totaltracks),
       ...identityFields(tags)
     };
   }

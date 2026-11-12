@@ -66,7 +66,7 @@ export async function probeTags(absPath) {
     '-v',
     'error',
     '-show_entries',
-    'format=format_name,duration:format_tags:stream=codec_type,sample_rate,bits_per_raw_sample,bits_per_sample:stream_disposition=attached_pic',
+    'format=format_name,duration:format_tags:stream=codec_type,sample_rate,bits_per_raw_sample,bits_per_sample:stream_tags:stream_disposition=attached_pic',
     '-of',
     'json',
     absPath
@@ -82,6 +82,15 @@ export async function probeTags(absPath) {
         tags[key.toLowerCase()] = value;
       }
       tags.__format_name = parsed?.format?.format_name || '';
+      const streams = Array.isArray(parsed?.streams) ? parsed.streams : [];
+      const audio = streams.find((stream) => stream?.codec_type === 'audio');
+      // An Ogg file keeps its Vorbis comments on the audio stream, not on the
+      // container, so the format tags above come back empty there.
+      if (tags.__format_name === 'ogg') {
+        for (const [key, value] of Object.entries(audio?.tags || {})) {
+          tags[key.toLowerCase()] ??= value;
+        }
+      }
       // Missing on a FLAC whose STREAMINFO carries total_samples=0 — what ffmpeg
       // writes when it transcodes from a stream whose length it does not know
       // yet, and never goes back to fill in. The audio plays, but every consumer
@@ -89,13 +98,11 @@ export async function probeTags(absPath) {
       // distance and gives up on matching the album, and Navidrome draws a dead
       // progress bar.
       tags.__duration = Number(parsed?.format?.duration) || null;
-      const streams = Array.isArray(parsed?.streams) ? parsed.streams : [];
       tags.__has_art = streams.some(
         (stream) => stream?.codec_type === 'video' && stream?.disposition?.attached_pic === 1
       );
       // Audio quality: same .flac extension can still hide a 16/44 CD rip mixed
       // with a 24/96 hi-res master.
-      const audio = streams.find((stream) => stream?.codec_type === 'audio');
       // ffprobe types these inconsistently — sample_rate and bits_per_raw_sample
       // arrive as strings ("44100", "16"), bits_per_sample as a number (0 for
       // every compressed codec). Coerce each before the `||` fallback: a truthy
