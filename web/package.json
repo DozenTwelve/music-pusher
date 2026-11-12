@@ -8,7 +8,8 @@
     "build": "vite build",
     "test": "node --conditions=browser --test",
     "deploy": "vite build && npx wrangler pages deploy dist --project-name album-cleaner --branch main",
-    "measure": "node --conditions=browser measure.js"
+    "measure": "node --conditions=browser measure.js",
+    "cards": "node site/cards.js"
   },
   "dependencies": {
     "fflate": "^0.8.3",

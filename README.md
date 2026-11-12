@@ -33,6 +33,10 @@ repaired so Navidrome reads it as one album.
 - **Desktop Firefox or Chrome.**
 - **FLAC, MP3 and M4A**, up to 2 GB an album.
 
+Rather fix it by hand? [Why Navidrome splits one album into
+several](https://album.diamonddoge.org/navidrome-album-split/) goes through
+every cause with the tag to change and how.
+
 The rest of this README is for people who want it **on their own server**, wired
 to beets and Navidrome.
 
@@ -100,6 +104,9 @@ The details that bite:
   same letters composed differently (NFC vs NFD) make a different album.
 - **Discs and folders split nothing.** Disc numbers aren't part of the identity,
   and identical tags in two folders are still one album.
+
+The [guide on the public page](https://album.diamonddoge.org/navidrome-album-split/)
+sets out every scanned case with what Navidrome made of it.
 
 ## How it fits together
 
@@ -400,6 +407,15 @@ npm run deploy   # build, then upload web/dist to Cloudflare Pages (project `alb
 
 `npm run deploy` runs `npx wrangler pages deploy` and needs a Cloudflare login
 (`npx wrangler login`) with access to the `album-cleaner` Pages project.
+
+Each page is an HTML file at its own address (`index.html`, `zh/index.html`,
+`navidrome-album-split/index.html`, …) holding its own text; `site/render.js`
+fills in the head, the bar, the footer, the tool's start screen and the guide's
+tables at build time, and the build writes `sitemap.xml` and `robots.txt`. The
+pages and the site's address are listed in `site/site.js`. `public/_headers` is
+read by Cloudflare Pages; `npx wrangler pages dev dist` serves the build the way
+Pages will, 404s and headers included. The social cards in `public/og/` are drawn
+by `CHROME=/path/to/chrome npm run cards`.
 
 ## License
 
