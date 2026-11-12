@@ -12,7 +12,8 @@ import zlib from 'node:zlib';
 import { spawn } from 'node:child_process';
 import { initTagLib } from './src/tags.js';
 import { asAlbum, cleanAlbum, inspect, loadCover, readAlbum, recheck, refusal, LIMITS } from './src/album.js';
-import { guessEncoding, openZip, zipWriter, ZipError } from './src/zip.js';
+import { openZip, zipWriter, ZipError } from './src/zip.js';
+import { chooseNameEncoding } from '../shared/zipnames.js';
 import { GROUND_TRUTH, BY_RULE } from '../shared/navidrome.groundtruth.js';
 import { planWrites } from '../shared/plan.js';
 
@@ -457,12 +458,73 @@ test('zip names: the guess, one name at a time', async () => {
   const misses = { GBK: [], SHIFT_JIS: [] };
   for (const [encoding, label, names] of [['GBK', 'gbk', CHINESE], ['SHIFT_JIS', 'shift_jis', JAPANESE]]) {
     for (const name of names) {
-      if (guessEncoding([await encoded(name, encoding)]) !== label) {
+      if (chooseNameEncoding([await encoded(name, encoding)]).encoding !== label) {
         misses[encoding].push(name);
       }
     }
   }
   assert.deepEqual(misses, { GBK: [], SHIFT_JIS: [] });
+});
+
+// What Windows Explorer writes outside East Asia. Each of these used to be
+// taken for Shift_JIS or GBK ('Bj攔k', 'Ja'), or kept as Latin-1 with an
+// invisible C1 control in it ('Beyonc' + U+0082).
+const WESTERN = ['Björk - Homogenic/01 Jóga.flac', 'Björk - Homogenic/02 Hunter.flac', 'Mötley Crüe/01 Kickstart.mp3', 'Beyoncé/01 Halo.mp3'];
+const TAIWANESE = ['五月天 - 後青春期的詩/突然好想你.m4a', '周杰倫 - 葉惠美/03 晴天.flac', '告五人/愛人錯過.m4a', '草東沒有派對 - 醜奴兒/山海.flac'];
+
+test('zip names: western and Big5 archives are read by the same guess', async () => {
+  for (const [codepage, label, names] of [['CP437', 'cp437', WESTERN], ['CP950', 'big5', TAIWANESE]]) {
+    const files = [];
+    for (const name of names) {
+      files.push([await encoded(name, codepage), Buffer.from(name)]);
+    }
+    const zip = await openZip(rawZip(files));
+    assert.equal(zip.encoding, label);
+    assert.deepEqual(zip.alternatives, []);
+    assert.deepEqual(zip.entries.map((entry) => entry.path), names);
+    assert.ok(names.includes(zip.sample));
+  }
+  // Each alone, too: a single track is a zip people make.
+  for (const name of WESTERN) {
+    const { entries } = await openZip(rawZip([[await encoded(name, 'CP437'), Buffer.from('x')]]));
+    assert.equal(entries[0].path, name);
+  }
+});
+
+test('zip names: a toss-up is shown with each reading, and can be read the other way', async () => {
+  const blob = rawZip([
+    [Buffer.from('cover.jpg'), Buffer.from('x')],
+    [await encoded('Amon Düül II/Yeti.flac', 'CP437'), Buffer.from('y')]
+  ]);
+  const zip = await openZip(blob);
+  assert.equal(zip.encoding, 'cp437');
+  // The sample is the name in doubt, not the first one.
+  assert.equal(zip.sample, 'Amon Düül II/Yeti.flac');
+  assert.deepEqual(zip.alternatives, [{ encoding: 'shift_jis', sample: 'Amon D＝l II/Yeti.flac' }]);
+
+  const other = await openZip(blob, { encoding: 'shift_jis' });
+  assert.equal(other.encoding, 'shift_jis');
+  assert.deepEqual(other.entries.map((entry) => entry.path), ['cover.jpg', 'Amon D＝l II/Yeti.flac']);
+  assert.deepEqual(other.alternatives, [{ encoding: 'cp437', sample: 'Amon Düül II/Yeti.flac' }]);
+  assert.equal(new TextDecoder().decode(await other.entries[1].read()), 'y');
+});
+
+test('zip names: a name no encoding reads shows its unreadable bytes, never a control character', async () => {
+  const { entries, encoding, sample } = await openZip(rawZip([[Buffer.from([0x41, 0x01, 0x82, 0x2e, 0x6d, 0x70, 0x33]), Buffer.from('x')]]));
+  assert.equal(encoding, null);
+  assert.equal(sample, null);
+  assert.equal(entries[0].path, 'A\u2401\u00e9.mp3');
+  // One unreadable name puts the whole archive byte for byte, and its other
+  // names must stay apart: two tracks under one path would lose one of them.
+  const mixed = await openZip(
+    rawZip([
+      [Buffer.from([0x41, 0x6c, 0x62, 0x2f, 0x82, 0x2e, 0x66, 0x6c, 0x61, 0x63]), Buffer.from('e')],
+      [Buffer.from([0x41, 0x6c, 0x62, 0x2f, 0x94, 0x2e, 0x66, 0x6c, 0x61, 0x63]), Buffer.from('o')],
+      [Buffer.from([0x41, 0x6c, 0x62, 0x2f, 0x0a, 0x2e, 0x74, 0x78, 0x74]), Buffer.from('n')]
+    ])
+  );
+  assert.equal(mixed.encoding, null);
+  assert.deepEqual(mixed.entries.map((entry) => entry.path), ['Alb/\u00e9.flac', 'Alb/\u00f6.flac', 'Alb/\u240a.txt']);
 });
 
 test('zip names: paths cannot climb out, backslashes are separators, folders are not files', async () => {

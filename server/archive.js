@@ -10,6 +10,7 @@ import { classifyFile, normalizeRelativePath, sanitizeAlbumName } from './upload
 import { withAlbumLock } from './metadata/lock.js';
 import { TEMP_PREFIX } from './metadata/probe.js';
 import { distinctAudioFormats } from '../shared/extensions.js';
+import { chooseNameEncoding, decodeName } from '../shared/zipnames.js';
 
 // Music archives are almost always a single album. We extract a .zip into the
 // RAW staging directory reusing the exact same file classification, path
@@ -45,53 +46,92 @@ function isDirectoryEntry(entry) {
   return /\/$/.test(entry.fileName);
 }
 
-// First pass: walk the central directory (no extraction) to classify every
-// entry and enforce limits. Returns accepted entries plus the skip report.
+// yauzl reads a name as UTF-8 when the entry is flagged so or carries an
+// Info-ZIP Unicode Path field matching it (as yauzl checks it), and as CP437
+// otherwise — which is what Windows writes only on a US machine, and what
+// macOS's UTF-8 without the flag never is.
+function isUnicodeName(entry) {
+  return (
+    (entry.generalPurposeBitFlag & 0x800) !== 0 ||
+    entry.extraFields.some(
+      (field) => field.id === 0x7075 && field.data.length >= 6 && field.data[0] === 1 && field.data.readUInt32LE(1) === zlib.crc32(entry.fileNameRaw)
+    )
+  );
+}
+
+// First pass: walk the central directory (no extraction), read the names that
+// are not marked UTF-8 in the one encoding that fits them all, then classify
+// every entry and enforce limits. Returns accepted entries plus the skip report.
 function scanEntries(zipfile) {
   return new Promise((resolve, reject) => {
-    const accepted = [];
-    const skipped = [];
+    const files = [];
+    let counted = 0;
 
     zipfile.on('entry', (entry) => {
       if (isDirectoryEntry(entry)) {
         zipfile.readEntry();
         return;
       }
-
-      const normalized = normalizeRelativePath(entry.fileName);
-      if (!normalized.ok) {
-        skipped.push({ path: entry.fileName, reason: normalized.reason });
-        zipfile.readEntry();
-        return;
-      }
-
-      const classification = classifyFile(normalized.relativePath);
-      if (!classification.accept) {
-        skipped.push({ path: normalized.relativePath, reason: classification.reason });
-        zipfile.readEntry();
-        return;
-      }
-
-      if (entry.uncompressedSize > config.maxFileSizeBytes) {
-        reject(new ArchiveError('file_too_large', `Archive entry '${normalized.relativePath}' exceeds the per-file size limit.`));
-        return;
-      }
-
-      accepted.push({
-        rawName: entry.fileName,
-        relativePath: normalized.relativePath,
-        size: entry.uncompressedSize
-      });
-
-      if (accepted.length > config.maxFiles) {
+      // The file limit holds while the directory is read, not after, so an
+      // archive of countless entries is refused before they are all in memory.
+      // Extensions are ASCII, so yauzl's reading of a name classifies it as
+      // the decoded name will.
+      const early = normalizeRelativePath(entry.fileName);
+      if (early.ok && classifyFile(early.relativePath).accept && ++counted > config.maxFiles) {
         reject(new ArchiveError('too_many_files', 'Archive contains more files than the allowed limit.'));
         return;
       }
-
+      // Only what the name and limits need: yauzl's entry holds on to the whole
+      // record, extra field and comment included.
+      files.push({
+        fileName: entry.fileName,
+        size: entry.uncompressedSize,
+        raw: isUnicodeName(entry) ? null : Buffer.from(entry.fileNameRaw)
+      });
       zipfile.readEntry();
     });
 
-    zipfile.on('end', () => resolve({ accepted, skipped }));
+    zipfile.on('end', () => {
+      const legacy = files.filter((file) => file.raw);
+      const { encoding } = chooseNameEncoding(legacy.map((file) => file.raw));
+      // No encoding fits: keep yauzl's CP437 reading, which at least gives
+      // every distinct name a distinct path.
+      const names = new Map(encoding ? legacy.map((file) => [file, decodeName(encoding, file.raw)]) : []);
+
+      const accepted = [];
+      const skipped = [];
+      for (const file of files) {
+        const name = names.get(file) ?? file.fileName;
+        const normalized = normalizeRelativePath(name);
+        if (!normalized.ok) {
+          skipped.push({ path: name, reason: normalized.reason });
+          continue;
+        }
+
+        const classification = classifyFile(normalized.relativePath);
+        if (!classification.accept) {
+          skipped.push({ path: normalized.relativePath, reason: classification.reason });
+          continue;
+        }
+
+        if (file.size > config.maxFileSizeBytes) {
+          reject(new ArchiveError('file_too_large', `Archive entry '${normalized.relativePath}' exceeds the per-file size limit.`));
+          return;
+        }
+
+        accepted.push({
+          rawName: file.fileName,
+          relativePath: normalized.relativePath,
+          size: file.size
+        });
+
+        if (accepted.length > config.maxFiles) {
+          reject(new ArchiveError('too_many_files', 'Archive contains more files than the allowed limit.'));
+          return;
+        }
+      }
+      resolve({ accepted, skipped });
+    });
     zipfile.on('error', (error) => reject(error));
 
     zipfile.readEntry();

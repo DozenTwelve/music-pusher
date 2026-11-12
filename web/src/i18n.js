@@ -130,6 +130,7 @@ const en = {
   'cannot.names': ({ n }) => `and ${n} more`,
   'encoding.guessed': 'The file names in this zip are in an old encoding, read here as {encoding}. If “{sample}” looks like nonsense, choose another album: the result would have broken names.',
   'encoding.unknown': 'The file names in this zip are in an encoding that can’t be worked out. They may come out wrong.',
+  'encoding.tossup': 'The file names in this zip are in an old encoding, and more than one fits. Read as {encoding}, one is “{sample}”. If that looks like nonsense, choose the reading that looks right:',
 
   'action.clean': 'Fix the album',
   'action.another': 'Choose another album',
@@ -258,6 +259,7 @@ const zh = {
   'cannot.names': '等 {n} 个',
   'encoding.guessed': '这个 zip 的文件名是旧编码，这里按 {encoding} 读。如果“{sample}”是乱码，就换一张专辑：修出来的文件名也会是乱的。',
   'encoding.unknown': '这个 zip 的文件名编码认不出来，修出来的文件名可能是乱的。',
+  'encoding.tossup': '这个 zip 的文件名是旧编码，而且不止一种读得通。按 {encoding} 读，其中一个是“{sample}”。如果这是乱码，就选看起来对的那种读法：',
 
   'action.clean': '修好这张专辑',
   'action.another': '换一张专辑',
