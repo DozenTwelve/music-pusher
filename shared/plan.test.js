@@ -42,7 +42,9 @@ function record(file, tags, extra = {}) {
     release_date: firstReleaseDate([...release, ...(mp4 ? all('DATE') : []), ...all('YEAR')]),
     release_date_follows_date: mp4 && !release.some(normalizeReleaseDate),
     properties,
-    ...extra
+    ...extra,
+    // A picture is not always the cover: a back cover alone is not one.
+    hasFrontCover: extra.hasFrontCover ?? extra.hasArt ?? false
   };
 }
 const unreadable = (file) => ({ ...record(file, {}), readable: false, sampleRate: null, bitDepth: null, duration: null });
@@ -415,10 +417,14 @@ test('track numbers: an incomplete disc and a disc with repeated numbers are lef
   const unnumbered = album(3, (n) => ({ file: `Album/0${[1, 2, 4][n - 1]} Song.flac`, TRACKNUMBER: n === 3 ? [] : `${n}/5` }));
   assert.deepEqual(writes(unnumbered), { 'Album/04 Song.flac': { TRACKNUMBER: '4/5' } });
 
-  // Two discs with no disc tag: 1/2 and 2/2 twice over.
-  const twoDiscs = album(4, (n) => ({ file: `Album/CD${n <= 2 ? 1 : 2}/0${n} Song.flac`, TRACKNUMBER: `${((n - 1) % 2) + 1}/2` }));
-  assert.deepEqual(offered(twoDiscs, {}, ['Album/cover.jpg']), {});
-  assert.deepEqual(plan(twoDiscs).cannotFix, [{ code: 'duplicate_numbers', discs: [1], multiDisc: false }]);
+  // Two tracks share a number on one disc, and no folder tells them apart.
+  const twice = album(3, (n) => ({ TRACKNUMBER: String([1, 1, 2][n - 1]) }));
+  assert.deepEqual(offered(twice), {});
+  assert.deepEqual(plan(twice).cannotFix, [{ code: 'duplicate_numbers', discs: [1], multiDisc: false }]);
+  // A number from a file name counts as much as one from a tag.
+  const named = album(2, (n) => ({ file: `Album/01 Song ${n}.flac`, TRACKNUMBER: n === 1 ? '1' : [] }));
+  assert.deepEqual(offered(named), {});
+  assert.deepEqual(plan(named).cannotFix, [{ code: 'duplicate_numbers', discs: [1], multiDisc: false }]);
 
   // No number in the tag or the file name: nothing to go on. (The diagnosis
   // also reads the other track's "1/2" as a track 2 that is not here.)
@@ -428,6 +434,70 @@ test('track numbers: an incomplete disc and a disc with repeated numbers are lef
     { code: 'gaps', discs: [{ disc: 1, missing: [2] }], multiDisc: false },
     { code: 'no_track_number', files: ['Album/Song.flac'] }
   ]);
+});
+
+test('track numbers: with no disc tag, folders whose numbering starts over are the discs', () => {
+  const cd = (n) => (n <= 3 ? 1 : 2);
+  const files = (n) => `Two/CD${cd(n)}/0${((n - 1) % 3) + 1} Song.flac`;
+  const both = (count) => (n) => ({ TRACKNUMBER: `${((n - 1) % 3) + 1}/${count}`, DISCNUMBER: String(cd(n)) });
+  const expected = (count) => Object.fromEntries(Array.from({ length: 6 }, (_, i) => [files(i + 1), both(count)(i + 1)]));
+  const cover = ['Two/cover.jpg'];
+  table([
+    // No number in any tag: the file names give 1, 2, 3 twice over.
+    ['no tags', album(6, (n) => ({ file: files(n), TRACKNUMBER: [] })), { track_numbers: undefined }, expected(3), {}, cover],
+    // Totals counted over the whole set: rewritten per disc.
+    ['album-wide totals', album(6, (n) => ({ file: files(n), TRACKNUMBER: `${((n - 1) % 3) + 1}/6` })), { track_numbers: undefined }, expected(3), {}, cover],
+    // Numbers already right: only the disc is missing.
+    [
+      'right numbers, no disc',
+      album(6, (n) => ({ file: files(n), TRACKNUMBER: `${((n - 1) % 3) + 1}/3` })),
+      { track_numbers: undefined },
+      Object.fromEntries(Array.from({ length: 6 }, (_, i) => [files(i + 1), { DISCNUMBER: String(cd(i + 1)) }])),
+      {},
+      cover
+    ],
+    // Numbering that runs on from CD1 into CD2 is one disc: nothing to write.
+    ['run-on numbering', album(6, (n) => ({ file: files(n), TRACKNUMBER: `${n}/6` })), {}, {}, {}, cover]
+  ]);
+  const { fixes, cannotFix } = plan(album(6, (n) => ({ file: files(n), TRACKNUMBER: `${((n - 1) % 3) + 1}/6` })), {}, cover);
+  assert.deepEqual(fixes, [{ id: 'track_numbers', on: true, count: 6, discs: 2 }]);
+  // Not "tracks 4 to 6 are missing": the totals counted the other disc.
+  assert.deepEqual(cannotFix, []);
+
+  // A disc short of a track is said, per disc, and its numbers kept.
+  const short = album(5, (n) => ({ file: ['Two/CD1/01 a.flac', 'Two/CD1/02 b.flac', 'Two/CD2/01 c.flac', 'Two/CD2/03 d.flac', 'Two/CD2/04 e.flac'][n - 1], TRACKNUMBER: [] }));
+  assert.deepEqual(writes(short, {}, cover), {
+    'Two/CD1/01 a.flac': { TRACKNUMBER: '1/2', DISCNUMBER: '1' },
+    'Two/CD1/02 b.flac': { TRACKNUMBER: '2/2', DISCNUMBER: '1' },
+    'Two/CD2/01 c.flac': { TRACKNUMBER: '1', DISCNUMBER: '2' },
+    'Two/CD2/03 d.flac': { TRACKNUMBER: '3', DISCNUMBER: '2' },
+    'Two/CD2/04 e.flac': { TRACKNUMBER: '4', DISCNUMBER: '2' }
+  });
+  assert.deepEqual(plan(short, {}, cover).cannotFix, [{ code: 'gaps', discs: [{ disc: 2, missing: [2] }], multiDisc: true }]);
+});
+
+test('track numbers: an unreadable file counts on the disc of the tracks beside it, or on none', () => {
+  const cover = ['Two/cover.jpg'];
+  const tracks = (bad, discs = false) => [
+    ...album(2, (n) => ({ file: `Two/CD1/0${n} Song.flac`, TRACKNUMBER: String(n), ...(discs && { DISCNUMBER: '1' }) })),
+    unreadable(bad)
+  ];
+  // Beside the tracks: the third track of their disc.
+  assert.deepEqual(writes(tracks('Two/CD1/03 bad.flac'), {}, cover), {
+    'Two/CD1/01 Song.flac': { TRACKNUMBER: '1/3' },
+    'Two/CD1/02 Song.flac': { TRACKNUMBER: '2/3' }
+  });
+  // In a folder of its own: no track of CD1, whether or not discs are tagged.
+  const alone = { 'Two/CD1/01 Song.flac': { TRACKNUMBER: '1/2', DISCNUMBER: '1' }, 'Two/CD1/02 Song.flac': { TRACKNUMBER: '2/2', DISCNUMBER: '1' } };
+  assert.deepEqual(writes(tracks('Two/CD2/bad.flac'), {}, cover), alone);
+  assert.deepEqual(writes(tracks('Two/CD2/bad.flac', true), {}, cover), {
+    'Two/CD1/01 Song.flac': { TRACKNUMBER: '1/2' },
+    'Two/CD1/02 Song.flac': { TRACKNUMBER: '2/2' }
+  });
+  // And once written, nothing more to do.
+  const { report, fixes } = plan(tracks('Two/CD2/bad.flac'), {}, cover);
+  const next = applied(tracks('Two/CD2/bad.flac'), planWrites(report, tracks('Two/CD2/bad.flac'), fixes), cover);
+  assert.deepEqual(offered(next.tracks, {}, next.folderImages), {});
 });
 
 test('track numbers: "0/0" and "00 - " file names are no number, not one shared number', () => {
@@ -474,6 +544,27 @@ test('text: confident repairs only, value by value', () => {
   const unclear = album(2, (n) => (n === 1 ? { TITLE: `Star${cp(0x06)}` } : {}));
   assert.deepEqual(writes(unclear), {});
   assert.deepEqual(plan(unclear).cannotFix, [{ code: 'unclear_text', files: ['Album/01 Song.flac'] }]);
+});
+
+test('file names: the lyrics and other files of the same name go with the track', () => {
+  const tracks = album(2, (n) => (n === 1 ? { file: 'Album/01 Don_t.flac' } : {}));
+  const paths = ['Album/01 Don_t.flac', 'Album/01 Don_t.lrc', 'Album/01 Don_t.en.lrc', 'Album/01 Don_t extra.txt', 'Album/02 Song.flac', 'Album/cover.jpg'];
+  const { report, fixes } = plan(tracks, { paths });
+  assert.deepEqual(fixes[0].renames, [
+    { from: 'Album/01 Don_t.flac', to: "Album/01 Don't.flac" },
+    { from: 'Album/01 Don_t.lrc', to: "Album/01 Don't.lrc" },
+    { from: 'Album/01 Don_t.en.lrc', to: "Album/01 Don't.en.lrc" }
+  ]);
+  assert.deepEqual(planWrites(report, tracks, fixes, { paths }).files.map(({ file, rename }) => [file, rename]), [
+    ['Album/01 Don_t.flac', "Album/01 Don't.flac"],
+    ['Album/01 Don_t.lrc', "Album/01 Don't.lrc"],
+    ['Album/01 Don_t.en.lrc', "Album/01 Don't.en.lrc"]
+  ]);
+  // The lyrics' new name is taken: the track keeps its name too.
+  assert.deepEqual(offered(tracks, { paths: [...paths, "Album/01 Don't.lrc"] }), {});
+  // A cue sheet names the audio files it plays: its folder keeps every name.
+  assert.deepEqual(offered(tracks, { paths: [...paths, 'Album/Album.cue'] }), {});
+  assert.deepEqual(offered(tracks, { paths: [...paths, 'Album/scans/Album.cue'] }), { filenames: undefined });
 });
 
 test('file names: repaired, unless the repaired name is taken', () => {
@@ -541,6 +632,14 @@ test('cover: embedded in every track when some lack it, and a cover.jpg at the a
     addCover: 'Album/cover.jpg'
   });
 
+  // A picture that is not the cover — a back cover alone — does not count;
+  // a track with its cover is left alone.
+  const backOnly = album(2, (n) => ({ extra: { hasArt: true, hasFrontCover: n === 2 } }));
+  assert.deepEqual(covers(backOnly, ['Album/cover.jpg']), { fixes: ['cover_embed'], embed: ['Album/01 Song.flac'], addCover: null });
+  assert.deepEqual(plan(backOnly, {}, []).cover, { kind: 'embedded', file: 'Album/02 Song.flac' });
+  assert.deepEqual(plan(backOnly, {}, []).verdict, { code: 'no_cover', missing: 1, albums: 1, tracks: 2 });
+  assert.deepEqual(covers(second, [], { hasUserCover: true }), { fixes: ['cover_embed', 'cover_file'], embed: ['Album/01 Song.flac'], addCover: 'Album/cover.jpg' });
+
   // And the fixpoint, through the stand-in writer.
   const { report, fixes } = plan(second, {}, []);
   const next = applied(second, planWrites(report, second, fixes), []);
@@ -561,10 +660,8 @@ test('a fix that is switched off writes nothing', () => {
   assert.deepEqual(only('album').files.map((entry) => entry.set), [{ ALBUM: 'Album' }]);
   assert.deepEqual(only('track_numbers').files.map((entry) => entry.set.TRACKNUMBER), ['1/3', '2/3', '3/3']);
   assert.deepEqual(only('cover_file'), { files: [], addCover: 'Album/cover.jpg' });
-  assert.deepEqual(only('cover_embed').files.map((entry) => [entry.file, entry.cover, entry.set]), [
-    ['Album/01 Song.flac', true, {}],
-    ['Album/03 Song.flac', true, {}]
-  ]);
+  // Only into the track without a picture: track 3 keeps its own.
+  assert.deepEqual(only('cover_embed').files.map((entry) => [entry.file, entry.cover, entry.set]), [['Album/01 Song.flac', true, {}]]);
 });
 
 test('an unreadable file is never written, and is named', () => {

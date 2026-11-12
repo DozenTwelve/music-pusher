@@ -22,6 +22,7 @@ const UNREADABLE = {
   sampleRate: null,
   bitDepth: null,
   hasArt: false,
+  hasFrontCover: false,
   duration: null,
   title: '',
   artist: '',
@@ -48,6 +49,15 @@ const UNREADABLE = {
 // ones back to TagLib's own names (ALBUMARTIST, MUSICBRAINZ_ALBUMID), which for
 // a Vorbis comment is the literal field name in the file.
 const tagLibName = (key) => (Object.hasOwn(PROPERTIES, key) ? PROPERTIES[key].key : key);
+
+// The album's cover among a track's pictures: one typed as the front cover, or
+// an untyped one ("Other"), which is how ffmpeg embeds a picture. A back cover,
+// a booklet page or an artist photo is a picture but not the cover. (An MP4
+// cannot type its pictures; TagLib reads them all as front covers.)
+const isFrontCover = (picture) => picture.type === 'FrontCover' || picture.type === 'Other';
+
+// ID3v1 is the last 128 bytes, starting "TAG".
+const hasId3v1 = (bytes) => bytes.length >= 128 && bytes[bytes.length - 128] === 0x54 && bytes[bytes.length - 127] === 0x41 && bytes[bytes.length - 126] === 0x47;
 
 // The track record shared/inspect.js `diagnoseAlbum` expects, built from bytes.
 // Mirrors server/metadata/inspect.js + probe.js field for field, plus
@@ -97,6 +107,7 @@ export async function readTrack(taglib, file, bytes) {
       // lossy codec, and "bit depth" means nothing there, so follow ffprobe.
       bitDepth: (props.isLossless && props.bitsPerSample) || null,
       hasArt: handle.getPictures().length > 0,
+      hasFrontCover: handle.getPictures().some(isFrontCover),
       // 0 for a FLAC whose STREAMINFO says total_samples=0.
       duration: props.durationMs ? props.durationMs / 1000 : null,
       title: tag('TITLE'),
@@ -134,7 +145,7 @@ export async function readPicture(taglib, file, bytes) {
   const handle = await taglib.open({ name: file, data: bytes });
   try {
     const pictures = handle.getPictures();
-    const picture = pictures.find((candidate) => candidate.type === 'FrontCover') || pictures[0];
+    const picture = pictures.find((candidate) => candidate.type === 'FrontCover') || pictures.find(isFrontCover) || pictures[0];
     // A copy: the picture must outlive the handle.
     return picture ? { mimeType: picture.mimeType, data: picture.data.slice() } : null;
   } finally {
@@ -148,7 +159,9 @@ export async function readPicture(taglib, file, bytes) {
 //          TagLib puts each name where the container's convention has it:
 //          uppercase Vorbis comments, ID3v2 frames, MP4 atoms.
 //          TRACKNUMBER / DISCNUMBER take "2/9" to carry the total.
-//   cover: JPEG bytes; replaces every embedded picture with one front cover
+//   cover: JPEG bytes; the front cover, put first, in place of the one the file
+//          has (isFrontCover); every other picture is kept.
+// An MP3 is saved without an ID3v1 tag unless it came with one.
 export async function writeTrack(taglib, file, bytes, { set = {}, cover } = {}) {
   const handle = await taglib.open({ name: file, data: bytes });
   try {
@@ -189,14 +202,19 @@ export async function writeTrack(taglib, file, bytes, { set = {}, cover } = {}) 
 
     handle.setProperties(properties);
     if (cover) {
-      handle.setPictures([{ mimeType: 'image/jpeg', data: cover, type: 'FrontCover', description: '' }]);
+      const others = handle.getPictures().filter((picture) => !isFrontCover(picture));
+      handle.setPictures([{ mimeType: 'image/jpeg', data: cover, type: 'FrontCover', description: '' }, ...others]);
     }
     if (!handle.save()) {
       throw new Error(`TagLib could not save ${file}`);
     }
-    const output = handle.getFileBuffer();
+    const saved = handle.getFileBuffer();
     const picardCase = mp3 && PICARD_TXXX.some(([name]) => properties[name]);
-    return picardCase || strayComments.length > 0 ? patchId3Frames(taglib, file, output, picardCase, strayComments) : output;
+    const output = picardCase || strayComments.length > 0 ? await patchId3Frames(taglib, file, saved, picardCase, strayComments) : saved;
+    // TagLib copies the ID3v2 tag into an ID3v1 one on every save, and the
+    // binding offers no way to say otherwise. ID3v1 holds Latin-1 only, so CJK
+    // would land there as "?": a tag the file did not have is cut off again.
+    return mp3 && !hasId3v1(bytes) && hasId3v1(output) ? output.subarray(0, output.length - 128) : output;
   } finally {
     handle.dispose();
   }

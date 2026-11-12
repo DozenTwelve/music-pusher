@@ -236,10 +236,11 @@ test('a whole album: every fix at once, and everything else passed through', asy
   assert.deepEqual(await tagsOf("01 Don't.flac"), ['ALBUM=Mess', 'ALBUMARTIST=AA', 'ARTIST=AA', 'DATE=2020', 'GENRE=Pop', 'TITLE=Don’t', 'TRACKNUMBER=1/4']);
   assert.deepEqual(await tagsOf('02 Two.flac'), ['ALBUM=Mess', 'ALBUMARTIST=AA', 'ARTIST=AA', 'DATE=2020', 'GENRE=Pop', 'TITLE=Two', 'TRACKNUMBER=2/4']);
   assert.deepEqual(await tagsOf('03 Three.flac'), ['ALBUM=Mess', 'ALBUMARTIST=AA', 'ARTIST=AA', 'DATE=2020', 'GENRE=Pop', 'TITLE=Three', 'TRACKNUMBER=3/4']);
-  // One picture in every track, and it is the cover.
-  for (const [source, file] of [['01 Don_t.flac', "01 Don't.flac"], ['02 Two.flac', '02 Two.flac'], ['03 Three.flac', '03 Three.flac']]) {
+  // One picture in every track: the cover where there was none, and the
+  // track's own where it had one.
+  for (const [source, file, picture] of [['01 Don_t.flac', "01 Don't.flac", embedded], ['02 Two.flac', '02 Two.flac', coverFile], ['03 Three.flac', '03 Three.flac', coverFile]]) {
     assert.equal((await probe(out(file))).pictures, 1, file);
-    assert.deepEqual(await embeddedPicture(out(file)), await bytesOf(coverFile), file);
+    assert.deepEqual(await embeddedPicture(out(file)), await bytesOf(picture), file);
     assert.equal(await audioMd5(out(file)), await audioMd5(path.join(dir, source)), file);
   }
   // Stored, never deflated.
@@ -274,6 +275,38 @@ test('the cover comes out of another track when no image lies loose, and switche
   assert.deepEqual(await embeddedPicture(path.join(outDir, name, '2.m4a')), await bytesOf(picture));
   assert.deepEqual(await bytesOf(path.join(outDir, name, '1.m4a')), await bytesOf(path.join(dir, '1.m4a')));
   assert.equal((await probe(path.join(outDir, name, '2.m4a'))).tags.album, 'Other');
+});
+
+test('two discs in two folders, with no number in any tag: numbered per disc, and the lyrics renamed with their track', async () => {
+  const dir = path.join(tmp, 'Two');
+  const files = ['CD1/01 Song.flac', "CD1/02 Don_t.flac", 'CD1/03 Song.flac', 'CD2/01 Song.flac', 'CD2/02 Song.flac', 'CD2/03 Song.flac'];
+  for (const [i, file] of files.entries()) {
+    await fsp.mkdir(path.dirname(path.join(dir, file)), { recursive: true });
+    await ffmpeg(...SINE, ...metadataArgs({ ALBUM: 'Two', ARTIST: 'AA', ALBUMARTIST: 'AA', TITLE: `t${i + 1}` }), path.join(dir, file));
+  }
+  await ffmpeg('-f', 'lavfi', '-i', 'color=c=red:s=16x16', '-frames:v', '1', path.join(dir, 'cover.jpg'));
+  await fsp.writeFile(path.join(dir, 'CD1', '02 Don_t.lrc'), '[00:00.00]words');
+
+  const { name, before, result, after: cleaned } = await clean(dir);
+  assert.deepEqual(before.fixes.map((fix) => fix.id), ['track_numbers', 'filenames', 'cover_embed']);
+  assert.deepEqual(before.cannotFix, []);
+  assert.deepEqual(result.failed, []);
+  // Checked again, nothing is wrong: no gap, no number twice.
+  assert.deepEqual(cleaned.fixes, []);
+  assert.deepEqual(cleaned.cannotFix, []);
+  assert.deepEqual(cleaned.verdict, { code: 'fine', albums: 1, tracks: 6 });
+
+  const { outDir } = await extract(result.blob, 'Two');
+  const out = (file) => path.join(outDir, name, file);
+  assert.deepEqual((await fsp.readdir(path.join(outDir, name), { recursive: true })).sort(), [
+    'CD1', "CD1/01 Song.flac", "CD1/02 Don't.flac", "CD1/02 Don't.lrc", 'CD1/03 Song.flac',
+    'CD2', 'CD2/01 Song.flac', 'CD2/02 Song.flac', 'CD2/03 Song.flac', 'cover.jpg'
+  ]);
+  assert.equal(await fsp.readFile(out("CD1/02 Don't.lrc"), 'utf8'), '[00:00.00]words');
+  const numbers = async (file) => (await vorbisComments(out(file))).filter((line) => /^(TRACK|DISC)NUMBER=/.test(line)).sort();
+  for (const [file, disc, track] of [['CD1/01 Song.flac', 1, 1], ["CD1/02 Don't.flac", 1, 2], ['CD2/01 Song.flac', 2, 1], ['CD2/03 Song.flac', 2, 3]]) {
+    assert.deepEqual(await numbers(file), [`DISCNUMBER=${disc}`, `TRACKNUMBER=${track}/3`], file);
+  }
 });
 
 // --- Taking an album in ---------------------------------------------------------------

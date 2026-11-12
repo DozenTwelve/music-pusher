@@ -104,10 +104,11 @@ const en = {
       ? `Copy the MusicBrainz ID to the ${count(total - n, 'one track', '{n} tracks')} without one`
       : `${ids} different MusicBrainz IDs. Use the one on ${n} of ${total} tracks for all`,
   'fix.track_numbers': ({ count: n, example }) => `Write complete track numbers on ${tracks(n)} (as ${example}, counted per disc)`,
+  'fix.track_numbers.discs': 'No track says which disc it is on, so each folder is taken as one disc, in folder order ({n} discs). The disc number is written too.',
   'fix.text': ({ count: n }) => `Repair damaged text, and strip stray spaces and invisible characters (${count(n, 'one place', '{n} places')})`,
   'fix.filenames': ({ n }) => `Repair ${count(n, 'one file name', '{n} file names')}`,
   'fix.becomes': '“{from}” becomes “{to}”',
-  'fix.cover_embed': ({ missing, total }) => `Put the cover in every track (${missing} of ${total} ${missing === 1 ? 'has' : 'have'} none)`,
+  'fix.cover_embed': ({ missing, total }) => `Put the cover in the tracks without one (${missing} of ${total}). Other pictures stay.`,
   'fix.cover_file': 'Add cover.jpg to the folder. Navidrome looks there first.',
 
   'cannot.title': 'Can’t be fixed here',
@@ -233,10 +234,11 @@ const zh = {
   'fix.mbid': ({ ids, count: n, total }) =>
     ids === 1 ? `给 ${total - n} 首没有 MusicBrainz 编号的歌补上` : `有 ${ids} 个不同的 MusicBrainz 编号，统一用 ${total} 首里 ${n} 首在用的那个`,
   'fix.track_numbers': '把 {count} 首歌的音轨号补完整（写成 {example}，每张碟分开计数）',
+  'fix.track_numbers.discs': '歌曲里没写是第几张碟，所以一个文件夹算一张碟，按文件夹顺序排（共 {n} 张），碟号也一起写上。',
   'fix.text': '修好损坏的文字，去掉多余空格和看不见的字符（{count} 处）',
   'fix.filenames': '修好 {n} 个文件名',
   'fix.becomes': '“{from}”改成“{to}”',
-  'fix.cover_embed': '把封面写进每一首歌（{total} 首里有 {missing} 首没有）',
+  'fix.cover_embed': '把封面写进没有封面的歌（{total} 首里有 {missing} 首），其他图片保留。',
   'fix.cover_file': '在文件夹里放一个 cover.jpg，Navidrome 最先找它。',
 
   'cannot.title': '这里修不了的',

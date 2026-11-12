@@ -237,6 +237,9 @@ function Fix({ t, fix, coverName, example, onChange }) {
   if (sample && normalizeTagValue(sample.from) !== sample.to) {
     hints.push(t('fix.becomes', sample));
   }
+  if (fix.id === 'track_numbers' && fix.discs) {
+    hints.push(t('fix.track_numbers.discs', { n: fix.discs }));
+  }
   if (fix.id === 'cover_embed' && coverName) {
     hints.push(t('cover.guess', { name: coverName }));
   }
@@ -514,7 +517,8 @@ function App({ language }) {
     const listed = cannot.some((entry) => entry.code !== 'no_cover');
     // The example in the track-number row is one this album will really get: its third, where it has one.
     const numbers = planWrites(album.inspected.report, album.read.tracks, [{ id: 'track_numbers', on: true }], album.inspected.context).files;
-    const numbered = numbers[Math.min(2, numbers.length - 1)]?.set.TRACKNUMBER;
+    const renumbered = numbers.filter((entry) => entry.set.TRACKNUMBER);
+    const numbered = renumbered[Math.min(2, renumbered.length - 1)]?.set.TRACKNUMBER;
     main = (
       <>
         <h1 className="headline" ref={title} tabIndex={-1}>
