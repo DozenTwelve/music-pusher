@@ -5,6 +5,7 @@ import { AUDIO_EXTENSIONS } from '../upload.js';
 import { listAudioFiles, probeTags, runProcess, TEMP_PREFIX } from './probe.js';
 import { normalizeDate, parseNumberPair, leadingTrackNumber } from '../../shared/tags.js';
 import { normalizeReleaseDate } from '../../shared/identity.js';
+import { discsOf } from '../../shared/plan.js';
 import { analyzeText, suggestFilenameFix, TEXT_FIELDS } from '../../shared/text.js';
 import { inspectAlbum } from './inspect.js';
 import { withAlbumLock } from './lock.js';
@@ -80,29 +81,36 @@ export async function fixAlbum(album, options = {}) {
   return withAlbumLock(album, 'fix_busy', () => runFix(album, options));
 }
 
-// Disc and track number for every file, counted per disc. A file with no disc
-// tag is on disc 1 — unless no file has one and the files sit in several
-// folders (CD1/, CD2/), when each folder is a disc in name order. A disc where
-// two files claim the same number keeps the numbers it has: writing them would
-// bake the collision into the tags. Those files come back as errors.
+// Disc and track number for every file, counted per disc. The disc is the one
+// the web plan picks (shared/plan.js discsOf): the disc tag, else 1 — or each
+// folder in name order when no track has a disc tag and the numbering starts
+// over in every folder (CD1/01…, CD2/01…). A disc where two files claim the
+// same number keeps the numbers it has: writing them would bake the collision
+// into the tags. Those files come back as errors.
 function numberTracks(files, scan, albumPath, unifiedDisc) {
-  const discOf = (absPath) => {
+  const rel = (absPath) => path.relative(albumPath, absPath);
+  const records = files.map((absPath) => {
     const tags = scan.get(absPath);
-    return parseNumberPair(unifiedDisc ?? (tags.disc || tags.disk || tags.discnumber)).num;
-  };
-  const folders = [...new Set(files.map((absPath) => path.dirname(absPath)))].sort((a, b) =>
-    a.localeCompare(b, undefined, { numeric: true })
-  );
-  const byFolder = folders.length > 1 && files.every((absPath) => discOf(absPath) == null);
+    return {
+      file: rel(absPath),
+      readable: Boolean(tags.__ok),
+      track: tags.track || tags.tracknumber || '',
+      disc: unifiedDisc ?? (tags.disc || tags.disk || tags.discnumber || '')
+    };
+  });
+  const { discs: discOf, byFolder } = discsOf(records);
+  const discCount = new Set(discOf.values()).size;
 
   const meta = new Map();
   const discs = new Map();
-  for (const absPath of files) {
-    const tags = scan.get(absPath);
-    const discNum = byFolder ? folders.indexOf(path.dirname(absPath)) + 1 : (discOf(absPath) ?? 1);
-    const num = parseNumberPair(tags.track || tags.tracknumber).num ?? leadingTrackNumber(absPath);
-    const entry = { discNum, num, discTag: byFolder ? `${discNum}/${folders.length}` : null };
+  for (const [i, absPath] of files.entries()) {
+    const discNum = discOf.get(records[i].file);
+    const num = parseNumberPair(records[i].track).num ?? leadingTrackNumber(absPath);
+    const entry = { discNum, num: discNum == null ? null : num, discTag: byFolder && discNum != null ? `${discNum}/${discCount}` : null };
     meta.set(absPath, entry);
+    if (discNum == null) {
+      continue;
+    }
     if (!discs.has(discNum)) {
       discs.set(discNum, []);
     }
@@ -111,7 +119,6 @@ function numberTracks(files, scan, albumPath, unifiedDisc) {
 
   const errors = [];
   for (const [discNum, onDisc] of discs) {
-    const rel = (absPath) => path.relative(albumPath, absPath);
     let clash = false;
     for (const [absPath, entry] of onDisc) {
       entry.total = onDisc.length;
@@ -136,18 +143,17 @@ function numberTracks(files, scan, albumPath, unifiedDisc) {
 // ffmpeg cannot write an m4a's freeform atoms back, so a rewrite loses a
 // RELEASEDATE (or YEAR) atom and ©day is the release date from then on. Where
 // the release date came from one of those atoms, the rewrite would move it to
-// whatever ©day says — a recording date, or the date being unified — so the
-// file is refused unless the two agree. Where it was ©day already, writing ©day
-// is how a release date is meant to be fixed.
+// whatever ©day says, so a fix that does not set the date is refused unless
+// the two agree. A date the user sets is the release date they asked for, and
+// where the release date was ©day already, writing ©day is how it is fixed.
 function releaseDateLoss(tags, fields) {
   const sources = [tags.releasedate, tags.date, tags.year];
   const from = sources.findIndex((value) => value && normalizeReleaseDate(value));
-  if (from === -1 || from === 1) {
+  if (from === -1 || from === 1 || fields.some(([field]) => field === 'date')) {
     return null;
   }
   const before = normalizeReleaseDate(sources[from]);
-  const written = fields.find(([field]) => field === 'date')?.[1] ?? tags.date ?? '';
-  const after = normalizeReleaseDate(written);
+  const after = normalizeReleaseDate(tags.date || '');
   if (after === before) {
     return null;
   }
@@ -155,6 +161,19 @@ function releaseDateLoss(tags, fields) {
     `ffmpeg cannot keep this m4a's ${from === 0 ? 'RELEASEDATE' : 'YEAR'} tag, so the rewrite would move ` +
     `its release date ${before} to ${after || 'nothing'} and could split the album; left as it is`
   );
+}
+
+// A total kept in a tag of its own (Vorbis TRACKTOTAL, TOTALTRACKS, …) is
+// rewritten along with an "n/total" number, so the two cannot disagree.
+const TOTAL_TAGS = { track: ['tracktotal', 'totaltracks'], disc: ['disctotal', 'totaldiscs'] };
+
+function totalFields(tags, fields) {
+  return fields.flatMap(([field, value]) => {
+    const { total } = parseNumberPair(value);
+    return total == null
+      ? []
+      : (TOTAL_TAGS[field] || []).filter((key) => tags[key] != null).map((key) => [key.toUpperCase(), String(total)]);
+  });
 }
 
 async function exists(target) {
@@ -270,12 +289,14 @@ async function runFix(album, options = {}) {
       continue;
     }
 
-    if (MP4_EXTENSIONS.has(path.extname(absPath).toLowerCase())) {
-      const loss = releaseDateLoss(scan.get(absPath) ?? (await probeTags(absPath)), fields);
+    if (fields.length > 0) {
+      const tags = scan.get(absPath) ?? (await probeTags(absPath));
+      const loss = MP4_EXTENSIONS.has(path.extname(absPath).toLowerCase()) && releaseDateLoss(tags, fields);
       if (loss) {
         errors.push({ file: path.relative(albumPath, absPath), message: loss });
         continue;
       }
+      fields.push(...totalFields(tags, fields));
     }
 
     try {

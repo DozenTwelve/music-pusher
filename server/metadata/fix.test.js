@@ -145,6 +145,45 @@ test('untagged discs in their own folders are numbered per folder', async (t) =>
   assert.equal(result.after.track.needsNormalize, false);
 });
 
+test('numbering that runs on from one folder into the next stays one disc', async (t) => {
+  const dir = await album(t, 'runs-on');
+  if (!dir) return;
+  // CD1/01-02 + CD2/03-04, and a Bonus/ folder carrying on from the root.
+  const layout = [['CD1', 1], ['CD1', 2], ['CD2', 3], ['CD2', 4], ['', 1], ['', 2], ['', 3], ['Bonus', 4]];
+  const expected = {};
+  for (const [i, [folder, n]] of layout.entries()) {
+    const set = i < 4 ? 'split' : 'bonus';
+    await fsp.mkdir(path.join(dir, set, folder), { recursive: true });
+    await writeTrack(path.join(dir, set, folder, `0${n}.flac`), meta([`TITLE=t${n}`, 'ALBUM=Alb', 'ALBUMARTIST=Art', `TRACKNUMBER=${n}`]));
+    expected[set] = [...(expected[set] || []), `${n}/4 `];
+  }
+
+  for (const set of ['split', 'bonus']) {
+    const result = await fixAlbum(path.join('runs-on', set), { normalizeTracks: true });
+    assert.deepEqual(result.errors, [], set);
+    assert.deepEqual(result.after.tracks.map((tr) => `${tr.track} ${tr.disc}`).sort(), expected[set].sort(), set);
+  }
+});
+
+test('a separate track or disc total follows the total that is written', async (t) => {
+  const dir = await album(t, 'stale-total');
+  if (!dir) return;
+  for (const n of [1, 2]) {
+    await writeTrack(
+      path.join(dir, `0${n}.flac`),
+      meta([`TITLE=t${n}`, 'ALBUM=Alb', 'ALBUMARTIST=Art', `TRACKNUMBER=${n}`, 'TRACKTOTAL=12', 'TOTALTRACKS=12', 'DISCNUMBER=1', 'DISCTOTAL=3'])
+    );
+  }
+
+  const result = await fixAlbum('stale-total', { set: { disc: '1/1' }, normalizeTracks: true });
+  assert.deepEqual(result.errors, []);
+  const tags = await probeTags(path.join(dir, '02.flac'));
+  assert.deepEqual(
+    [tags.track, tags.tracktotal, tags.totaltracks, tags.disc, tags.disctotal],
+    ['2/2', '2', '2', '1/1', '1']
+  );
+});
+
 test('track numbers that repeat on one disc are reported, never written', async (t) => {
   const dir = await album(t, 'dup-numbers');
   if (!dir) return;
@@ -222,16 +261,27 @@ test('an m4a fix never moves the release date onto the recording date', async (t
   const before = await inspectAlbum('m4a-release');
   assert.deepEqual(before.fields.release_date.distinct.map((d) => d.value), ['2020-05-01']);
 
-  // Unifying the date would write 1998 into ©day, which is then the only date
-  // left — and the album artist fix alone would leave 1998 and 1999 there, two
-  // albums where there was one.
-  for (const set of [{ date: '1998' }, { album_artist: 'Art' }]) {
-    const result = await fixAlbum('m4a-release', { set });
-    assert.deepEqual(result.changes, [], JSON.stringify(set));
-    assert.deepEqual(result.errors.map((e) => e.file), ['01.m4a', '02.m4a']);
-    assert.match(result.errors[0].message, /release date 2020-05-01/);
-    assert.deepEqual(result.after.fields.release_date.distinct.map((d) => d.value), ['2020-05-01']);
-  }
+  // The album artist fix alone would leave 1998 and 1999 in ©day, the only
+  // dates left: two albums where there was one.
+  const result = await fixAlbum('m4a-release', { set: { album_artist: 'Art' } });
+  assert.deepEqual(result.changes, []);
+  assert.deepEqual(result.errors.map((e) => e.file), ['01.m4a', '02.m4a']);
+  assert.match(result.errors[0].message, /release date 2020-05-01/);
+  assert.deepEqual(result.after.fields.release_date.distinct.map((d) => d.value), ['2020-05-01']);
+});
+
+test('an m4a date the user sets goes in, even over a RELEASEDATE', async (t) => {
+  const dir = await album(t, 'm4a-set-date');
+  if (!dir) return;
+  // Split by RELEASEDATE; setting the date is how the user merges it.
+  await writeM4a(path.join(dir, '01.m4a'), ['title=One', 'album=Alb', 'album_artist=Art', 'date=2020', 'RELEASEDATE=2020']);
+  await writeM4a(path.join(dir, '02.m4a'), ['title=Two', 'album=Alb', 'album_artist=Art', 'date=2020', 'RELEASEDATE=2021']);
+  assert.equal((await inspectAlbum('m4a-set-date')).groupCount, 2);
+
+  const result = await fixAlbum('m4a-set-date', { set: { date: '2020' } });
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.changes.length, 2);
+  assert.equal(result.after.groupCount, 1);
 });
 
 test('an m4a whose release date is ©day itself still takes a date fix', async (t) => {

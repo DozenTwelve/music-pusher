@@ -99,7 +99,7 @@ const byPath = (a, b) => a.localeCompare(b, undefined, { numeric: true });
 // (CD1/01…, CD2/01…), each folder is a disc, in path order. Numbering that runs
 // on from one folder into the next is one disc. An unreadable file is on the
 // disc of the tracks beside it, and on none when no track is.
-function discsOf(tracks) {
+export function discsOf(tracks) {
   const readable = tracks.filter((track) => track.readable);
   const folders = [...new Set(tracks.map((track) => dirname(track.file)))].sort(byPath);
   let last = 0;
