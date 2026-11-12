@@ -12,7 +12,7 @@ import { asAlbum, cleanAlbum, inspect, loadCover, readAlbum, recheck, refusal, s
 import { Arrive, FilePicker, Square, Tool } from './arrive.js';
 import { translator } from './i18n.js';
 import { initTagLib } from './tags.js';
-import { openZip } from './zip.js';
+import { openZip, ZipError } from './zip.js';
 
 // An error the page has a sentence for: `code` is an `error.*` key.
 const encodingName = (encoding) => encoding.toUpperCase().replace('_', ' ');
@@ -321,9 +321,49 @@ function App({ language }) {
   const [album, setAlbum] = useState(null);
   const [fixes, setFixes] = useState([]);
   const [result, setResult] = useState(null);
+  const [saved, setSaved] = useState(false); // the result's zip was downloaded
   const [over, setOver] = useState(false);
   const title = useRef(null);
   const busy = step === 'reading' || step === 'cleaning';
+  // One thing taken in at a time — a drop, a pick, a cover — from its first
+  // await until its step shows: a second one meanwhile is ignored. Stopping or
+  // starting over lets go at once; the work let go cannot unlock a newer one.
+  const taking = useRef(null);
+  const once = (work) => async (...args) => {
+    if (busy || taking.current) {
+      return;
+    }
+    const mine = {};
+    taking.current = mine;
+    try {
+      await work(...args);
+    } finally {
+      if (taking.current === mine) {
+        taking.current = null;
+      }
+    }
+  };
+  const current = useRef(null);
+  current.current = album;
+  // Counts the reads and cleans started; one that is no longer the last was
+  // stopped, and lets go at its next file.
+  const run = useRef(0);
+  const unsaved = step === 'done' && !saved;
+
+  // Leaving (the language switch, the guide, closing the tab) would lose the
+  // work under way, the plan, or a result not yet downloaded.
+  const holding = step !== 'arrive' && (step !== 'done' || unsaved);
+  useEffect(() => {
+    if (!holding) {
+      return undefined;
+    }
+    const hold = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    addEventListener('beforeunload', hold);
+    return () => removeEventListener('beforeunload', hold);
+  }, [holding]);
 
   // Each step opens on its headline, for a keyboard or a screen reader.
   useEffect(() => {
@@ -336,7 +376,9 @@ function App({ language }) {
   }, []);
 
   const fail = (problem) => {
-    setError(problem instanceof Refusal ? { code: problem.code, values: problem.values } : { code: 'unexpected', values: { message: problem.message } });
+    // A zip entry that will not open (password, packing) says what a zip that will not open says.
+    const refused = problem instanceof ZipError ? new Refusal('zip_bad') : problem;
+    setError(refused instanceof Refusal ? { code: refused.code, values: refused.values } : { code: 'unexpected', values: { message: refused.message } });
     setStep((current) => (current === 'reading' ? 'arrive' : current === 'cleaning' ? 'plan' : current));
   };
   const forget = () => {
@@ -347,48 +389,87 @@ function App({ language }) {
     }
     setAlbum(null);
     setResult(null);
+    setSaved(false);
     setFixes([]);
   };
   const startOver = () => {
+    run.current += 1;
+    taking.current = null;
     forget();
     setError(null);
     setStep('arrive');
   };
-  const report = (key) => (done, total, path) => setProgress({ done, total, key, name: basename(path) });
+  const report = (key, mine) => (done, total, path) => {
+    if (run.current !== mine) {
+      throw new Error('stopped');
+    }
+    setProgress({ done, total, key, name: basename(path) });
+  };
+  // Back to where the work started from; what it was doing is dropped.
+  const stop = () => {
+    run.current += 1;
+    taking.current = null;
+    setStep(step === 'cleaning' ? 'plan' : 'arrive');
+  };
 
   // `source` is a zip File, or the entries of a dropped or picked folder.
-  // `encoding` reads the zip's names in that encoding instead of the guess.
-  async function take(source, encoding) {
-    forget();
-    setError(null);
-    setProgress({ done: 0, total: 0, key: 'reading.start' });
-    setStep('reading');
+  // Nothing on the page is let go until what came is an album to take, and a
+  // finished result only when the user agrees. `asked` is the run it was
+  // dropped in: started over since, it is no longer wanted. `encoding` reads
+  // the zip's names in that encoding instead of the guess.
+  async function take(source, { encoding, asked = run.current } = {}) {
+    let zip;
+    let name;
+    let guess;
+    let entries;
     try {
-      const taglib = await loadTagLib();
-      const zip = source instanceof File ? await openZip(source, { encoding }).catch(() => Promise.reject(new Refusal('zip_bad'))) : null;
-      const { name, guess, entries } = asAlbum(zip ? zip.entries : source, zip ? source.name.replace(/\.zip$/i, '') : '');
+      zip = source instanceof File ? await openZip(source, { encoding }).catch(() => Promise.reject(new Refusal('zip_bad'))) : null;
+      ({ name, guess, entries } = asAlbum(zip ? zip.entries : source, zip ? source.name.replace(/\.zip$/i, '') : ''));
       const refused = refusal(entries);
       if (refused) {
         const { code, ...values } = refused;
         throw new Refusal(code, { ...values, size: t.size(values.size || 0), limit: t.size(values.limit || 0) });
       }
-      const read = await readAlbum(taglib, entries, report('reading.file'));
+    } catch (problem) {
+      return run.current === asked ? fail(problem) : undefined;
+    }
+    // Started over while the input was looked at: it is no longer wanted.
+    if (run.current !== asked || (unsaved && !window.confirm(t('confirm.replace')))) {
+      return;
+    }
+    forget();
+    setError(null);
+    setProgress({ done: 0, total: 0, key: 'reading.start' });
+    setStep('reading');
+    const mine = (run.current += 1);
+    try {
+      const taglib = await loadTagLib();
+      const read = await readAlbum(taglib, entries, report('reading.file', mine));
       const inspected = inspect(name, read, entries, { nameGuess: guess });
       const picture = await loadCover(taglib, entries, inspected.cover).catch(() => null);
       const cover = picture ? await coverFrom(picture.data).catch(() => null) : null;
+      // A cover that will not open as an image is no cover: the fixes that
+      // would put it in are not offered, and the empty sleeve says why.
+      const unreadable = inspected.cover && !cover ? inspected.cover : null;
+      const offered = unreadable ? inspected.fixes.filter((fix) => fix.id !== 'cover_embed' && fix.id !== 'cover_file') : inspected.fixes;
+      if (run.current !== mine) {
+        if (cover) {
+          URL.revokeObjectURL(cover.url);
+        }
+        return;
+      }
       const guessed = zip && (zip.encoding !== 'utf-8' || zip.alternatives.length > 0);
-      setAlbum({ name, guess, entries, read, inspected, cover, encoding: guessed ? { name: zip.encoding, sample: zip.sample, alternatives: zip.alternatives, source } : null });
-      setFixes(inspected.fixes);
+      setAlbum({ name, guess, entries, read, inspected, cover, unreadable, encoding: guessed ? { name: zip.encoding, sample: zip.sample, alternatives: zip.alternatives, source } : null });
+      setFixes(offered);
       setStep('plan');
     } catch (problem) {
-      fail(problem);
+      if (run.current === mine) {
+        fail(problem);
+      }
     }
   }
 
   async function takeFiles(files) {
-    if (busy) {
-      return;
-    }
     if (files.length === 1 && isZip(files[0])) {
       await take(files[0]);
     } else {
@@ -401,39 +482,53 @@ function App({ language }) {
   async function addCover(file) {
     try {
       const cover = await coverFrom(new Uint8Array(await file.arrayBuffer())).catch(() => Promise.reject(new Refusal('bad_image')));
+      // Started over while the image was read: it is for an album no longer here.
+      if (current.current !== album) {
+        URL.revokeObjectURL(cover.url);
+        return;
+      }
       const inspected = inspect(album.name, album.read, album.entries, { nameGuess: album.guess, hasUserCover: true });
       setError(null);
       setAlbum({ ...album, inspected, cover });
-      setFixes(inspected.fixes.map((fix) => ({ ...fix, ...fixes.find((old) => old.id === fix.id) })));
+      setFixes((now) => inspected.fixes.map((fix) => ({ ...fix, ...now.find((old) => old.id === fix.id) })));
     } catch (problem) {
-      fail(problem);
+      if (current.current === album) {
+        fail(problem);
+      }
     }
   }
 
   async function clean() {
+    // A cover still being read is part of the plan.
+    if (taking.current) {
+      return;
+    }
     setError(null);
     setProgress({ done: 0, total: 0, key: 'reading.start' });
     setStep('cleaning');
+    const mine = (run.current += 1);
     try {
       const taglib = await loadTagLib();
-      const { blob, changed, failed } = await cleanAlbum(taglib, album.entries, album.inspected, fixes, album.cover?.jpeg, report('cleaning.file'));
-      setProgress({ done: 0, total: 0, key: 'cleaning.check' });
-      const after = await recheck(taglib, blob, album.name);
-      setResult({ url: URL.createObjectURL(blob), size: blob.size, changed, failed, after });
+      const { blob, changed, failed, left } = await cleanAlbum(taglib, album.entries, album.inspected, fixes, album.cover?.jpeg, report('cleaning.file', mine));
+      report('cleaning.check', mine)(0, 0, ''); // stopped meanwhile: lets go here
+      const after = await recheck(taglib, blob, album.name, report('cleaning.check', mine));
+      if (run.current !== mine) {
+        return;
+      }
+      setResult({ url: URL.createObjectURL(blob), size: blob.size, changed, failed, left, after });
+      setSaved(false);
       setStep('done');
     } catch (problem) {
-      fail(problem);
+      if (run.current === mine) {
+        fail(problem);
+      }
     }
   }
 
   // The whole page takes a drop. Kept in a ref so the listeners, attached once,
   // always act on the present step.
   const onDrop = useRef(null);
-  onDrop.current = async (event) => {
-    setOver(false);
-    if (busy) {
-      return;
-    }
+  const dropped = once(async (event) => {
     // Entries must be taken before the first await: the item list dies with the event.
     const nodes = [...event.dataTransfer.items].map((item) => item.webkitGetAsEntry?.()).filter(Boolean);
     const files = [...event.dataTransfer.files];
@@ -444,15 +539,20 @@ function App({ language }) {
     if (!nodes.some((node) => node.isDirectory)) {
       return takeFiles(files);
     }
+    const asked = run.current;
     const found = [];
     try {
       for (const node of nodes) {
         await walk(node, found);
       }
     } catch (problem) {
-      return fail(problem);
+      return run.current === asked ? fail(problem) : undefined;
     }
-    return take(found);
+    return take(found, { asked });
+  });
+  onDrop.current = (event) => {
+    setOver(false);
+    dropped(event);
   };
   useEffect(() => {
     const hasFiles = (event) => [...(event.dataTransfer?.types || [])].includes('Files');
@@ -493,7 +593,7 @@ function App({ language }) {
 
   let main;
   if (step === 'arrive') {
-    main = <Arrive t={t} limit={LIMITS.album} over={over} alert={alert} onFiles={takeFiles} titleRef={title} />;
+    main = <Arrive t={t} limit={LIMITS.album} over={over} alert={alert} onFiles={once(takeFiles)} titleRef={title} />;
   } else if (busy) {
     main = (
       <>
@@ -508,6 +608,11 @@ function App({ language }) {
           </div>
           <div className="body">
             <Progress t={t} progress={running} />
+            <div className="actions">
+              <button type="button" className="button" onClick={stop}>
+                {t('action.cancel')}
+              </button>
+            </div>
           </div>
         </div>
       </>
@@ -543,7 +648,7 @@ function App({ language }) {
         {album.encoding?.alternatives.length > 0 && (
           <div className="actions">
             {album.encoding.alternatives.map((other) => (
-              <button type="button" className="button" key={other.encoding} onClick={() => take(album.encoding.source, other.encoding)}>
+              <button type="button" className="button" key={other.encoding} onClick={() => take(album.encoding.source, { encoding: other.encoding })}>
                 {other.sample}
                 <span className="button__meta">{encodingName(other.encoding)}</span>
               </button>
@@ -557,7 +662,12 @@ function App({ language }) {
             cover={album.cover}
             albums={albums}
             caption={t('shelf.before')}
-            picker={<FilePicker className="link" label={t('cover.add')} onFiles={([file]) => addCover(file)} accept="image/*" />}
+            picker={
+              <>
+                {album.unreadable && <p className="small">{t(`cover.unreadable.${album.unreadable.kind}`, { name: basename(album.unreadable.path || album.unreadable.file) })}</p>}
+                <FilePicker className="link" label={t('cover.add')} onFiles={once(([file]) => addCover(file))} accept="image/*" />
+              </>
+            }
           />
           <div className={listed ? 'body' : 'body body--wide'}>
             <div className="actions">
@@ -591,7 +701,7 @@ function App({ language }) {
       </>
     );
   } else {
-    const { after, changed, failed } = result;
+    const { after, changed, failed, left: notIn } = result;
     const [headline, ...rest] = verdictLines(t, after.verdict, true);
     const hasCover = after.album.tracks.some((track) => track.hasArt) || after.cover;
     const before = shelf(album.read.tracks);
@@ -608,11 +718,12 @@ function App({ language }) {
             {unbroken(line)}
           </p>
         ))}
+        {alert}
         <div className="row" data-tiles={albums.length > 1 ? 'many' : 'one'}>
           <Rack t={t} cover={hasCover ? album.cover : null} albums={albums} caption={t('shelf.after')} />
           <div className={listed ? 'body' : 'body body--wide'}>
             <div className="actions">
-              <a className="button button--primary" href={result.url} download={`${album.name}.zip`}>
+              <a className="button button--primary" href={result.url} download={`${album.name}.zip`} onClick={() => setSaved(true)}>
                 {t('action.download')}
                 <span className="button__meta num">{t.size(result.size)}</span>
               </a>
@@ -628,6 +739,12 @@ function App({ language }) {
                 <li>
                   {t('done.failed', { n: failed.length })}
                   <span className="files">{fileNames(t, failed)}</span>
+                </li>
+              )}
+              {notIn.length > 0 && (
+                <li>
+                  {t('done.left', { n: notIn.length })}
+                  <span className="files">{fileNames(t, notIn)}</span>
                 </li>
               )}
             </ul>

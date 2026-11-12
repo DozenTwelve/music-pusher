@@ -78,6 +78,8 @@ const en = {
   'cover.alt': 'Album cover',
   'cover.none': 'No cover',
   'cover.add': 'Add a cover image',
+  'cover.unreadable.file': '{name} can’t be read as an image.',
+  'cover.unreadable.embedded': 'The cover inside {name} can’t be read.',
   'cover.guess': 'Using {name}, the only image in the folder. If that is not the cover, switch this off.',
 
   'plan.title': 'Fixes',
@@ -136,9 +138,12 @@ const en = {
   'action.another': 'Choose another album',
   'action.download': 'Download the zip',
   'action.again': 'Fix another album',
+  'action.cancel': 'Stop',
+  'confirm.replace': 'Take this album in place of the one just fixed? Download its zip first if you still need it.',
   'done.next': 'Replace the old folder with what is in the zip, then rescan in Navidrome.',
   'done.changed': ({ n }) => (n === 0 ? 'No track needed rewriting.' : `${count(n, 'One track', '{n} tracks')} rewritten. Everything else is in the zip untouched.`),
   'done.failed': ({ n }) => `${count(n, 'One track', '{n} tracks')} could not be rewritten and ${n === 1 ? 'is' : 'are'} in the zip unchanged.`,
+  'done.left': ({ n }) => `${count(n, 'One file', '{n} files')} in the archive couldn’t be opened (password-protected, most likely) and ${n === 1 ? 'is' : 'are'} not in the zip.`,
 
   'error.no_audio': 'No FLAC, MP3 or M4A files in there.',
   'error.track_too_big': '“{name}” is {size}. The limit is {limit} a track.',
@@ -211,6 +216,8 @@ const zh = {
   'cover.alt': '专辑封面',
   'cover.none': '没有封面',
   'cover.add': '添加封面图片',
+  'cover.unreadable.file': '{name} 读不出图片。',
+  'cover.unreadable.embedded': '{name} 里的封面读不出来。',
   'cover.guess': '用的是文件夹里唯一的图片 {name}。如果它不是封面，就把这一项关掉。',
 
   'plan.title': '要修的地方',
@@ -265,9 +272,12 @@ const zh = {
   'action.another': '换一张专辑',
   'action.download': '下载 zip',
   'action.again': '再修一张',
+  'action.cancel': '停止',
+  'confirm.replace': '换成这张专辑吗？刚修好的 zip 如果还要，先下载。',
   'done.next': '用 zip 里的文件夹替换原来的，再让 Navidrome 重新扫描。',
   'done.changed': ({ n }) => (n === 0 ? '没有需要改写的歌。' : `改写了 ${n} 首歌，其余文件原样放进了 zip。`),
   'done.failed': '{n} 首歌没能改写，原样放进了 zip。',
+  'done.left': '压缩包里有 {n} 个文件打不开（多半加了密码），没有放进 zip。',
 
   'error.no_audio': '里面没有 FLAC、MP3 或 M4A 文件。',
   'error.track_too_big': '“{name}”有 {size}，单个文件上限是 {limit}。',
@@ -292,7 +302,7 @@ export function translator(code) {
   t.list = (items) => new Intl.ListFormat(tag, { style: 'long', type: 'conjunction' }).format(items);
   // "1.2 GB", with a space that will not break before the unit.
   t.size = (bytes) => {
-    const [value, unit] = bytes >= 1e9 ? [bytes / 1e9, 'GB'] : [bytes / 1e6, 'MB'];
+    const [value, unit] = bytes >= 1e9 ? [bytes / 1e9, 'GB'] : bytes >= 1e6 ? [bytes / 1e6, 'MB'] : [bytes / 1e3, 'KB'];
     return `${new Intl.NumberFormat(tag, { maximumFractionDigits: value < 10 ? 1 : 0 }).format(value)} ${unit}`;
   };
   return t;

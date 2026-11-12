@@ -9,7 +9,7 @@ import { basename, extname } from '../../shared/paths.js';
 import { albumIdentity } from '../../shared/identity.js';
 import { planAlbum, planWrites } from '../../shared/plan.js';
 import { readTrack, readPicture, writeTrack } from './tags.js';
-import { openZip, zipWriter } from './zip.js';
+import { openZip, zipWriter, ZipError } from './zip.js';
 import { LIMITS } from './limits.js';
 
 // The containers the tag code is proven on (spike.test.js).
@@ -125,18 +125,33 @@ export async function loadCover(taglib, entries, cover) {
 // plan names rewritten (and renamed), everything else byte for byte.
 //   fixes   the proposal as the user left it
 //   cover   the album's cover as JPEG bytes, when the plan may need it
-// -> { blob, changed, failed }: the zip, how many tracks were rewritten, and
-// the tracks that could not be and went in as they came.
+// -> { blob, changed, failed, left }: the zip, how many tracks were rewritten,
+// the tracks that could not be and went in as they came, and the files the
+// archive would not hand over (password-protected, or packed in a way it does
+// not read), which are not in the zip.
+// shortcut: those are left out rather than copied across still locked, which
+// would mean writing their raw bytes and headers in zip.js.
 export async function cleanAlbum(taglib, entries, inspected, fixes, cover, progress) {
   const { files, addCover } = planWrites(inspected.report, inspected.report.tracks, fixes, inspected.context);
   const todo = new Map(files.map((entry) => [entry.file, entry]));
   const step = stepper(entries, progress);
   const zip = zipWriter();
   const failed = [];
+  const left = [];
   let changed = 0;
   for (const entry of entries) {
     step(entry);
-    let bytes = await entry.read();
+    let bytes;
+    try {
+      bytes = await entry.read();
+    } catch (problem) {
+      // A track was read once already, so only a file beside the tracks gets here.
+      if (!(problem instanceof ZipError) || isTrack(entry)) {
+        throw problem;
+      }
+      left.push(entry.path);
+      continue;
+    }
     const { set = {}, cover: embed = false, rename = null } = todo.get(entry.path) || {};
     const picture = embed && cover ? cover : undefined;
     if (Object.keys(set).length > 0 || picture) {
@@ -152,7 +167,7 @@ export async function cleanAlbum(taglib, entries, inspected, fixes, cover, progr
   if (addCover && cover) {
     zip.add(addCover, cover);
   }
-  return { blob: zip.finish(), changed, failed };
+  return { blob: zip.finish(), changed, failed, left };
 }
 
 // The proof: the finished zip, opened and read as if it had just been dropped.

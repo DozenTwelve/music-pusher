@@ -534,6 +534,29 @@ test('zip names: paths cannot climb out, backslashes are separators, folders are
   assert.deepEqual((await openZip(blob)).entries.map((entry) => entry.path), ['evil.flac', 'abs/1.flac', 'Al/CD1/1.flac', 'Al/2.flac']);
 });
 
+test('a password-protected zip: an encrypted file beside the tracks is left out and named, an encrypted track is refused', async () => {
+  const stage = path.join(tmp, 'locked', 'Al');
+  await fsp.mkdir(stage, { recursive: true });
+  await ffmpeg(...SINE, ...metadataArgs({ ALBUM: 'Al', ARTIST: 'A', ALBUMARTIST: 'A', TITLE: 'One', TRACKNUMBER: '1' }), path.join(stage, '01 One.flac'));
+  await fsp.writeFile(path.join(stage, 'notes.txt'), 'liner notes');
+  const cwd = path.dirname(stage);
+  assert.equal((await run('zip', ['-q', 'half.zip', 'Al/01 One.flac'], { cwd })).code, 0);
+  assert.equal((await run('zip', ['-q', '-P', 'secret', 'half.zip', 'Al/notes.txt'], { cwd })).code, 0);
+  assert.equal((await run('zip', ['-q', '-P', 'secret', 'whole.zip', 'Al/01 One.flac'], { cwd })).code, 0);
+
+  const half = await openZip(new Blob([await fsp.readFile(path.join(cwd, 'half.zip'))]));
+  const { name, entries } = asAlbum(half.entries, 'half');
+  const album = await readAlbum(taglib, entries);
+  const before = inspect(name, album, entries);
+  const result = await cleanAlbum(taglib, entries, before, before.fixes, null);
+  assert.deepEqual(result.left, ['Al/notes.txt']);
+  const { outDir } = await extract(result.blob, 'locked');
+  assert.deepEqual((await fsp.readdir(path.join(outDir, 'Al'))).sort(), ['01 One.flac']);
+
+  const whole = await openZip(new Blob([await fsp.readFile(path.join(cwd, 'whole.zip'))]));
+  await assert.rejects(readAlbum(taglib, asAlbum(whole.entries, 'whole').entries), ZipError);
+});
+
 test('a file that is no zip, and a zip made by the system zip', async () => {
   await assert.rejects(openZip(new Blob(['not a zip at all'])), ZipError);
 

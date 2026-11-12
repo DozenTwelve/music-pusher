@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { GROUND_TRUTH, BY_RULE } from '../shared/navidrome.groundtruth.js';
 import { translator } from './src/i18n.js';
@@ -141,6 +142,69 @@ test('the home pages carry the tool’s start screen in their HTML', () => {
     assert.ok(text.includes(t('arrive.formats', { album: translate.size(LIMITS.album) })), `${page.file}: formats`);
     assert.match(rendered.get(page), new RegExp(`<div id="app" data-language="${page.language}">`));
   }
+});
+
+// The one script in a page's head, run as a browser would with what the visitor
+// remembered (or nothing, or storage that throws) and the browser's languages.
+// -> where it sends them, or null for staying.
+function arrive(html, { stored, languages, language = languages?.[0], storage = true }) {
+  const [, script] = /<head>[\s\S]*?<script>([\s\S]*?)<\/script>/.exec(html) || [];
+  if (!script) {
+    return null;
+  }
+  let sent = null;
+  const localStorage = {
+    getItem: () => {
+      if (!storage) {
+        throw new Error('SecurityError');
+      }
+      return stored ?? null;
+    }
+  };
+  const location = { search: '?a=1', hash: '#b', replace: (to) => (sent = to) };
+  vm.runInNewContext(script, { localStorage, location, navigator: { languages, language } });
+  return sent;
+}
+
+test('the root sends a visitor to Chinese by their own choice, else by the browser; no other address moves', () => {
+  const root = rendered.get(PAGES.find((page) => page.path === '/'));
+  const cases = [
+    [{ stored: 'zh', languages: ['en-US'] }, '/zh/?a=1#b'],
+    [{ stored: 'en', languages: ['zh-CN', 'zh'] }, null],
+    [{ languages: ['zh-CN', 'en'] }, '/zh/?a=1#b'],
+    [{ languages: ['zh-TW'] }, '/zh/?a=1#b'],
+    [{ languages: ['ja', 'zh-Hans', 'en'] }, '/zh/?a=1#b'],
+    [{ languages: ['en-GB', 'zh-CN'] }, null],
+    [{ languages: ['fr', 'de'] }, null],
+    [{ languages: undefined, language: 'zh-CN' }, '/zh/?a=1#b'],
+    [{ stored: 'xx', languages: ['zh-CN'] }, '/zh/?a=1#b'],
+    // No storage: a click on English could not be remembered, so the browser cannot overrule it.
+    [{ storage: false, languages: ['zh-CN'] }, null],
+    [{ storage: false, languages: ['en-US'] }, null]
+  ];
+  for (const [visitor, expected] of cases) {
+    assert.equal(arrive(root, visitor), expected, JSON.stringify(visitor));
+  }
+  for (const page of PAGES.filter((candidate) => candidate.path !== '/')) {
+    assert.equal(arrive(rendered.get(page), { languages: ['zh-CN'] }), null, page.file);
+    assert.equal(arrive(rendered.get(page), { stored: 'en', languages: ['zh-CN'] }), null, page.file);
+  }
+  // Both links of the switch are the ones main.js remembers a click on.
+  for (const page of PAGES) {
+    const links = all(rendered.get(page), /<a [^>]*data-language="(\w+)"/g).map((match) => match[1]);
+    assert.deepEqual(links.sort(), ['en', 'zh'], page.file);
+  }
+});
+
+test('sizes read in a unit that shows them: a small zip is not “0 MB”', () => {
+  const en = translator('en');
+  const zh = translator('zh');
+  // The space before the unit does not break.
+  const sizes = [[2.6e9, '2.6 GB'], [80e6, '80 MB'], [1.5e6, '1.5 MB'], [999_000, '999 KB'], [42_000, '42 KB'], [300, '0.3 KB']];
+  for (const [bytes, shown] of sizes) {
+    assert.equal(en.size(bytes), shown.replace(' ', '\u00a0'));
+  }
+  assert.equal(zh.size(42_000), '42\u00a0KB');
 });
 
 test('the guide shows every case of the scan once, with the count Navidrome gave', () => {
