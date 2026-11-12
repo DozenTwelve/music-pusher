@@ -15,6 +15,8 @@ import { initTagLib } from './tags.js';
 import { openZip } from './zip.js';
 
 // An error the page has a sentence for: `code` is an `error.*` key.
+const encodingName = (encoding) => encoding.toUpperCase().replace('_', ' ');
+
 class Refusal extends Error {
   constructor(code, values = {}) {
     super(code);
@@ -355,14 +357,15 @@ function App({ language }) {
   const report = (key) => (done, total, path) => setProgress({ done, total, key, name: basename(path) });
 
   // `source` is a zip File, or the entries of a dropped or picked folder.
-  async function take(source) {
+  // `encoding` reads the zip's names in that encoding instead of the guess.
+  async function take(source, encoding) {
     forget();
     setError(null);
     setProgress({ done: 0, total: 0, key: 'reading.start' });
     setStep('reading');
     try {
       const taglib = await loadTagLib();
-      const zip = source instanceof File ? await openZip(source).catch(() => Promise.reject(new Refusal('zip_bad'))) : null;
+      const zip = source instanceof File ? await openZip(source, { encoding }).catch(() => Promise.reject(new Refusal('zip_bad'))) : null;
       const { name, guess, entries } = asAlbum(zip ? zip.entries : source, zip ? source.name.replace(/\.zip$/i, '') : '');
       const refused = refusal(entries);
       if (refused) {
@@ -373,7 +376,8 @@ function App({ language }) {
       const inspected = inspect(name, read, entries, { nameGuess: guess });
       const picture = await loadCover(taglib, entries, inspected.cover).catch(() => null);
       const cover = picture ? await coverFrom(picture.data).catch(() => null) : null;
-      setAlbum({ name, guess, entries, read, inspected, cover, encoding: zip && zip.encoding !== 'utf-8' ? { name: zip.encoding } : null });
+      const guessed = zip && (zip.encoding !== 'utf-8' || zip.alternatives.length > 0);
+      setAlbum({ name, guess, entries, read, inspected, cover, encoding: guessed ? { name: zip.encoding, sample: zip.sample, alternatives: zip.alternatives, source } : null });
       setFixes(inspected.fixes);
       setStep('plan');
     } catch (problem) {
@@ -532,9 +536,19 @@ function App({ language }) {
         {album.encoding && (
           <p className="warning">
             {album.encoding.name
-              ? t('encoding.guessed', { encoding: album.encoding.name.toUpperCase().replace('_', ' '), sample: basename(album.read.tracks[0]?.file || album.entries[0].path) })
+              ? t(album.encoding.alternatives.length > 0 ? 'encoding.tossup' : 'encoding.guessed', { encoding: encodingName(album.encoding.name), sample: album.encoding.sample })
               : t('encoding.unknown')}
           </p>
+        )}
+        {album.encoding?.alternatives.length > 0 && (
+          <div className="actions">
+            {album.encoding.alternatives.map((other) => (
+              <button type="button" className="button" key={other.encoding} onClick={() => take(album.encoding.source, other.encoding)}>
+                {other.sample}
+                <span className="button__meta">{encodingName(other.encoding)}</span>
+              </button>
+            ))}
+          </div>
         )}
         {alert}
         <div className="row" data-tiles={albums.length > 1 ? 'many' : 'one'}>

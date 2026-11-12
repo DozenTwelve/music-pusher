@@ -8,55 +8,13 @@
 //      written album is held once (and by the browser, which may page it out).
 
 import { inflateSync, Zip, ZipPassThrough } from 'fflate';
+import { chooseNameEncoding, decodeName, rawName } from '../../shared/zipnames.js';
 
 export class ZipError extends Error {}
 
 const END = 0x06054b50;
 const CENTRAL = 0x02014b50;
 const bytesOf = async (blob) => new Uint8Array(await blob.arrayBuffer());
-
-function decode(encoding, bytes) {
-  try {
-    return new TextDecoder(encoding, { fatal: true }).decode(bytes);
-  } catch {
-    return null;
-  }
-}
-const count = (text, pattern) => (text.match(pattern) || []).length;
-
-// The encoding of the names that are not flagged as UTF-8, judged on all of
-// them together: 'utf-8', 'shift_jis', 'gbk', or null when none of them fits.
-//
-// macOS writes UTF-8 without the flag, so that is tried first; bytes that are
-// valid UTF-8 are next to never anything else. Shift_JIS and GBK overlap — most
-// Japanese names are valid GBK and many Chinese names valid Shift_JIS — and
-// what tells them apart is half-width katakana: the common Chinese characters
-// start with a byte Shift_JIS reads as one, and real Japanese names hardly use
-// them. So Shift_JIS it is when the names decode with no more half-width kana
-// than ordinary kana, and GBK otherwise.
-// ponytail: no Big5 or EUC-KR (they would need telling apart from GBK by
-// character frequency), and a Chinese name made only of rarer characters (lead
-// byte E0 and up) reads as Shift_JIS.
-export function guessEncoding(names) {
-  const all = new Uint8Array(names.reduce((sum, name) => sum + name.length + 1, 0));
-  let at = 0;
-  for (const name of names) {
-    all.set(name, at);
-    at += name.length + 1;
-    all[at - 1] = 0x0a;
-  }
-  if (decode('utf-8', all) != null) {
-    return 'utf-8';
-  }
-  const japanese = decode('shift_jis', all);
-  if (japanese != null && count(japanese, /[｡-ﾟ]/g) <= count(japanese, /[぀-ヿ]/g)) {
-    return 'shift_jis';
-  }
-  if (decode('gbk', all) != null) {
-    return 'gbk';
-  }
-  return japanese != null ? 'shift_jis' : null;
-}
 
 // Info-ZIP's Unicode Path extra field (0x7075): the name in UTF-8, written next
 // to a name in a local code page.
@@ -65,7 +23,7 @@ function unicodePath(extra) {
   for (let at = 0; at + 4 <= extra.length; ) {
     const size = view.getUint16(at + 2, true);
     if (view.getUint16(at, true) === 0x7075 && size > 5) {
-      return decode('utf-8', extra.subarray(at + 9, at + 4 + size));
+      return decodeName('utf-8', extra.subarray(at + 9, at + 4 + size));
     }
     at += 4 + size;
   }
@@ -84,13 +42,17 @@ const safePath = (name) =>
 const dosDate = (date, time) =>
   new Date((date >> 9) + 1980, ((date >> 5) & 15) - 1, date & 31, time >> 11, (time >> 5) & 63, (time & 31) * 2);
 
-// -> { entries: [{ path, size, mtime, read() }], encoding }
-// `read()` resolves to the entry's bytes. `encoding` is the guess the names
-// were read with — 'utf-8' when nothing had to be guessed, null when no
-// encoding fitted and the names are shown byte for byte.
+// -> { entries: [{ path, size, mtime, read() }], encoding, sample, alternatives }
+// `read()` resolves to the entry's bytes. The names not flagged as UTF-8 are
+// read in one encoding for the whole archive (see shared/zipnames.js), or in
+// `options.encoding` when given. `encoding` is the one used — 'utf-8' when
+// nothing had to be guessed, null when no encoding fitted and the names are
+// shown byte for byte (shared rawName), each still distinct. `sample` is the name that best shows whether
+// the reading is right, and `alternatives` the other readings that fit nearly
+// as well, each as { encoding, sample }: a toss-up to put to the user.
 // ponytail: no zip64 (archives past 4 GB or 65535 entries) and no encryption;
 // both are refused with a ZipError rather than misread.
-export async function openZip(blob) {
+export async function openZip(blob, options = {}) {
   const tail = await bytesOf(blob.slice(Math.max(0, blob.size - 65557)));
   const tailView = new DataView(tail.buffer);
   let end = tail.length - 22;
@@ -131,11 +93,17 @@ export async function openZip(blob) {
   }
 
   const isUtf8 = (entry) => entry.flags & 0x800 || entry.unicode != null;
-  const encoding = guessEncoding(found.filter((entry) => !isUtf8(entry)).map((entry) => entry.name));
-  const nameOf = (entry) =>
-    entry.unicode ??
-    decode(entry.flags & 0x800 ? 'utf-8' : encoding || 'utf-8', entry.name) ??
-    String.fromCharCode(...entry.name);
+  const legacy = found.filter((entry) => !isUtf8(entry)).map((entry) => entry.name);
+  const choice = chooseNameEncoding(legacy);
+  const encoding = options.encoding ?? choice.encoding;
+  const read = (name, as) => (as && decodeName(as, name)) ?? rawName(name);
+  const nameOf = (entry) => entry.unicode ?? read(entry.name, isUtf8(entry) ? 'utf-8' : encoding);
+  const telling = choice.sample == null ? null : legacy[choice.sample];
+  const alternatives = telling
+    ? [choice.encoding, ...choice.alternatives]
+        .filter((other) => other && other !== encoding)
+        .map((other) => ({ encoding: other, sample: read(telling, other) }))
+    : [];
 
   const entries = found
     .map((entry) => ({ ...entry, name: nameOf(entry) }))
@@ -161,7 +129,7 @@ export async function openZip(blob) {
         return inflateSync(packed, { out: new Uint8Array(entry.size) });
       }
     }));
-  return { entries, encoding };
+  return { entries, encoding, sample: telling && read(telling, encoding), alternatives };
 }
 
 // A zip being written. `add(path, bytes, mtime)` per file, then `finish()` for

@@ -11,13 +11,16 @@ import { acquireAlbum, releaseAlbum } from './metadata/lock.js';
 // The smallest zip writer that yauzl accepts: local headers, data, central
 // directory, end record. Each entry is stored or deflated; `corrupt` replaces
 // the compressed bytes with garbage and `badCrc` records the wrong checksum —
-// the two ways a damaged download actually reaches the server.
+// the two ways a damaged download actually reaches the server. A `name` given
+// as bytes with `utf8: false` is written as Windows and macOS write names: in
+// a code page, or UTF-8, with the UTF-8 flag clear.
 function buildZip(entries) {
   const locals = [];
   const centrals = [];
   let offset = 0;
   for (const entry of entries) {
     const name = Buffer.from(entry.name);
+    const flags = entry.utf8 === false ? 0 : 0x0800; // UTF-8 names
     const raw = Buffer.from(entry.body);
     const deflate = entry.deflate ?? false;
     let data = deflate ? zlib.deflateRawSync(raw) : raw;
@@ -29,7 +32,7 @@ function buildZip(entries) {
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);
     local.writeUInt16LE(20, 4);
-    local.writeUInt16LE(0x0800, 6); // UTF-8 names
+    local.writeUInt16LE(flags, 6);
     local.writeUInt16LE(deflate ? 8 : 0, 8);
     local.writeUInt32LE(crc, 14);
     local.writeUInt32LE(data.length, 18);
@@ -40,7 +43,7 @@ function buildZip(entries) {
     central.writeUInt32LE(0x02014b50, 0);
     central.writeUInt16LE(20, 4);
     central.writeUInt16LE(20, 6);
-    central.writeUInt16LE(0x0800, 8);
+    central.writeUInt16LE(flags, 8);
     central.writeUInt16LE(deflate ? 8 : 0, 10);
     central.writeUInt32LE(crc, 16);
     central.writeUInt32LE(data.length, 20);
@@ -116,6 +119,58 @@ test('a good archive extracts into its album folder', async () => {
   assert.deepEqual(await tree(path.join(rawDir, 'Alb')), ['01.flac', '02.flac', path.join('Scans', 'cover.jpg')]);
   assert.equal(await fsp.readFile(path.join(rawDir, 'Alb', '02.flac'), 'utf8'), 'good two');
   await fsp.rm(path.join(rawDir, 'Alb'), { recursive: true });
+});
+
+// Real bytes, from Python's codecs. yauzl reads every unflagged name as CP437,
+// which staged the first as 'τ⌐║µ┤₧πüºπüÖ/01 µ¢▓.flac', and splits Shift_JIS
+// at any trail byte 0x5C (ソ is 83 5C, 表 is 95 5C) as if it were a backslash.
+const hex = (text) => Buffer.from(text.replace(/ /g, ''), 'hex');
+const UNFLAGGED = [
+  ['空洞です/01 曲.flac', 'e7 a9 ba e6 b4 9e e3 81 a7 e3 81 99 2f 30 31 20 e6 9b b2 2e 66 6c 61 63'],
+  ['Björk - Homogenic/01 Jóga.flac', '42 6a 94 72 6b 20 2d 20 48 6f 6d 6f 67 65 6e 69 63 2f 30 31 20 4a a2 67 61 2e 66 6c 61 63'],
+  ['周杰伦 - 叶惠美/03 晴天.flac', 'd6 dc bd dc c2 d7 20 2d 20 d2 b6 bb dd c3 c0 2f 30 33 20 c7 e7 cc ec 2e 66 6c 61 63'],
+  ['表参道/01 ソナタ.flac', '95 5c 8e 51 93 b9 2f 30 31 20 83 5c 83 69 83 5e 2e 66 6c 61 63']
+];
+
+test('names without the UTF-8 flag are read in the encoding they were written in', async () => {
+  for (const [name, bytes] of UNFLAGGED) {
+    const album = name.split('/')[0];
+    const zip = await writeZip('legacy.zip', [
+      { name: hex(bytes), utf8: false, body: 'one' },
+      { name: `${album}/cover.jpg`, body: 'art' }
+    ]);
+    const summary = await extractZipAlbum(zip, 'legacy.zip');
+    assert.equal(summary.album, album);
+    assert.deepEqual(await tree(path.join(rawDir, album)), [name.split('/')[1], 'cover.jpg'].sort());
+    assert.equal(await fsp.readFile(path.join(rawDir, name), 'utf8'), 'one');
+    await fsp.rm(path.join(rawDir, album), { recursive: true });
+  }
+});
+
+test('names no encoding fits keep a distinct path each, not a shared U+FFFD', async () => {
+  // CP437 'é' and 'ö', and a newline (0x0A) that no encoding allows in a name.
+  const zip = await writeZip('unknown.zip', [
+    { name: hex('41 6c 62 2f 82 2e 66 6c 61 63'), utf8: false, body: 'e' },
+    { name: hex('41 6c 62 2f 94 2e 66 6c 61 63'), utf8: false, body: 'o' },
+    { name: hex('41 6c 62 2f 0a 2e 74 78 74'), utf8: false, body: 'n' }
+  ]);
+  await extractZipAlbum(zip, 'unknown.zip');
+  const files = await tree(path.join(rawDir, 'Alb'));
+  assert.ok(files.includes('é.flac') && files.includes('ö.flac'), files.join(', '));
+  await fsp.rm(path.join(rawDir, 'Alb'), { recursive: true });
+});
+
+test('an archive over the file limit is refused while its directory is read', async () => {
+  const saved = config.maxFiles;
+  config.maxFiles = 2;
+  try {
+    // 'Alb/1 ö.flac' … in CP437: names that have to be decoded.
+    const zip = await writeZip('many.zip', [1, 2, 3, 4].map((n) => ({ name: hex(`41 6c 62 2f 3${n} 20 94 2e 66 6c 61 63`), utf8: false, body: `${n}` })));
+    await assert.rejects(extractZipAlbum(zip, 'many.zip'), { code: 'too_many_files' });
+    assert.equal(await tree(path.join(rawDir, 'Alb')), null);
+  } finally {
+    config.maxFiles = saved;
+  }
 });
 
 test('a corrupt entry leaves nothing of the archive staged', async () => {
