@@ -208,7 +208,7 @@ progress:indeterminate { animation: waiting 1.2s var(--ease-out) infinite altern
 /* Each part is a row of the same twelve columns as the tool: its heading where
    the sleeve stands, its text where the steps are. A rule above each, like the
    track list's. */
-.about { display: grid; gap: var(--space-2xl); padding-block: var(--space-xl) var(--space-3xl); }
+.about { display: grid; gap: var(--space-2xl); padding-block: 0 var(--space-3xl); }
 .ledger { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--space-md) var(--gap-columns); padding-top: var(--space-md); border-top: var(--rule) solid var(--color-ink); }
 .ledger h2 { grid-column: span 4; max-width: 11em; font-size: var(--text-section); font-stretch: 75%; }
 .ledger__body { grid-column: 5 / span 7; display: grid; gap: var(--space-md); max-width: 40rem; }
@@ -251,7 +251,9 @@ pre code { overflow-wrap: normal; }
 
 .prose { grid-column: 5 / -1; display: grid; gap: var(--space-2xl); min-width: 0; line-height: 1.6; }
 .prose section { display: grid; gap: var(--space-md); min-width: 0; scroll-margin-top: var(--space-lg); }
-.prose :is(p, ul, ol, pre) { max-width: 40rem; }
+.prose :is(p, ul, ol) { max-width: 40rem; }
+/* Chinese has no italic: emphasis there is weight. */
+:lang(zh) em { font-style: normal; font-weight: 600; }
 .prose h2 { padding-top: var(--space-md); border-top: var(--rule) solid var(--color-ink); font-size: var(--text-section); font-stretch: 75%; scroll-margin-top: var(--space-lg); }
 .prose h2:lang(zh) { font-size: 1.5rem; font-weight: 600; line-height: 1.25; }
 .prose h3 { margin-top: var(--space-sm); font-size: var(--text-lead); font-weight: 700; letter-spacing: 0; line-height: 1.3; }
