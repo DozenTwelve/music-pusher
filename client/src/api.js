@@ -57,6 +57,14 @@ function mergeUploadResults(results) {
 // unused on a single socket — parallel connections claim it. The server needs no
 // change: mkdir is recursive/idempotent and each request carries its own files.
 export async function uploadAlbum(entries, onProgress, concurrency = 4) {
+  // What is staged already, read before a byte is sent: a failed upload may
+  // clean up only the albums it brought into being. Unknown means nothing is
+  // provably ours, so nothing gets deleted.
+  const staged = await getAlbums().then(
+    (albums) => new Set(albums.map((entry) => entry.album)),
+    () => null
+  );
+
   const bins = packIntoBins(entries, Math.min(concurrency, entries.length) || 1);
   const totalBytes = entries.reduce((sum, entry) => sum + (entry.file.size || 0), 0) || 1;
   const loaded = new Array(bins.length).fill(0);
@@ -88,10 +96,10 @@ export async function uploadAlbum(entries, onProgress, concurrency = 4) {
 
   // A folder is fanned out across parallel POSTs; if one bin fails the siblings
   // have already written their files, leaving a partial album staged. Remove
-  // every album this upload touched before surfacing the error, so a retry
-  // starts clean instead of importing an incomplete album.
-  // ponytail: a retry into a pre-existing same-named album would also delete
-  // that album — acceptable, RAW is app-owned and same-name re-drops are rare.
+  // the albums this upload created before surfacing the error, so a retry
+  // starts clean instead of importing an incomplete album. An album that was
+  // staged before is left alone — deleting it would take the user's earlier
+  // files with it — and so the user sees it partly topped up instead.
   const settled = await Promise.allSettled(requests);
   const fulfilled = settled.filter((s) => s.status === 'fulfilled').map((s) => s.value);
   const failed = settled.find((s) => s.status === 'rejected');
@@ -100,7 +108,9 @@ export async function uploadAlbum(entries, onProgress, concurrency = 4) {
     const albums = new Set();
     for (const result of fulfilled) {
       for (const album of result.albums || []) {
-        albums.add(album);
+        if (staged && !staged.has(album)) {
+          albums.add(album);
+        }
       }
     }
     await Promise.all([...albums].map((album) => deleteAlbum(album).catch(() => {})));

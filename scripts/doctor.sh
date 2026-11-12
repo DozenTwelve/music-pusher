@@ -66,17 +66,19 @@ printf '%schecking host prerequisites…%s\n' "$DIM" "$RESET"
 # --- Node.js -----------------------------------------------------------------
 head "Runtime"
 if command -v node >/dev/null 2>&1; then
-  NODE_RAW="$(node -v)"                # e.g. v18.19.0
-  NODE_MAJOR="${NODE_RAW#v}"; NODE_MAJOR="${NODE_MAJOR%%.*}"
-  if [ "$NODE_MAJOR" -ge 18 ] 2>/dev/null; then
+  NODE_RAW="$(node -v)"                # e.g. v22.13.0
+  # Probe the two features the server needs rather than parse the version:
+  # node:sqlite unflagged (22.13+, 23.4+) and zlib.crc32 (22.2+). Without the
+  # first the server does not start; without the second every .zip upload fails.
+  if node -e "require('node:sqlite'); if (typeof require('node:zlib').crc32 !== 'function') process.exit(1)" >/dev/null 2>&1; then
     ok "Node.js $NODE_RAW"
   else
-    fail "Node.js $NODE_RAW — need 18 or newer"
+    fail "Node.js $NODE_RAW — need 22.13 or newer"
     hint "Install a current Node: https://nodejs.org  (or use nvm)"
   fi
 else
   fail "Node.js not found"
-  hint "Install Node 18+: https://nodejs.org  (or use nvm)"
+  hint "Install Node 22.13+: https://nodejs.org  (or use nvm)"
 fi
 
 if command -v npm >/dev/null 2>&1; then

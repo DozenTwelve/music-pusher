@@ -30,6 +30,14 @@ export function releaseAlbum(album) {
   albumsInFlight.delete(album);
 }
 
+// Whether something holds the album's lock, for work that only has to stay out
+// of its way rather than exclude it. A folder upload is fanned out over several
+// concurrent requests into one album, so it cannot take an exclusive lock — but
+// it must not add files to a folder an import is about to delete.
+export function albumLocked(album) {
+  return albumsInFlight.has(album);
+}
+
 export function albumBusyMessage(album) {
   if (libraryInFlight) {
     return `Album '${album}' is busy — a library repair is running and moves the same files.`;

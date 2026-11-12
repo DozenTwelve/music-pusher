@@ -26,7 +26,7 @@ import {
   listLibraryAlbums,
   restageAlbum
 } from './library.js';
-import { acquireLibrary, releaseLibrary, libraryBusyMessage } from './metadata/lock.js';
+import { acquireLibrary, releaseLibrary, libraryBusyMessage, withAlbumLock } from './metadata/lock.js';
 
 export const apiRouter = express.Router();
 
@@ -204,7 +204,26 @@ apiRouter.post('/library/repair', async (req, res) => {
   }
 });
 
-apiRouter.post('/upload', uploadMiddleware.any(), async (req, res) => {
+// An upload into an album that is importing, or being fixed, is refused per
+// file by the storage engine (upload.js); this turns that into a 409 rather
+// than the generic 500 the app-level handler would give it. By the time the
+// error arrives, multer has already deleted every file this request finished
+// writing. That is not always only new files: a file this request wrote over
+// a same-named file already staged (into another album, or into this one before
+// it went busy) is deleted too, and the earlier copy is gone with it. Every
+// multer error takes the same path; avoiding it would mean multer never
+// overwriting in place.
+function receiveUpload(req, res, next) {
+  uploadMiddleware.any()(req, res, (error) => {
+    if (error?.code === 'album_busy') {
+      res.status(409).json({ ok: false, code: error.code, message: error.message });
+      return;
+    }
+    next(error);
+  });
+}
+
+apiRouter.post('/upload', receiveUpload, async (req, res) => {
   try {
     await fs.mkdir(config.rawDir, { recursive: true });
 
@@ -221,6 +240,15 @@ apiRouter.post('/upload', uploadMiddleware.any(), async (req, res) => {
     });
   }
 });
+
+// An archive refused because its album is busy is a 409 like every other busy
+// refusal; the rest are the archive's own fault.
+function archiveErrorStatus(code) {
+  if (code === 'file_too_large' || code === 'too_many_files') {
+    return 413;
+  }
+  return code === 'album_busy' ? 409 : 422;
+}
 
 // A mixed-format archive is rejected before extraction, but the uploaded .zip
 // (potentially gigabytes) is already staged on disk — deleting it would force a
@@ -272,8 +300,7 @@ apiRouter.post('/upload-archive', archiveUploadMiddleware.single('archive'), asy
         res.status(409).json({ ok: false, code: error.code, message: error.message, formats: error.formats, token });
         return;
       }
-      const status = error.code === 'file_too_large' || error.code === 'too_many_files' ? 413 : 422;
-      res.status(status).json({ ok: false, code: error.code, message: error.message });
+      res.status(archiveErrorStatus(error.code)).json({ ok: false, code: error.code, message: error.message });
       return;
     }
     res.status(500).json({ ok: false, code: 'archive_extract_failed', message: error.message });
@@ -305,8 +332,7 @@ apiRouter.post('/upload-archive/confirm', async (req, res) => {
     res.json({ ok: true, ...summary });
   } catch (error) {
     if (error instanceof ArchiveError) {
-      const status = error.code === 'file_too_large' || error.code === 'too_many_files' ? 413 : 422;
-      res.status(status).json({ ok: false, code: error.code, message: error.message });
+      res.status(archiveErrorStatus(error.code)).json({ ok: false, code: error.code, message: error.message });
       return;
     }
     res.status(500).json({ ok: false, code: 'archive_extract_failed', message: error.message });
@@ -415,7 +441,9 @@ apiRouter.get('/albums/:album/cover', async (req, res) => {
 
 // Remove a staged album from RAW entirely (its whole folder). The name is
 // sanitized to a single segment and the resolved path is re-checked to be
-// inside RAW before anything is deleted.
+// inside RAW before anything is deleted. It takes the album's lock: deleting
+// the folder an import, fix or cover embed is working on is refused, and none
+// of them can start while it goes.
 apiRouter.delete('/albums/:album', async (req, res) => {
   const album = sanitizeAlbumName(req.params.album);
   if (!album) {
@@ -449,8 +477,11 @@ apiRouter.delete('/albums/:album', async (req, res) => {
   }
 
   try {
-    await fs.rm(albumPath, { recursive: true, force: true });
-    res.json({ ok: true, album });
+    const result = await withAlbumLock(album, 'album_busy', async () => {
+      await fs.rm(albumPath, { recursive: true, force: true });
+      return { ok: true, album };
+    });
+    res.status(result.ok ? 200 : 409).json(result);
   } catch (error) {
     res.status(500).json({ ok: false, code: 'delete_album_failed', message: error.message });
   }

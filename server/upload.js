@@ -5,6 +5,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import multer from 'multer';
 import { config } from './config.js';
+import { albumLocked, albumBusyMessage } from './metadata/lock.js';
 import {
   AUDIO_EXTENSIONS,
   ART_EXTENSIONS,
@@ -108,6 +109,15 @@ const storage = multer.diskStorage({
       !absoluteTargetDir.startsWith(resolvedRawDir + path.sep)
     ) {
       cb(new Error('Invalid file destination path.'));
+      return;
+    }
+
+    // Checked per file, before it is written: the album is only known from each
+    // file's path. The import's cleanup is the backstop for a file that slips in
+    // after this check — it deletes only what beets was handed.
+    const album = safeRelativePath.split('/')[0];
+    if (albumLocked(album)) {
+      cb(Object.assign(new Error(albumBusyMessage(album)), { code: 'album_busy' }));
       return;
     }
 
