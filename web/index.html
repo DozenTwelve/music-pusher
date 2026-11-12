@@ -60,7 +60,7 @@
           <h2 id="questions">Questions</h2>
           <div class="ledger__body qa">
             <h3>Is anything uploaded?</h3>
-            <p>No. The page is a set of static files. The album is read and rewritten inside the browser tab by TagLib, compiled to WebAssembly, and the zip is put together in the tab and saved like any download. There is no analytics and nothing is fetched from anywhere else. Your browser’s network panel will show nothing going out when you drop an album in.</p>
+            <p>No. The page is a set of static files. The album is read and rewritten inside the browser tab by TagLib, compiled to WebAssembly, and the zip is put together in the tab and saved like any download. The page’s own code loads nothing from anywhere else; Cloudflare, which hosts the site, adds its own visit counter to every page. The album you drop in is never sent anywhere.</p>
             <h3>Does it work for Plex, Jellyfin or other players?</h3>
             <p>The rules it follows are Navidrome’s, checked against a real Navidrome 0.63.2. The tags it writes are ordinary tags that any player reads, but other players group albums in their own way, and none of them was tested. It may help; we can’t promise it.</p>
             <h3>I changed <code>PID.Album</code> in my Navidrome config.</h3>
