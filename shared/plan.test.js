@@ -430,6 +430,15 @@ test('track numbers: an incomplete disc and a disc with repeated numbers are lef
   ]);
 });
 
+test('track numbers: "0/0" and "00 - " file names are no number, not one shared number', () => {
+  // A Bandcamp downloader with no order to give: every track 0/0, every file 00.
+  const zeros = album(3, (n) => ({ file: `Album/00 - Song ${n}.mp3`, TRACKNUMBER: '0/0' }));
+  assert.deepEqual(offered(zeros), {});
+  assert.deepEqual(plan(zeros).cannotFix, [
+    { code: 'no_track_number', files: ['Album/00 - Song 1.mp3', 'Album/00 - Song 2.mp3', 'Album/00 - Song 3.mp3'] }
+  ]);
+});
+
 test('text: confident repairs only, value by value', () => {
   const broken = `Don${cp(0x19)}t`;
   table([
@@ -438,6 +447,12 @@ test('text: confident repairs only, value by value', () => {
       album(2, (n) => (n === 1 ? { TITLE: broken } : {})),
       { text: undefined },
       { 'Album/01 Song.flac': { TITLE: 'Don’t' } }
+    ],
+    [
+      'UTF-8 that was read as Latin-1',
+      album(2, (n) => ({ TITLE: ['Mi Jos\u00c3\u00a9', 'I\u00e2\u0080\u0099m'][n - 1] })),
+      { text: undefined },
+      { 'Album/01 Song.flac': { TITLE: 'Mi Jos\u00e9' }, 'Album/02 Song.flac': { TITLE: 'I\u2019m' } }
     ],
     [
       'stray spaces and invisible characters',

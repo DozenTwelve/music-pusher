@@ -59,6 +59,27 @@ const CONTROL_FIX = {
   0x1c: cp(0x201c), // left double quote “
   0x1d: cp(0x201d) // right double quote ”
 };
+// UTF-8 bytes read as Latin-1 and saved back as UTF-8: "TÃ©lÃ©" for "Télé".
+// Only a string that is all Latin-1 code points, holds a UTF-8 lead byte
+// followed by a continuation byte, and whose bytes decode as valid UTF-8 is
+// re-decoded, so real Latin-1 text ("Café", "Björk") never trips it.
+// ponytail: Latin-1 only; cp1252-style damage ("â€™", bytes 0x80-0x9F mapped
+// through Windows-1252) needs a reverse cp1252 table before it can be undone.
+const MOJIBAKE_HINT = /[\u00c2-\u00f4][\u0080-\u00bf]/;
+const BEYOND_LATIN1 = /[^\u0000-\u00ff]/;
+const UTF8 = new TextDecoder('utf-8', { fatal: true });
+
+function undoMojibake(value) {
+  if (!MOJIBAKE_HINT.test(value) || BEYOND_LATIN1.test(value)) {
+    return null;
+  }
+  try {
+    return UTF8.decode(Uint8Array.from(value, (ch) => ch.charCodeAt(0)));
+  } catch {
+    return null;
+  }
+}
+
 export const TEXT_FIELDS = ['title', 'artist', 'album', 'album_artist'];
 
 // Collapse the spacing/encoding noise that silently splits albums: NBSP,
@@ -76,6 +97,11 @@ export function normalizeTagValue(value) {
 export function analyzeText(value) {
   if (typeof value !== 'string' || value === '') {
     return null;
+  }
+
+  const decoded = undoMojibake(value);
+  if (decoded != null) {
+    return { kind: 'mojibake', display: value, suggested: normalizeTagValue(decoded), confident: true };
   }
 
   CONTROL_RE.lastIndex = 0;

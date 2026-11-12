@@ -68,12 +68,16 @@ test('parseNumberPair table', () => {
     ['03/09', { num: 3, total: 9 }],
     [' 3 / 12 ', { num: 3, total: 12 }],
     ['12/100', { num: 12, total: 100 }],
-    ['0', { num: 0, total: null }],
-    ['0/0', { num: 0, total: 0 }],
+    // Zero is no number: downloaders write "0/0" when they know none.
+    ['0', none],
+    ['0/0', none],
+    ['00/00', none],
+    ['0/12', { num: null, total: 12 }],
+    ['3/0', { num: 3, total: null }],
     ['007', { num: 7, total: null }],
     // Numbers are accepted as well as strings.
     [5, { num: 5, total: null }],
-    [0, { num: 0, total: null }],
+    [0, none],
     [null, none],
     [undefined, none],
     ['', none],
@@ -98,6 +102,9 @@ test('leadingTrackNumber table', () => {
     ['003-Song.flac', 3],
     ['  9 Song.flac', 9],
     ['05.flac', 5],
+    // "00 - " is a downloader that had no number, not track zero.
+    ['00 - Song.mp3', null],
+    ['0 Song.flac', null],
     ['100 Years.flac', 100],
     // Only the file name is read, never a folder above it.
     ['CD2/12 Song.flac', 12],
@@ -197,6 +204,22 @@ test('analyzeText table', () => {
     ['tab\t\ttab', { kind: 'whitespace', display: 'tab\t\ttab', suggested: 'tab tab', confident: true }],
     // Flagged, but the suggestion is the value unchanged: newlines are not collapsed.
     ['line\n\nbreak', { kind: 'whitespace', display: 'line\n\nbreak', suggested: 'line\n\nbreak', confident: true }],
+    // UTF-8 read as Latin-1 and saved back: re-decoding the bytes restores it.
+    ...[
+      ['Clarie T\u00c3\u00a9l\u00c3\u00a9', 'Clarie T\u00e9l\u00e9'],
+      ['Mi Jos\u00c3\u00a9', 'Mi Jos\u00e9'],
+      ['A Girl I\u00e2\u0080\u0099m Looking For', 'A Girl I\u2019m Looking For'],
+      ['Soki Ye Te Nani ? \u00e2\u0080\u009cCarra\u00e2\u0080\u009d', 'Soki Ye Te Nani ? \u201cCarra\u201d']
+    ].map(([value, suggested]) => [value, { kind: 'mojibake', display: value, suggested, confident: true }]),
+    // Real Latin-1 text has no lead byte followed by a continuation byte.
+    ['Caf\u00e9', null],
+    ['S\u00e3o Paulo', null],
+    ['Bj\u00f6rk', null],
+    ['\u00c5ngstr\u00f6m', null],
+    // A lead/continuation pair that does not decode as UTF-8 is left alone.
+    ['\u00c3\u00a9\u00a9', null],
+    // Anything above U+00FF means the text is not Latin-1-decoded bytes.
+    ['T\u00c3\u00a9l\u00c3\u00a9 \u2019', null],
     // NFC drift alone.
     [
       `Caf${cp(0x65)}${cp(0x0301)}`,

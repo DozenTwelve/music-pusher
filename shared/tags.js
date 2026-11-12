@@ -28,6 +28,10 @@ export function normalizeDate(value) {
   return [year, month?.padStart(2, '0'), day?.padStart(2, '0')].filter(Boolean).join('-');
 }
 
+// Zero is how a downloader with no number to give says so ("0/0", "00 - x"),
+// so it counts as missing rather than as a number every track shares.
+const positive = (digits) => Number.parseInt(digits, 10) || null;
+
 // "1/8" or "1" -> { num: 1, total: 8|null }
 export function parseNumberPair(value) {
   if (value == null) {
@@ -39,12 +43,12 @@ export function parseNumberPair(value) {
     return { num: null, total: null };
   }
   return {
-    num: Number.parseInt(match[1], 10),
-    total: match[2] ? Number.parseInt(match[2], 10) : null
+    num: positive(match[1]),
+    total: match[2] ? positive(match[2]) : null
   };
 }
 
 export function leadingTrackNumber(fileName) {
   const match = basename(fileName).match(/^\s*(\d{1,3})\b/);
-  return match ? Number.parseInt(match[1], 10) : null;
+  return match ? positive(match[1]) : null;
 }
