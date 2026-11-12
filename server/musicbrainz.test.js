@@ -344,3 +344,36 @@ test('a failed request and a refused one are reported, each as what it was', asy
     message: 'MusicBrainz answered 503.'
   });
 });
+
+// A 200 is not a promise of a readable body. MusicBrainz behind its load
+// balancer answers an HTML error page with 200 now and then, and the 20s timeout
+// can fire after the headers but before the body is in — both used to reject
+// out of searchReleases, which /releases did not catch, and an unhandled
+// rejection takes the whole server down.
+test('a 200 whose body is not JSON, or is cut off, is a bad response, not a throw', async () => {
+  stubFetch(() => new Response('<html>Service temporarily unavailable</html>', { status: 200 }));
+  const html = await searchReleases({ artist: 'x', album: 'y' });
+  assert.equal(html.ok, false);
+  assert.equal(html.code, 'bad_response');
+  assert.match(html.message, /could not be read/);
+
+  stubFetch(
+    () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('{"releases":[{"id":'));
+            controller.error(new DOMException('The operation was aborted due to timeout', 'TimeoutError'));
+          }
+        }),
+        { status: 200 }
+      )
+  );
+  const cut = await searchReleases({ artist: 'x', album: 'y' });
+  assert.equal(cut.ok, false);
+  assert.equal(cut.code, 'bad_response');
+
+  stubFetch(answer({ releases: [null] }));
+  const junk = await searchReleases({ artist: 'x', album: 'y' });
+  assert.equal(typeof junk.ok, 'boolean', 'a release list with junk in it is answered, not thrown');
+});

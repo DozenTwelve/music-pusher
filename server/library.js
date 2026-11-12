@@ -72,7 +72,7 @@ export async function beetsPaths() {
     return cachedPaths;
   }
 
-  const { code, stdout, stderr } = await runProcess(config.beetBin, ['config']);
+  const { code, stdout, stderr } = await runProcess(config.beetBin, ['config'], { timeoutMs: 60 * 1000 });
   if (code !== 0) {
     throw new Error(`'${config.beetBin} config' failed (exit ${code}): ${stderr.trim()}`);
   }
@@ -363,7 +363,7 @@ export async function restageAlbum(albumId, paths) {
       }
       args.push(`id:${row.id}`);
     });
-    const { code, stderr } = await runProcess(config.beetBin, args);
+    const { code, stderr } = await runProcess(config.beetBin, args, { timeoutMs: 2 * 60 * 1000 });
     if (code !== 0) {
       return {
         ok: false,
@@ -522,7 +522,9 @@ export async function repairLibrary({ pretend = true } = {}, paths) {
   // first would relocate files to a name that update is about to change.
   for (const command of ['update', 'move']) {
     const args = [command, ...flag];
-    const { code, stdout, stderr } = await runProcess(config.beetBin, args);
+    // Walks, and may move, every file in the library: give it an hour, not the
+    // default meant for one album.
+    const { code, stdout, stderr } = await runProcess(config.beetBin, args, { timeoutMs: 60 * 60 * 1000 });
     if (code !== 0) {
       throw new Error(`'${config.beetBin} ${args.join(' ')}' failed (exit ${code}): ${stderr.trim()}`);
     }

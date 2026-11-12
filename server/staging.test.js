@@ -142,8 +142,8 @@ async function startHeldImport(album) {
   return job.id;
 }
 
-// Waits for the stream's `end` event, not for the status to leave `running`:
-// the status flips before verification and cleanup have run, `end` after.
+// Waits for the stream's `end` event, which is sent once verification and
+// cleanup have run (the status leaves `running` at the same moment).
 async function releaseImport(jobId) {
   const stream = await fetch(`${base}/import/${jobId}/stream`);
   await fsp.writeFile(path.join(home, 'release'), '');

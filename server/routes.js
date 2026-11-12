@@ -15,7 +15,7 @@ import {
   COVER_IMAGE_EXTENSIONS
 } from './upload.js';
 import { extractZipAlbum, ArchiveError } from './archive.js';
-import { runAudit, startImport, retryImport, streamJob, getJob } from './shell.js';
+import { runAudit, startImport, retryImport, cancelImport, streamJob, getJob, activeJob } from './shell.js';
 import { searchReleases } from './musicbrainz.js';
 import { inspectAlbum, albumBase, fixAlbum, embedCover } from './metadata/index.js';
 import { runPreflight } from './preflight.js';
@@ -29,6 +29,23 @@ import {
 import { acquireLibrary, releaseLibrary, libraryBusyMessage, withAlbumLock } from './metadata/lock.js';
 
 export const apiRouter = express.Router();
+
+// Express 4 does not catch a rejected promise from an async handler: it becomes
+// an unhandled rejection and Node exits, taking every running import with it.
+// Every handler registered on the router below goes through this, so a throw
+// nobody anticipated costs one request a 500 rather than the server.
+export function safe(handler) {
+  return function safeHandler(req, res, next) {
+    Promise.resolve()
+      .then(() => handler(req, res, next))
+      .catch(next);
+  };
+}
+
+for (const method of ['get', 'post', 'delete', 'use']) {
+  const register = apiRouter[method].bind(apiRouter);
+  apiRouter[method] = (...args) => register(...args.map((arg) => (typeof arg === 'function' ? safe(arg) : arg)));
+}
 
 // A single cover image is small, so keep it in memory rather than staging it to
 // disk; embedCover writes it into the album folder itself. Only accept the same
@@ -731,8 +748,16 @@ apiRouter.post('/import', async (req, res) => {
 // failure — there is nothing to undo otherwise, and the handler says so rather
 // than silently importing.
 apiRouter.post('/import/retry', async (req, res) => {
-  const album = await resolveAlbum(req, res);
+  // Not resolveAlbum: the RAW folder may be gone — beets prunes a folder it
+  // emptied — and the recorded partial is what decides whether there is
+  // anything to retry. retryImport recreates the folder.
+  const album = sanitizeAlbumName(req.body?.album);
   if (!album) {
+    res.status(400).json({
+      ok: false,
+      code: 'invalid_album',
+      message: 'Album name is required and must be a single folder segment.'
+    });
     return;
   }
 
@@ -747,6 +772,31 @@ apiRouter.post('/import/retry', async (req, res) => {
   }
 
   res.status(202).json({ ok: true, job: result.job, undo: result.undo });
+});
+
+// The import running now, or null. scripts/deploy.sh asks before it reloads,
+// since a reload kills beets mid-move. Declared before /import/:jobId.
+apiRouter.get('/import/active', (req, res) => {
+  const job = activeJob();
+  res.json({
+    ok: true,
+    job: job ? { id: job.id, album: job.album, status: job.status, createdAt: job.createdAt } : null
+  });
+});
+
+// Stop a running import. The job still ends through the usual verification, so
+// tracks that had already landed make it a partial that Undo and retry can undo.
+apiRouter.post('/import/:jobId/cancel', (req, res) => {
+  const result = cancelImport(req.params.jobId);
+  if (!result.ok) {
+    res.status(result.error === 'job_not_found' ? 404 : 409).json({
+      ok: false,
+      code: result.error,
+      message: result.message
+    });
+    return;
+  }
+  res.status(202).json({ ok: true });
 });
 
 apiRouter.get('/import/:jobId', (req, res) => {
