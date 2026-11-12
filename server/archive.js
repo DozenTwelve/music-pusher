@@ -1,10 +1,14 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
+import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import zlib from 'node:zlib';
 import yauzl from 'yauzl';
 import { config } from './config.js';
 import { classifyFile, normalizeRelativePath, sanitizeAlbumName } from './upload.js';
+import { withAlbumLock } from './metadata/lock.js';
+import { TEMP_PREFIX } from './metadata/probe.js';
 import { distinctAudioFormats } from '../shared/extensions.js';
 
 // Music archives are almost always a single album. We extract a .zip into the
@@ -139,8 +143,32 @@ function resolveWithinRaw(destRelative) {
   return absolute;
 }
 
-// Second pass: stream each accepted entry to its destination on disk.
-function extractEntries(zipfile, destByRawName) {
+// yauzl does not check CRC-32 (see its README, "No CRC-32 Checking"), so a
+// damaged stored entry, or one whose damage inflate does not notice, would
+// otherwise extract "successfully" into a broken track.
+function checkCrc(entry) {
+  let crc = 0;
+  return new Transform({
+    transform(chunk, encoding, callback) {
+      crc = zlib.crc32(chunk, crc);
+      callback(null, chunk);
+    },
+    flush(callback) {
+      callback(
+        crc === entry.crc32
+          ? null
+          : new ArchiveError('corrupt_archive', `Archive entry '${entry.fileName}' is damaged (checksum mismatch).`)
+      );
+    }
+  });
+}
+
+// Second pass: stream each accepted entry to a temp file beside its
+// destination. Nothing takes its real name until every entry has arrived intact
+// (see extractZipAlbum), so a failure part-way leaves no partial album staged and
+// overwrites nothing already in RAW. `written` records the temp files and the
+// folders this extraction created, for commit or rollback.
+function extractEntries(zipfile, destByRawName, written) {
   return new Promise((resolve, reject) => {
     zipfile.on('entry', (entry) => {
       const destRelative = destByRawName.get(entry.fileName);
@@ -157,19 +185,37 @@ function extractEntries(zipfile, destByRawName) {
         return;
       }
 
-      zipfile.openReadStream(entry, async (error, readStream) => {
-        if (error) {
-          reject(error);
-          return;
+      const fail = (error) =>
+        reject(
+          String(error.code).startsWith('Z_')
+            ? new ArchiveError('corrupt_archive', `Archive entry '${entry.fileName}' is damaged (${error.message}).`)
+            : error
+        );
+
+      const dir = path.dirname(absolute);
+      // Numbered, since two entries can normalize to the same name.
+      const temp = path.join(dir, `${TEMP_PREFIX}zip${written.files.length}-${path.basename(absolute)}`);
+      written.files.push({ temp, absolute });
+
+      // The folder is made before the entry is opened, not after. Once open,
+      // yauzl starts inflating, and a damaged entry's error is emitted on the
+      // stream a tick later; with an `await` between opening and pipeline it
+      // arrived to no listener and crashed the whole server — taking any
+      // running import's job with it.
+      fsp.mkdir(dir, { recursive: true }).then((created) => {
+        // mkdir names only the topmost folder it made; the ones below it on
+        // this path are this extraction's too.
+        for (let folder = dir; created && folder.length >= created.length; folder = path.dirname(folder)) {
+          written.dirs.add(folder);
         }
-        try {
-          await fsp.mkdir(path.dirname(absolute), { recursive: true });
-          await pipeline(readStream, fs.createWriteStream(absolute));
-          zipfile.readEntry();
-        } catch (writeError) {
-          reject(writeError);
-        }
-      });
+        zipfile.openReadStream(entry, (error, readStream) => {
+          if (error) {
+            fail(error);
+            return;
+          }
+          pipeline(readStream, checkCrc(entry), fs.createWriteStream(temp)).then(() => zipfile.readEntry(), fail);
+        });
+      }, fail);
     });
 
     zipfile.on('end', () => resolve());
@@ -177,6 +223,16 @@ function extractEntries(zipfile, destByRawName) {
 
     zipfile.readEntry();
   });
+}
+
+// Undo an extraction that did not finish: its temp files, then the folders it
+// created, if they are empty. Nothing else in RAW is touched.
+async function rollbackEntries(written) {
+  await Promise.all(written.files.map(({ temp }) => fsp.rm(temp, { force: true })));
+  const dirs = [...written.dirs].sort((a, b) => b.length - a.length);
+  for (const dir of dirs) {
+    await fsp.rmdir(dir).catch(() => {});
+  }
 }
 
 export async function extractZipAlbum(zipPath, originalName, { allowMixed = false } = {}) {
@@ -207,11 +263,27 @@ export async function extractZipAlbum(zipPath, originalName, { allowMixed = fals
 
   const { album, destByRawName } = planLayout(scan.accepted, originalName);
 
-  const extractZip = await openZip(zipPath);
-  try {
-    await extractEntries(extractZip, destByRawName);
-  } finally {
-    extractZip.close();
+  // Held for the whole extraction: no import may take the folder half-written,
+  // and none that is running may have files added under it.
+  const busy = await withAlbumLock(album, 'album_busy', async () => {
+    const written = { files: [], dirs: new Set() };
+    try {
+      const extractZip = await openZip(zipPath);
+      try {
+        await extractEntries(extractZip, destByRawName, written);
+      } finally {
+        extractZip.close();
+      }
+      for (const { temp, absolute } of written.files) {
+        await fsp.rename(temp, absolute);
+      }
+    } catch (error) {
+      await rollbackEntries(written);
+      throw error;
+    }
+  });
+  if (busy) {
+    throw new ArchiveError(busy.code, busy.message);
   }
 
   const totalBytes = scan.accepted.reduce((sum, item) => sum + item.size, 0);

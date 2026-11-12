@@ -78,6 +78,48 @@ function pruneJobs() {
   }
 }
 
+// Every file under dir, with the size and mtime it has now.
+async function snapshotFiles(dir) {
+  const files = new Map();
+  for (const rel of await fsp.readdir(dir, { recursive: true })) {
+    const stat = await fsp.lstat(path.join(dir, rel));
+    if (stat.isFile()) {
+      files.set(rel, { size: stat.size, mtimeMs: stat.mtimeMs });
+    }
+  }
+  return files;
+}
+
+// Delete what the RAW folder held when beets was handed it — the files still
+// exactly as they were, then the folders that leaves empty — and return the
+// relative paths of whatever is left. A file that arrived or changed during the
+// import was never beets', so it stays, and so does the folder around it.
+async function removeStaged(dir, staged) {
+  for (const [rel, before] of staged) {
+    const file = path.join(dir, rel);
+    const now = await fsp.lstat(file).catch(() => null); // gone: beets moved it
+    if (now?.isFile() && now.size === before.size && now.mtimeMs === before.mtimeMs) {
+      await fsp.rm(file);
+    }
+  }
+
+  // beets prunes a source folder it emptied, so the folder may already be gone.
+  const dirs = [];
+  for (const rel of await fsp.readdir(dir, { recursive: true }).catch(() => [])) {
+    if ((await fsp.lstat(path.join(dir, rel))).isDirectory()) {
+      dirs.push(path.join(dir, rel));
+    }
+  }
+  // Deepest first; rmdir refuses a folder that still holds anything.
+  dirs.sort((a, b) => b.length - a.length);
+  for (const folder of [...dirs, dir]) {
+    await fsp.rmdir(folder).catch(() => {});
+  }
+
+  const left = await snapshotFiles(dir).catch(() => new Map());
+  return [...left.keys()];
+}
+
 export function runAudit(album) {
   return new Promise((resolve) => {
     const albumPath = path.join(config.rawDir, album);
@@ -208,6 +250,14 @@ export async function startImport(album, { releaseId = null } = {}) {
   // the total in between.
   let expected = null;
   let before = null;
+  // What cleanup may delete afterwards: the folder as beets is handed it. No
+  // snapshot, no cleanup.
+  let staged = null;
+  try {
+    staged = await snapshotFiles(albumPath);
+  } catch (error) {
+    pushLine(job, 'stderr', `Could not list the RAW folder before importing: ${error.message}`);
+  }
   try {
     expected = (await listAudioFiles(albumPath)).length;
     before = await maxItemId();
@@ -321,14 +371,34 @@ export async function startImport(album, { releaseId = null } = {}) {
     // Cleanup is gated on the verified status, not on the exit code. Deleting
     // the source of a partial import is the one mistake there is no recovering
     // from.
-    if (job.status === 'done' && config.cleanupRawAfterImport) {
+    //
+    // And it deletes only what beets was handed. A file that reached the folder
+    // after the snapshot above — an upload already in flight when the import
+    // began — is in neither RAW's past nor the library, so removing the whole
+    // folder would lose it outright.
+    if (job.status === 'done' && config.cleanupRawAfterImport && staged) {
       try {
-        await fsp.rm(albumPath, { recursive: true, force: true });
-        job.cleanup = {
-          ok: true,
-          removedPath: albumPath
-        };
-        pushLine(job, 'stdout', `Cleanup complete: removed RAW folder '${album}'.`);
+        const kept = await removeStaged(albumPath, staged);
+        if (kept.length === 0) {
+          job.cleanup = {
+            ok: true,
+            removedPath: albumPath
+          };
+          pushLine(job, 'stdout', `Cleanup complete: removed RAW folder '${album}'.`);
+        } else {
+          job.cleanup = {
+            ok: false,
+            removedPath: albumPath,
+            kept,
+            message: `${kept.length} file(s) arrived or changed during the import and were kept.`
+          };
+          pushLine(
+            job,
+            'stderr',
+            `Kept RAW folder '${album}': ${kept.join(', ')} arrived or changed while beets was ` +
+              'importing, so they were not part of this import.'
+          );
+        }
       } catch (error) {
         job.cleanup = {
           ok: false,
