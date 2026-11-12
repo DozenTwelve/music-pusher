@@ -18,12 +18,12 @@
             <ul class="ticks">
               <li>The tags Navidrome groups by: album name, album artist, release date, album version and MusicBrainz album ID, made the same on every track.</li>
               <li>The date, when the tracks disagree on it, so the album shows a year.</li>
-              <li>Track numbers, written as <code>3/12</code> and counted per disc.</li>
+              <li>Track numbers, written as <code>3/12</code> and counted per disc. When no track says which disc it is on but each disc has its own folder (<code>CD1</code>, <code>CD2</code>), each folder is taken as a disc.</li>
               <li>Damaged text (<code>Don_t</code>, stray control characters, trailing spaces) where the repair is certain, and file names that lost an apostrophe.</li>
               <li>The cover: put into every track that lacks it, and saved as <code>cover.jpg</code> beside them, which is the first place Navidrome looks.</li>
             </ul>
             <p><strong>The audio is never re-encoded.</strong> Only the tags are rewritten. The test suite compares the md5 of the decoded audio before and after on every file it fixes, and they match.</p>
-            <p>Everything else goes into the zip as it was: the other tags (genre, comments and the rest), scans, logs, cue sheets, and any file it cannot read. The Finder’s <code>.DS_Store</code> and <code>__MACOSX</code> folders are left out. When it has finished, it opens the zip it made and reads every track again, so the count it shows you is of the files you download.</p>
+            <p>Everything else goes into the zip as it was: the other tags (genre, comments and the rest), scans, logs, cue sheets, and any file it cannot read. The Finder’s <code>.DS_Store</code> and <code>__MACOSX</code> folders are left out, and so is a password-protected file in a zip, which it can’t open; the page names it. When it has finished, it opens the zip it made and reads every track again, so the count it shows you is of the files you download.</p>
           </div>
         </section>
 
@@ -33,7 +33,7 @@
             <p>These it points out and leaves to you:</p>
             <ul class="ticks">
               <li>Missing tracks. A gap in the numbering stays a gap.</li>
-              <li>Several tracks with the same number, which is usually a multi-disc set with no disc numbers in the tags. It can’t know which track is on which disc.</li>
+              <li>Several tracks with the same number in one folder, which is usually a multi-disc set with no disc numbers in the tags. It can’t know which track is on which disc.</li>
               <li>A track with no number, when its file name has none either.</li>
               <li>FLAC and MP3 mixed in one album, or tracks of different quality. Converting would mean re-encoding.</li>
               <li>A FLAC file that doesn’t record its length. That also needs re-encoding.</li>

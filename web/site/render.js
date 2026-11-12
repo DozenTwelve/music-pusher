@@ -27,11 +27,14 @@ const tagOf = (language) => LANGUAGES.find(({ code }) => code === language).tag;
 const absolute = (path) => ORIGIN + path;
 export const cardOf = (page) => `/og/${page.kind}.${page.language}.png`;
 
-// A visitor who once followed a language link is taken to that language when
-// they open the root address again. Only a choice they made themselves does
-// this — never the browser's language, never anything a crawler carries — so
-// every address shows one language to whoever asks for it.
-export const REMEMBERED = `try{if(localStorage.getItem(${JSON.stringify(STORAGE_KEY)})==='zh')location.replace('/zh/'+location.search+location.hash)}catch(e){}`;
+// The root address alone picks a language for whoever opens it: the one they
+// last chose with the language switch (English or Chinese), and with no choice
+// remembered, Chinese when the browser ranks some zh-* above English. Done in
+// the browser and on the root only, so every address still serves one language
+// to whoever asks for it (and a crawler reads the root in English, x-default);
+// /zh/ and the other pages never send anyone anywhere. Where storage
+// cannot be read a choice of English could not be kept, so the root stays put.
+export const REMEMBERED = `try{var c;try{c=localStorage.getItem(${JSON.stringify(STORAGE_KEY)})}catch(e){c='en'}if(c!=='en'&&c!=='zh')c=/^zh/i.test([].concat(navigator.languages||navigator.language||[]).find(function(l){return/^(en|zh)(-|$)/i.test(l)}))?'zh':'en';if(c==='zh')location.replace('/zh/'+location.search+location.hash)}catch(e){}`;
 
 // Where the tool cannot run without scripts, its empty sleeve says so.
 const NOSCRIPT = '<noscript><style>.drop__title,.pickers{display:none}.drop .drop__noscript{display:block}</style></noscript>';
