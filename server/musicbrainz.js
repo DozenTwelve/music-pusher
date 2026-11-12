@@ -69,12 +69,23 @@ export async function searchReleases({ artist, album, tracks }) {
     };
   }
 
-  const body = await response.json();
-  const releases = Array.isArray(body.releases) ? body.releases : [];
-  const expected = Number.isInteger(tracks) && tracks > 0 ? tracks : null;
-  const candidates = releases.map((r) => summarize(r, expected));
-
-  sortCandidates(candidates);
+  // A 200 can still carry an HTML error page, or a body the timeout above cut
+  // off half-read. Either rejects here, and a rejection that escapes this
+  // function used to take the whole server down with it.
+  let candidates;
+  try {
+    const body = await response.json();
+    const releases = Array.isArray(body?.releases) ? body.releases : [];
+    const expected = Number.isInteger(tracks) && tracks > 0 ? tracks : null;
+    candidates = releases.map((r) => summarize(r, expected));
+    sortCandidates(candidates);
+  } catch (error) {
+    return {
+      ok: false,
+      code: 'bad_response',
+      message: `MusicBrainz sent a reply that could not be read: ${error.message}`
+    };
+  }
 
   return { ok: true, query: { artist, album, tracks }, candidates };
 }

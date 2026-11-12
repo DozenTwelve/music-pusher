@@ -8,19 +8,99 @@ import { AUDIO_EXTENSIONS } from '../upload.js';
 // rewrite can leave one behind; it must never be mistaken for a real track.
 export const TEMP_PREFIX = '__fix__';
 
-export function runProcess(bin, args) {
+// Long enough for ffmpeg to rewrite or losslessly re-encode a very large track;
+// callers that should answer in seconds (ffprobe, `beet config`) pass less.
+export const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
+const KILL_GRACE_MS = 5000;
+
+// Every process group started here and not yet closed, so none outlives the
+// server. Without this a hung beet kept running after a restart, outside PM2,
+// still holding the files it was moving.
+const live = new Set();
+process.on('exit', () => {
+  for (const proc of live) {
+    signalGroup(proc, 'SIGKILL');
+  }
+});
+
+function signalGroup(proc, signal) {
+  try {
+    process.kill(-proc.pid, signal);
+  } catch {
+    // already gone
+  }
+}
+
+// Spawn in a process group of its own, so a kill reaches what it started too:
+// beets runs plugins, and they run their own tools.
+export function spawnGroup(bin, args) {
+  const proc = spawn(bin, args, { shell: false, detached: true });
+  if (proc.pid) {
+    live.add(proc);
+    // A group being killed stays listed until its SIGKILL has gone out: the
+    // leader closing does not mean what it started has.
+    proc.once('close', () => proc.killing || live.delete(proc));
+  }
+  return proc;
+}
+
+function groupAlive(proc) {
+  try {
+    process.kill(-proc.pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// SIGTERM the whole group, then SIGKILL whatever is still there after the
+// grace — even when the leader has closed by then, since a descendant that
+// ignores SIGTERM and let go of the pipes outlives it. Resolves once the group
+// is gone (or has been sent SIGKILL), which is when the caller may let go of
+// the files it was working on.
+export function killGroup(proc, graceMs = KILL_GRACE_MS) {
+  proc.killing ??= (async () => {
+    signalGroup(proc, 'SIGTERM');
+    const deadline = Date.now() + graceMs;
+    while (Date.now() < deadline && groupAlive(proc)) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    signalGroup(proc, 'SIGKILL');
+    live.delete(proc);
+  })();
+  return proc.killing;
+}
+
+export function runProcess(bin, args, { timeoutMs = DEFAULT_TIMEOUT_MS, graceMs } = {}) {
   return new Promise((resolve) => {
-    const proc = spawn(bin, args, { shell: false });
+    const proc = spawnGroup(bin, args);
     let stdout = '';
     let stderr = '';
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killGroup(proc, graceMs);
+    }, timeoutMs);
     proc.stdout.on('data', (chunk) => {
       stdout += chunk;
     });
     proc.stderr.on('data', (chunk) => {
       stderr += chunk;
     });
-    proc.on('error', (error) => resolve({ code: -1, stdout, stderr: `${stderr}${error.message}` }));
-    proc.on('close', (code) => resolve({ code, stdout, stderr }));
+    proc.on('error', (error) => {
+      clearTimeout(timer);
+      resolve({ code: -1, stdout, stderr: `${stderr}${error.message}` });
+    });
+    proc.on('close', async (code) => {
+      clearTimeout(timer);
+      if (timedOut) {
+        await proc.killing;
+        const note = `'${bin}' timed out after ${Math.round(timeoutMs / 1000)}s and was killed.`;
+        resolve({ code: -1, stdout, stderr: `${stderr}${stderr && !stderr.endsWith('\n') ? '\n' : ''}${note}`, timedOut });
+      } else {
+        resolve({ code, stdout, stderr });
+      }
+    });
   });
 }
 
@@ -70,7 +150,7 @@ export async function probeTags(absPath) {
     '-of',
     'json',
     absPath
-  ]);
+  ], { timeoutMs: 60 * 1000 });
 
   const tags = {};
   if (code === 0) {

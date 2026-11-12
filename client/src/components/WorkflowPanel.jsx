@@ -7,7 +7,8 @@ import {
   startImport,
   searchReleases,
   retryImport,
-  importStreamUrl,
+  cancelImport,
+  followImport,
   errorMessage
 } from '../api.js';
 import { Diagnosis, FixForm, CoverArtFix, ReleasePicker } from './MetadataReport.jsx';
@@ -61,7 +62,19 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone, libraryBusy
   // means "use the tags", which is the common case; an album that arrived with
   // no tags at all has nothing to search on, and this is the only way in.
   const [releaseQuery, setReleaseQuery] = useState({ artist: '', album: '' });
-  const eventSourceRef = useRef(null);
+  // Stops following the running import's log stream (see followImport).
+  const stopFollowRef = useRef(null);
+  const [importJobId, setImportJobId] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
+  // The album on screen right now. A response is applied only if it is still
+  // the album the request was made for: a report for A must never show under
+  // B, where Apply Fixes would then write A's values into B's files.
+  const albumRef = useRef(selectedAlbum);
+  albumRef.current = selectedAlbum;
+  // The latest callback, not the one captured when the import started, so the
+  // page reloads against the album it is showing when the import ends.
+  const onImportDoneRef = useRef(onImportDone);
+  onImportDoneRef.current = onImportDone;
   // Set before the request goes out. `importStatus` only reaches the closure on
   // the next render, so two clicks dispatched in one task would both pass it.
   const importRequestRef = useRef(false);
@@ -74,7 +87,7 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone, libraryBusy
   // other (they rewrite or move the same files), so one flag disables them all.
   const locked = Boolean(busy) || importing;
 
-  useEffect(() => () => eventSourceRef.current?.close(), []);
+  useEffect(() => () => stopFollowRef.current?.(), []);
 
   // Lets the page hold off what conflicts from outside this panel: switching
   // or deleting the album, and the library restage/repair.
@@ -84,6 +97,10 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone, libraryBusy
 
   // Reset everything when the selected album changes.
   useEffect(() => {
+    stopFollowRef.current?.();
+    stopFollowRef.current = null;
+    setImportJobId(null);
+    setCancelling(false);
     setReport(null);
     setDraft({ normalizeTracks: false, fixFilenames: false, repairText: false });
     setFixSummary('');
@@ -131,10 +148,14 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone, libraryBusy
     if (!selectedAlbum) {
       return;
     }
+    const album = selectedAlbum;
     setFixSummary('');
     setBusy('analyze');
     try {
-      const data = await inspectAlbum(selectedAlbum);
+      const data = await inspectAlbum(album);
+      if (albumRef.current !== album) {
+        return;
+      }
       applyReport(data);
     } catch (requestError) {
       toast.error(errorMessage(requestError));
@@ -155,14 +176,18 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone, libraryBusy
         set[field] = value;
       }
     }
+    const album = selectedAlbum;
     try {
-      const data = await fixAlbum(selectedAlbum, {
+      const data = await fixAlbum(album, {
         set,
         normalizeTracks: Boolean(draft.normalizeTracks),
         fixFilenames: Boolean(draft.fixFilenames),
         repairText: Boolean(draft.repairText),
         repairDuration: Boolean(draft.repairDuration)
       });
+      if (albumRef.current !== album) {
+        return;
+      }
       const parts = [
         `Tagged ${data.changes.length} files`,
         data.renames.length ? `renamed ${data.renames.length}` : null,
@@ -190,8 +215,12 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone, libraryBusy
       return;
     }
     setBusy('cover');
+    const album = selectedAlbum;
     try {
-      const data = await embedCover(selectedAlbum, file);
+      const data = await embedCover(album, file);
+      if (albumRef.current !== album) {
+        return;
+      }
       const parts = [
         `Embedded cover into ${data.embedded} file${data.embedded === 1 ? '' : 's'}`,
         data.errors.length ? `${data.errors.length} errors` : null
@@ -217,8 +246,12 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone, libraryBusy
       return;
     }
     setBusy('releases');
+    const album = selectedAlbum;
     try {
-      const data = await searchReleases(selectedAlbum, releaseQuery);
+      const data = await searchReleases(album, releaseQuery);
+      if (albumRef.current !== album) {
+        return;
+      }
       setReleases(data.candidates || []);
       if (!data.candidates?.length) {
         toast.error('No MusicBrainz release matched. Try typing the artist and album above.');
@@ -239,11 +272,26 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone, libraryBusy
     return runImport(() => retryImport(selectedAlbum));
   }
 
+  async function stopImport() {
+    if (!importJobId || cancelling) {
+      return;
+    }
+    setCancelling(true);
+    try {
+      // The stream reports the outcome; nothing to apply from this answer.
+      await cancelImport(importJobId);
+    } catch (requestError) {
+      setCancelling(false);
+      toast.error(errorMessage(requestError));
+    }
+  }
+
   async function runImport(start) {
     if (!selectedAlbum || locked || libraryBusy || importRequestRef.current) {
       return;
     }
 
+    const album = selectedAlbum;
     importRequestRef.current = true;
     setImportLogs([]);
     setImportStatus('starting');
@@ -254,70 +302,77 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone, libraryBusy
       if (!jobId) {
         throw new Error('Missing job id from server.');
       }
+      // The import runs on regardless; this panel just no longer shows it.
+      if (albumRef.current !== album) {
+        return;
+      }
 
       setImportStatus('running');
-      eventSourceRef.current?.close();
-      const events = new EventSource(importStreamUrl(jobId));
-      eventSourceRef.current = events;
-
-      events.addEventListener('log', (event) => {
-        const payload = JSON.parse(event.data);
-        setImportLogs((previous) => [...previous, payload]);
-      });
-
-      events.addEventListener('end', (event) => {
-        const payload = JSON.parse(event.data);
-        const status = payload.status || 'done';
-        setImportStatus(status);
-        if (payload?.cleanup?.ok) {
-          setImportLogs((previous) => [
-            ...previous,
-            {
-              stream: 'stdout',
-              line: `Cleanup complete: removed ${payload.cleanup.removedPath}`
+      setImportJobId(jobId);
+      setCancelling(false);
+      stopFollowRef.current?.();
+      stopFollowRef.current = followImport(jobId, {
+        onReset: () => setImportLogs([]),
+        onLog: (payload) => setImportLogs((previous) => [...previous, payload]),
+        onEnd: (payload) => {
+          stopFollowRef.current = null;
+          setImportJobId(null);
+          setCancelling(false);
+          const status = payload.status || 'done';
+          setImportStatus(status);
+          if (payload?.cleanup?.ok) {
+            setImportLogs((previous) => [
+              ...previous,
+              {
+                stream: 'stdout',
+                line: `Cleanup complete: removed ${payload.cleanup.removedPath}`
+              }
+            ]);
+          }
+          if (payload.lost) {
+            toast.error(`The server no longer knows the import of “${album}”. Check the library before importing it again.`);
+          } else if (status === 'done') {
+            const v = payload.verification;
+            // A `done` import can still be the bad kind: every track landed, and
+            // beets wrote back nothing because it never matched the album. That
+            // is the outcome this whole screen exists to prevent, so it does not
+            // get to look like a plain success. `toast.error` is reused for its
+            // stickiness (duration 0) rather than a third variant — the import
+            // did succeed, but the result needs a decision.
+            const blank = [
+              v?.untitled ? `${v.untitled} track${v.untitled > 1 ? 's' : ''} have no title` : null,
+              v && v.matched === false ? 'no MusicBrainz release matched' : null
+            ].filter(Boolean);
+            if (blank.length) {
+              toast.error(
+                `Imported “${album}”, but ${blank.join(' and ')}. The tags are unchanged ` +
+                  'from the files — pick the release in step 3 and import again to correct them.'
+              );
+            } else {
+              toast.success(`Import finished for “${album}”.`);
             }
-          ]);
-        }
-        if (status === 'done') {
-          const v = payload.verification;
-          // A `done` import can still be the bad kind: every track landed, and
-          // beets wrote back nothing because it never matched the album. That
-          // is the outcome this whole screen exists to prevent, so it does not
-          // get to look like a plain success. `toast.error` is reused for its
-          // stickiness (duration 0) rather than a third variant — the import
-          // did succeed, but the result needs a decision.
-          const blank = [
-            v?.untitled ? `${v.untitled} track${v.untitled > 1 ? 's' : ''} have no title` : null,
-            v && v.matched === false ? 'no MusicBrainz release matched' : null
-          ].filter(Boolean);
-          if (blank.length) {
+          } else if (status === 'partial') {
+            const v = payload.verification;
             toast.error(
-              `Imported “${selectedAlbum}”, but ${blank.join(' and ')}. The tags are unchanged ` +
-                'from the files — pick the release in step 3 and import again to correct them.'
+              v
+                ? `Only part of “${album}” is in the library (${v.imported} of ${v.expected} tracks recorded). The RAW folder was kept — see the log, then Undo and retry.`
+                : `Could not verify the import for “${album}” — the RAW folder was kept.`
             );
           } else {
-            toast.success(`Import finished for “${selectedAlbum}”.`);
+            toast.error(`Import failed for “${album}” — see the log.`);
           }
-        } else if (status === 'partial') {
-          const v = payload.verification;
-          toast.error(
-            v
-              ? `Only ${v.imported} of ${v.expected} tracks reached the library. The RAW folder was kept — see the log.`
-              : `Could not verify the import for “${selectedAlbum}” — the RAW folder was kept.`
-          );
-        } else {
-          toast.error(`Import failed for “${selectedAlbum}” — see the log.`);
+          // Not after a partial: the reload drops an album whose RAW folder
+          // beets pruned (the list shows only folders with files), and the
+          // selection change would take Undo and retry with it.
+          if (status !== 'partial') {
+            onImportDoneRef.current();
+          }
         }
-        events.close();
-        onImportDone();
       });
-
-      events.onerror = () => {
-        events.close();
-        setImportStatus('failed');
-        toast.error('Lost connection to import log stream.');
-      };
     } catch (requestError) {
+      if (albumRef.current !== album) {
+        return;
+      }
       const refusal = requestError?.response?.data;
       if (refusal?.code === 'already_imported') {
         if (refusal.report) {
@@ -484,6 +539,19 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone, libraryBusy
                     ? 'Import anyway'
                     : 'Import'}
               </Button>
+              {/* Only while beets runs: a hung import otherwise holds the
+                  album, and every other import, until its timeout. */}
+              {importStatus === 'running' && importJobId ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={stopImport}
+                  disabled={cancelling}
+                >
+                  {cancelling ? 'Cancelling…' : 'Cancel import'}
+                </Button>
+              ) : null}
               {/* Only after a verification failure. The RAW folder was kept
                   precisely so this is possible, and the retry undoes the half
                   that landed before running again. */}

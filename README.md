@@ -282,7 +282,11 @@ npm run deploy
 ```
 
 This pulls the latest, reinstalls server + client deps, rebuilds the client, and
-`pm2 reload`s the process (zero-downtime). Override the name if yours differs:
+`pm2 reload`s the process. A reload kills a running import mid-move, so the
+deploy refuses to start while one is running (and waits for one that started
+during the build); `npm run deploy -- --force` overrides that. An import a
+restart does interrupt anyway is reported when the server comes back, and
+**Undo and retry** puts back what had landed. Override the name if yours differs:
 
 ```bash
 PM2_APP_NAME=my-app npm run deploy
@@ -374,8 +378,10 @@ Everything else — and system junk like `.DS_Store` — is skipped and reported
 | `POST` | `/api/fix` | Apply tag/track/filename fixes in place. |
 | `POST` | `/api/cover` | Embed an uploaded cover into every track. |
 | `POST` | `/api/import` | Start a `beet import` job. |
+| `GET` | `/api/import/active` | The import running now, if any (what `npm run deploy` checks). |
 | `GET` | `/api/import/:jobId` | Job status. |
 | `GET` | `/api/import/:jobId/stream` | Live import logs (SSE). |
+| `POST` | `/api/import/:jobId/cancel` | Stop a running import (beets and everything it started). |
 
 ## Security note
 

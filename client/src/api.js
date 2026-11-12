@@ -209,3 +209,66 @@ export async function retryImport(album) {
 export function importStreamUrl(jobId) {
   return `/api/import/${jobId}/stream`;
 }
+
+// Stop a running import; it still ends through the stream, as failed or partial.
+export async function cancelImport(jobId) {
+  const { data } = await axios.post(`/api/import/${jobId}/cancel`);
+  return data;
+}
+
+// Follow an import's log stream to its `end`, through a dropped connection or
+// a server restart. On any stream error it stops listening, then asks for the
+// job until the server answers: still known, it reopens the stream (which
+// replays the whole log, hence onReset); unknown (404), the job is lost; no
+// answer, it asks again. Closing on the first error instead, as before, marked
+// the import failed while the server carried on with it.
+// Returns a function that stops following.
+export function followImport(jobId, { onReset, onLog, onEnd }, { EventSourceImpl = globalThis.EventSource, retryMs = 2000 } = {}) {
+  let source = null;
+  let timer = null;
+  let stopped = false;
+
+  function stop() {
+    stopped = true;
+    clearTimeout(timer);
+    source?.close();
+  }
+
+  function open() {
+    onReset();
+    source = new EventSourceImpl(importStreamUrl(jobId));
+    source.addEventListener('log', (event) => onLog(JSON.parse(event.data)));
+    source.addEventListener('end', (event) => {
+      stop();
+      onEnd(JSON.parse(event.data));
+    });
+    source.onerror = () => {
+      source.close();
+      if (!stopped) {
+        timer = setTimeout(check, retryMs);
+      }
+    };
+  }
+
+  async function check() {
+    try {
+      await axios.get(`/api/import/${jobId}`);
+      if (!stopped) {
+        open();
+      }
+    } catch (error) {
+      if (stopped) {
+        return;
+      }
+      if (error?.response?.status === 404) {
+        stop();
+        onEnd({ status: 'failed', lost: true });
+        return;
+      }
+      timer = setTimeout(check, retryMs);
+    }
+  }
+
+  open();
+  return stop;
+}
