@@ -115,6 +115,7 @@ function head(page, meta) {
       `<meta name="twitter:title" content="${escape(meta.title)}" />`,
       `<meta name="twitter:description" content="${escape(meta.description)}" />`,
       `<meta name="twitter:image" content="${card}" />`,
+      `<meta name="twitter:image:alt" content="${escape(words.card)}" />`,
       ...structuredData(page, meta).map((data) => `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`)
     );
   }
