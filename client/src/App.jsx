@@ -35,11 +35,16 @@ export default function App() {
   const [loadingAlbums, setLoadingAlbums] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  // In-flight work in each panel, so the other side can hold off what
+  // conflicts with it: no switching or deleting the album mid-import, no
+  // library restage/repair while files are being rewritten, and the reverse.
+  const [workflowBusy, setWorkflowBusy] = useState(false);
+  const [libraryBusy, setLibraryBusy] = useState(false);
   const [theme, toggleTheme] = useTheme();
   const toast = useToast();
 
   async function confirmDelete() {
-    if (!pendingDelete) {
+    if (!pendingDelete || deleting) {
       return;
     }
     setDeleting(true);
@@ -119,6 +124,7 @@ export default function App() {
             selectedAlbum={selectedAlbum}
             onSelect={setSelectedAlbum}
             onRequestDelete={setPendingDelete}
+            disabled={workflowBusy}
           />
         </section>
 
@@ -132,12 +138,25 @@ export default function App() {
           <UploadPanel onUploadDone={loadAlbums} />
         </section>
 
-        <WorkflowPanel selectedAlbum={selectedAlbum} onImportDone={loadAlbums} />
+        <WorkflowPanel
+          selectedAlbum={selectedAlbum}
+          onImportDone={loadAlbums}
+          libraryBusy={libraryBusy}
+          onBusyChange={setWorkflowBusy}
+        />
 
-        <LibraryPanel onRestaged={loadAlbums} />
+        <LibraryPanel
+          onRestaged={loadAlbums}
+          workflowBusy={workflowBusy}
+          onBusyChange={setLibraryBusy}
+        />
       </div>
 
-      <Dialog open={pendingDelete !== null} onOpenChange={(open) => !open && setPendingDelete(null)}>
+      {/* Not closable mid-delete: it would hide the only progress shown. */}
+      <Dialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && !deleting && setPendingDelete(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Remove from staging?</DialogTitle>

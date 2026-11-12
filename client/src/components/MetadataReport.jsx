@@ -406,7 +406,13 @@ export function ReleasePicker({ report, releases, chosen, query, onQueryChange, 
           {busy === 'releases' ? 'Searching…' : releases ? 'Search again' : 'Find on MusicBrainz'}
         </Button>
         {chosen ? (
-          <Button type="button" size="sm" variant="secondary" onClick={() => onChoose(null)}>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => onChoose(null)}
+            disabled={Boolean(busy)}
+          >
             Clear choice
           </Button>
         ) : null}
@@ -430,6 +436,7 @@ export function ReleasePicker({ report, releases, chosen, query, onQueryChange, 
                   name="release"
                   className="mr-2"
                   checked={chosen === r.id}
+                  disabled={Boolean(busy)}
                   onChange={() => onChoose(r.id)}
                 />
                 <strong>{r.artist || '(unknown artist)'}</strong> — {r.title}

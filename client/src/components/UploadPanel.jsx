@@ -91,6 +91,9 @@ export default function UploadPanel({ onUploadDone }) {
   const folderInputRef = useRef(null);
   const zipInputRef = useRef(null);
   const dragCounter = useRef(0);
+  // Same job as `isUploading`, but set synchronously: the state only reaches
+  // the click handlers on the next render.
+  const uploadingRef = useRef(false);
   const toast = useToast();
 
   const totalSize = useMemo(
@@ -120,6 +123,10 @@ export default function UploadPanel({ onUploadDone }) {
   async function handleDrop(event) {
     event.preventDefault();
     setIsDragging(false);
+    // A new selection mid-upload would be wiped by the success handler.
+    if (isUploading) {
+      return;
+    }
     const dropped = await entriesFromDataTransfer(event.dataTransfer);
     if (dropped.length === 0) {
       toast.error('Nothing usable in that drop — try a folder or a .zip archive.');
@@ -184,6 +191,10 @@ export default function UploadPanel({ onUploadDone }) {
   }
 
   async function performUpload() {
+    if (uploadingRef.current) {
+      return;
+    }
+    uploadingRef.current = true;
     setConfirmOpen(false);
 
     // Archive is a single .zip, so it stays one request; folder uploads are
@@ -227,12 +238,17 @@ export default function UploadPanel({ onUploadDone }) {
         toast.error(errorMessage(uploadError));
       }
     } finally {
+      uploadingRef.current = false;
       setIsUploading(false);
     }
   }
 
   // Extract a kept mixed-format archive on the server — no re-transfer.
   async function confirmArchiveUpload() {
+    if (uploadingRef.current) {
+      return;
+    }
+    uploadingRef.current = true;
     setConfirmOpen(false);
     setResult(null);
     setIsUploading(true);
@@ -244,6 +260,7 @@ export default function UploadPanel({ onUploadDone }) {
     } catch (confirmError) {
       toast.error(errorMessage(confirmError));
     } finally {
+      uploadingRef.current = false;
       setIsUploading(false);
       setArchiveToken('');
     }
@@ -252,6 +269,9 @@ export default function UploadPanel({ onUploadDone }) {
   // "Upload anyway": a kept archive extracts server-side; a folder (whose mixed
   // check is purely client-side) just proceeds with the normal upload.
   function confirmMixed() {
+    if (isUploading) {
+      return;
+    }
     if (isArchive && archiveToken) {
       confirmArchiveUpload();
     } else {
@@ -327,6 +347,7 @@ export default function UploadPanel({ onUploadDone }) {
                     event.stopPropagation();
                     folderInputRef.current?.click();
                   }}
+                  disabled={isUploading}
                 >
                   Browse Folder
                 </button>
@@ -338,6 +359,7 @@ export default function UploadPanel({ onUploadDone }) {
                     event.stopPropagation();
                     zipInputRef.current?.click();
                   }}
+                  disabled={isUploading}
                 >
                   Browse .zip
                 </button>
@@ -453,7 +475,7 @@ export default function UploadPanel({ onUploadDone }) {
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="button" onClick={confirmMixed}>
+            <Button type="button" onClick={confirmMixed} disabled={isUploading}>
               Upload anyway
             </Button>
           </DialogFooter>

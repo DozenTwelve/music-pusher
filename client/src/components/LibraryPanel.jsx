@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   getLibraryHealth,
   getLibraryAlbums,
@@ -23,15 +23,24 @@ import {
 // renames files — beets runs with `move: yes`, so it relocates everything onto
 // its path template — and a yes/no prompt cannot say which files. The preview
 // is the same command with `--pretend`, so it lists exactly that.
-export default function LibraryPanel({ onRestaged }) {
+// `workflowBusy`: the workflow panel has an analyze, fix or import in flight.
+// Restage and apply both move files under it, so they wait.
+export default function LibraryPanel({ onRestaged, workflowBusy = false, onBusyChange }) {
   const [health, setHealth] = useState(null);
   const [albums, setAlbums] = useState(null);
-  const [busy, setBusy] = useState(false);
+  // What is in flight: '' | 'check' | 'preview' | 'apply' | the restaged entry's id.
+  const [busy, setBusy] = useState('');
   const [preview, setPreview] = useState(null);
   const toast = useToast();
 
+  // Only the writes hold off the workflow; check and preview just read.
+  const writing = busy !== '' && busy !== 'check' && busy !== 'preview';
+  useEffect(() => {
+    onBusyChange?.(writing);
+  }, [writing]);
+
   async function runCheck() {
-    setBusy(true);
+    setBusy('check');
     try {
       // Both readings come off the same press: they answer the same question in
       // two directions, and a user who wants one has no reason to want the
@@ -45,7 +54,7 @@ export default function LibraryPanel({ onRestaged }) {
     } catch (requestError) {
       toast.error(errorMessage(requestError));
     } finally {
-      setBusy(false);
+      setBusy('');
     }
   }
 
@@ -53,7 +62,7 @@ export default function LibraryPanel({ onRestaged }) {
   // from there the ordinary analyze → fix → pick a release → import path runs
   // over it like any freshly uploaded folder.
   async function restage(entry) {
-    setBusy(true);
+    setBusy(entry.id);
     try {
       const result = await restageLibraryAlbum(entry.id);
       toast.success(
@@ -68,12 +77,12 @@ export default function LibraryPanel({ onRestaged }) {
     } catch (requestError) {
       toast.error(errorMessage(requestError));
     } finally {
-      setBusy(false);
+      setBusy('');
     }
   }
 
   async function runRepair(pretend) {
-    setBusy(true);
+    setBusy(pretend ? 'preview' : 'apply');
     try {
       const result = await repairLibrary(pretend);
       if (pretend) {
@@ -93,7 +102,7 @@ export default function LibraryPanel({ onRestaged }) {
     } catch (requestError) {
       toast.error(errorMessage(requestError));
     } finally {
-      setBusy(false);
+      setBusy('');
     }
   }
 
@@ -120,8 +129,8 @@ export default function LibraryPanel({ onRestaged }) {
               : 'Imported albums, as beets sees them'}
           </span>
         </div>
-        <Button type="button" size="sm" onClick={runCheck} disabled={busy}>
-          {busy ? 'Checking…' : health ? 'Re-check' : 'Check library'}
+        <Button type="button" size="sm" onClick={runCheck} disabled={Boolean(busy)}>
+          {busy === 'check' ? 'Checking…' : health ? 'Re-check' : 'Check library'}
         </Button>
       </div>
 
@@ -231,9 +240,9 @@ export default function LibraryPanel({ onRestaged }) {
                                   size="sm"
                                   variant="secondary"
                                   onClick={() => restage(entry)}
-                                  disabled={busy}
+                                  disabled={Boolean(busy) || workflowBusy}
                                 >
-                                  Restage to RAW
+                                  {busy === entry.id ? 'Restaging…' : 'Restage to RAW'}
                                 </Button>
                               ) : (
                                 <span className="muted small">spread across folders</span>
@@ -317,17 +326,17 @@ export default function LibraryPanel({ onRestaged }) {
               something, so an empty one costs a click. */}
           <div>
               <div className="flex flex-wrap items-center gap-2 pt-2">
-                <Button type="button" size="sm" onClick={() => runRepair(true)} disabled={busy}>
-                  {busy ? 'Working…' : preview ? 'Refresh preview' : 'Preview repair'}
+                <Button type="button" size="sm" onClick={() => runRepair(true)} disabled={Boolean(busy)}>
+                  {busy === 'preview' ? 'Previewing…' : preview ? 'Refresh preview' : 'Preview repair'}
                 </Button>
                 <Button
                   type="button"
                   size="sm"
                   variant="destructive"
                   onClick={() => runRepair(false)}
-                  disabled={busy || !hasRepairWork}
+                  disabled={Boolean(busy) || !hasRepairWork || workflowBusy}
                 >
-                  Apply repair
+                  {busy === 'apply' ? 'Applying…' : 'Apply repair'}
                 </Button>
                 <span className="muted small flex-1 basis-full">
                   {hasRepairWork

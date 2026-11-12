@@ -38,7 +38,7 @@ function countFixable(report) {
   );
 }
 
-export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
+export default function WorkflowPanel({ selectedAlbum, onImportDone, libraryBusy = false, onBusyChange }) {
   const [report, setReport] = useState(null);
   const [draft, setDraft] = useState({ normalizeTracks: false, fixFilenames: false, repairText: false });
   const [busy, setBusy] = useState('');
@@ -62,9 +62,25 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
   // no tags at all has nothing to search on, and this is the only way in.
   const [releaseQuery, setReleaseQuery] = useState({ artist: '', album: '' });
   const eventSourceRef = useRef(null);
+  // Set before the request goes out. `importStatus` only reaches the closure on
+  // the next render, so two clicks dispatched in one task would both pass it.
+  const importRequestRef = useRef(false);
   const toast = useToast();
 
+  // 'starting' counts: the request is out, and a second press would start a
+  // second import before the server has answered the first.
+  const importing = importStatus === 'starting' || importStatus === 'running';
+  // Anything in flight for this album. Every action here conflicts with every
+  // other (they rewrite or move the same files), so one flag disables them all.
+  const locked = Boolean(busy) || importing;
+
   useEffect(() => () => eventSourceRef.current?.close(), []);
+
+  // Lets the page hold off what conflicts from outside this panel: switching
+  // or deleting the album, and the library restage/repair.
+  useEffect(() => {
+    onBusyChange?.(locked);
+  }, [locked]);
 
   // Reset everything when the selected album changes.
   useEffect(() => {
@@ -224,10 +240,11 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
   }
 
   async function runImport(start) {
-    if (!selectedAlbum || importStatus === 'running') {
+    if (!selectedAlbum || locked || libraryBusy || importRequestRef.current) {
       return;
     }
 
+    importRequestRef.current = true;
     setImportLogs([]);
     setImportStatus('starting');
 
@@ -331,6 +348,9 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
       }
       setImportStatus('failed');
       toast.error(errorMessage(requestError));
+    } finally {
+      // From here `importStatus` ('running', 'failed', 'blocked') holds it.
+      importRequestRef.current = false;
     }
   }
 
@@ -405,7 +425,7 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
           <div className="step-body">
             <div className="step-head">
               <strong>Analyze metadata</strong>
-              <Button type="button" size="sm" onClick={runAnalyze} disabled={Boolean(busy)}>
+              <Button type="button" size="sm" onClick={runAnalyze} disabled={locked}>
                 {busy === 'analyze' ? 'Analyzing…' : report ? 'Re-analyze' : 'Analyze'}
               </Button>
             </div>
@@ -423,7 +443,12 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
           <div className="step-body">
             <div className="step-head">
               <strong>Fix issues</strong>
-              <Button type="button" size="sm" onClick={applyFixes} disabled={!report || Boolean(busy)}>
+              <Button
+                type="button"
+                size="sm"
+                onClick={applyFixes}
+                disabled={!report || locked || libraryBusy}
+              >
                 {busy === 'fix' ? 'Applying…' : 'Apply Fixes'}
               </Button>
             </div>
@@ -432,7 +457,11 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
             {report ? (
               <div className="step-detail">
                 <FixForm report={report} draft={draft} onDraftChange={updateDraft} />
-                <CoverArtFix report={report} onEmbed={handleEmbedCover} busy={busy} />
+                <CoverArtFix
+                  report={report}
+                  onEmbed={handleEmbedCover}
+                  busy={busy || (importing ? 'import' : libraryBusy ? 'library' : '')}
+                />
               </div>
             ) : null}
           </div>
@@ -447,9 +476,9 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
                 type="button"
                 size="sm"
                 onClick={() => importAlbum(Boolean(splitBlock || duplicateBlock))}
-                disabled={importStatus === 'running'}
+                disabled={locked || libraryBusy}
               >
-                {importStatus === 'running'
+                {importing
                   ? 'Importing…'
                   : splitBlock || duplicateBlock
                     ? 'Import anyway'
@@ -464,7 +493,7 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
                   size="sm"
                   variant="secondary"
                   onClick={retryPartialImport}
-                  disabled={importStatus === 'running'}
+                  disabled={locked || libraryBusy}
                 >
                   Undo and retry
                 </Button>
@@ -483,7 +512,7 @@ export default function WorkflowPanel({ selectedAlbum, onImportDone }) {
               query={releaseQuery}
               onQueryChange={(key, value) => setReleaseQuery((q) => ({ ...q, [key]: value }))}
               onChoose={setChosenRelease}
-              busy={busy}
+              busy={busy || (importing ? 'import' : '')}
             />
             <div className="step-detail">
               <pre className="terminal">
