@@ -24,5 +24,7 @@
   Cache-Control: public, max-age=86400
 
 # The project's own pages.dev address is a copy of the site: keep it out of search.
-https://album-cleaner.pages.dev/*
+# Cloudflare gave the project a suffixed subdomain (the plain name was taken).
+# Preview deployments get X-Robots-Tag: noindex from Cloudflare already.
+https://album-cleaner-58l.pages.dev/*
   X-Robots-Tag: noindex
