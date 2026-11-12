@@ -83,7 +83,7 @@
           <h2 id="musicbrainz">MusicBrainz 专辑编号</h2>
           <p>MusicBrainz 专辑编号比别的都优先，这一点两头都管用。</p>
           <!--site:cases mbid-->
-          <p>从别处补来的歌，或者单独重新打过标签的歌，可能缺了其他歌都有的编号，于是自成一张专辑。把编号补到缺的那几首上，或者干脆从所有歌里删掉；用 MusicBrainz Picard 对整张专辑打标签，会给每一首都写上。不是合法 UUID 的编号会被忽略。</p>
+          <p>从别处补来的歌，或者单独重新打过标签的歌，可能缺了其他歌都有的编号，于是自成一张专辑。把编号补到缺的那几首上，或者干脆从所有歌里删掉；用 MusicBrainz Picard 对整张专辑打标签，会给每一首都写上。不是合法 UUID 的编号会被忽略（按规则推出，没有实测）。</p>
           <pre><code>metaflac --remove-tag=MUSICBRAINZ_ALBUMID *.flac</code></pre>
         </section>
 
@@ -96,7 +96,7 @@
 
         <section aria-labelledby="discs">
           <h2 id="discs">多碟专辑被拆成几张</h2>
-          <p>碟号不算在专辑 ID 里，所以光是分碟，不会把专辑拆开。一套双碟专辑显示成两张，一定是两张碟在上面那四样里有一样对不上。常见的是专辑名里带了碟号（<code>Album (Disc 1)</code> 和 <code>Album (Disc 2)</code> 是两个不同的名字），或者只有一张碟写了发行日期。两张碟用同一个专辑名，碟号写进 <code>DISCNUMBER</code>。（按规则推出，扫描里没有多碟的例子。）</p>
+          <p>碟号不算在专辑 ID 里，所以光是分碟，不会把专辑拆开。一套双碟专辑显示成两张，一定是两张碟在上面说的这几样里有一样对不上。常见的是专辑名里带了碟号（<code>Album (Disc 1)</code> 和 <code>Album (Disc 2)</code> 是两个不同的名字），或者只有一张碟写了发行日期。两张碟用同一个专辑名，碟号写进 <code>DISCNUMBER</code>。（按规则推出，扫描里没有多碟的例子。）</p>
         </section>
 
         <section aria-labelledby="merged">

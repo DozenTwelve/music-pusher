@@ -83,7 +83,7 @@
           <h2 id="musicbrainz">MusicBrainz album ID</h2>
           <p>A MusicBrainz album ID outranks everything else. That works both ways.</p>
           <!--site:cases mbid-->
-          <p>A track that came from somewhere else, or was re-tagged on its own, may lack the ID the others have, and then it is an album by itself. Copy the ID to the tracks without it, or remove it from all of them; MusicBrainz Picard, run on the whole album, writes it to every track. An ID that isn’t a valid UUID is ignored.</p>
+          <p>A track that came from somewhere else, or was re-tagged on its own, may lack the ID the others have, and then it is an album by itself. Copy the ID to the tracks without it, or remove it from all of them; MusicBrainz Picard, run on the whole album, writes it to every track. An ID that isn’t a valid UUID is ignored (by the rule, not scanned).</p>
           <pre><code>metaflac --remove-tag=MUSICBRAINZ_ALBUMID *.flac</code></pre>
         </section>
 
@@ -96,7 +96,7 @@
 
         <section aria-labelledby="discs">
           <h2 id="discs">Multi-disc albums shown as separate albums</h2>
-          <p>The disc number is not part of the album ID, so discs on their own never split an album. When a two-disc set shows up as two albums, the discs disagree on one of the four things above. The usual ones are an album name with the disc in it (<code>Album (Disc 1)</code> and <code>Album (Disc 2)</code> are two different names) and a release date that is only on one disc. Give both discs the same album name and put the disc in <code>DISCNUMBER</code> instead. (By the rule; the scan had no multi-disc case.)</p>
+          <p>The disc number is not part of the album ID, so discs on their own never split an album. When a two-disc set shows up as two albums, the discs disagree on one of the things above. The usual ones are an album name with the disc in it (<code>Album (Disc 1)</code> and <code>Album (Disc 2)</code> are two different names) and a release date that is only on one disc. Give both discs the same album name and put the disc in <code>DISCNUMBER</code> instead. (By the rule; the scan had no multi-disc case.)</p>
         </section>
 
         <section aria-labelledby="merged">
