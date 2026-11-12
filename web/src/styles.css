@@ -10,25 +10,27 @@
 
 :lang(zh) :is(h1, h2, .wordmark, .drop__title, .promise strong, .button) { letter-spacing: 0; }
 /* The condensed cut is a Latin voice. Beside Chinese it only looks pinched, so there the face runs at its normal width and size does the work. */
-:lang(zh) :is(.headline, .drop__title, .promise strong, .block h2, .wordmark, .phone h1, .phone p) { font-stretch: 100%; }
+:lang(zh) :is(.headline, .drop__title, .promise strong, .block h2, .wordmark, .ledger h2, .onward h2, .guide h1, .prose h2, .missing h1) { font-stretch: 100%; }
 
 /* --- Shell ----------------------------------------------------------------- */
 
-.shell { display: grid; grid-template-rows: auto 1fr auto; min-height: 100dvh; }
-.bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); padding-block: var(--space-lg); }
+body { display: grid; grid-template-rows: auto 1fr auto; min-height: 100dvh; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-xs) var(--space-md); padding-block: var(--space-lg); }
 /* The name, as it would run down a spine. */
-.wordmark { padding: var(--space-2xs) var(--space-sm); background: var(--color-ink); color: var(--color-paper); font-size: 1.125rem; font-stretch: 68%; font-weight: 800; letter-spacing: 0.02em; line-height: 1.3; text-transform: uppercase; }
+.wordmark { justify-self: start; padding: var(--space-2xs) var(--space-sm); background: var(--color-ink); color: var(--color-paper); font-size: 1.125rem; font-stretch: 68%; font-weight: 800; letter-spacing: 0.02em; line-height: 1.3; text-transform: uppercase; }
 :lang(zh) .wordmark { font-weight: 600; }
+a.wordmark { text-decoration: none; }
 
+/* The guide and the two languages, as words: the one you are on is underlined. */
+.nav { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2xs) var(--space-xl); }
+.nav a { position: relative; display: inline-flex; align-items: center; min-height: 40px; color: var(--color-muted); font-weight: 600; text-decoration: none; }
+.nav a[aria-current] { color: var(--color-ink); text-decoration: underline; text-decoration-thickness: var(--rule); text-underline-offset: 0.35em; }
+.nav a:active { color: var(--color-ink-2); }
+@media (hover: hover) { .nav a:hover { color: var(--color-ink); } }
 .switch { display: flex; gap: var(--space-md); }
-.switch button { position: relative; min-height: 40px; padding: 0; border: 0; background: none; color: var(--color-muted); font-weight: 600; cursor: pointer; }
-.switch button::after, .button::after { content: ""; position: absolute; inset: -2px 0; }
-.switch button[aria-pressed="true"] { color: var(--color-ink); text-decoration: underline; text-decoration-thickness: var(--rule); text-underline-offset: 0.35em; }
-.switch button:active { color: var(--color-ink-2); }
-@media (hover: hover) { .switch button:hover { color: var(--color-ink); } }
+.button::after { content: ""; position: absolute; inset: -2px 0; }
 
 .stage { display: grid; align-content: start; gap: var(--space-lg); padding-block: var(--space-xl) var(--space-3xl); }
-.stage:is([data-step="arrive"], [data-step="reading"], [data-step="cleaning"]) { align-content: center; }
 /* Small print as three label-and-link pairs side by side on one line: where this lives,
    what reads the tags, and the licences. */
 .foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-3xs) var(--gap-columns); padding-block: var(--space-md) var(--space-lg); border-top: var(--rule) solid var(--color-ink); color: var(--color-muted); font-size: var(--text-sm); line-height: 1.6; }
@@ -36,6 +38,7 @@
 .foot dt { font-weight: 600; white-space: nowrap; }
 .foot dd { display: flex; flex-wrap: wrap; gap: 0 var(--space-md); margin: 0; color: var(--color-ink-2); white-space: nowrap; }
 @media (hover: hover) { .foot a:hover { color: var(--color-ink); } }
+.foot__note { padding-bottom: var(--space-lg); color: var(--color-muted); font-size: var(--text-sm); }
 
 /* --- Words ----------------------------------------------------------------- */
 
@@ -48,7 +51,7 @@
 .note, .small { max-width: 44rem; color: var(--color-muted); font-size: var(--text-sm); }
 .warning { max-width: 44rem; font-weight: 600; }
 .alert { max-width: 44rem; padding: var(--space-sm) var(--space-md); background: var(--color-ink); color: var(--color-paper); font-weight: 600; }
-.shell[data-over] .alert { visibility: hidden; }
+.tool[data-over] .alert { visibility: hidden; }
 
 /* --- The rack: one sleeve for each album ---------------------------------- */
 
@@ -88,9 +91,12 @@
 :lang(zh) .drop__title { font-weight: 600; line-height: 1.25; }
 
 /* Something is being dragged over the page: the whole page is the target, and says so. */
-.shell[data-over]::after { content: ""; position: fixed; inset: 0; border: var(--space-xs) solid var(--color-ink); pointer-events: none; }
-.shell[data-over] .square:has(.drop) { background: var(--color-ink); color: var(--color-paper); }
-.shell[data-over] .pickers { visibility: hidden; }
+.tool[data-over]::after { content: ""; position: fixed; inset: 0; border: var(--space-xs) solid var(--color-ink); pointer-events: none; }
+.tool[data-over] .square:has(.drop) { background: var(--color-ink); color: var(--color-paper); }
+.tool[data-over] .pickers { visibility: hidden; }
+
+/* Where the tool does not run, the empty sleeve says where it does. */
+.drop__phone, .drop__noscript { display: none; max-width: 16em; font-weight: 600; text-wrap: balance; }
 
 /* --- Beside the empty sleeve: what happens, and the promise ----------------- */
 
@@ -197,6 +203,94 @@ progress::-moz-progress-bar { background: var(--color-ink); }
 progress:indeterminate { animation: waiting 1.2s var(--ease-out) infinite alternate; }
 @keyframes waiting { to { opacity: 0.4; } }
 
+/* --- Below the tool: what a stranger reads before trusting it -------------- */
+
+/* Each part is a row of the same twelve columns as the tool: its heading where
+   the sleeve stands, its text where the steps are. A rule above each, like the
+   track list's. */
+.about { display: grid; gap: var(--space-2xl); padding-block: var(--space-xl) var(--space-3xl); }
+.ledger { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--space-md) var(--gap-columns); padding-top: var(--space-md); border-top: var(--rule) solid var(--color-ink); }
+.ledger h2 { grid-column: span 4; max-width: 11em; font-size: var(--text-section); font-stretch: 75%; }
+.ledger__body { grid-column: 5 / span 7; display: grid; gap: var(--space-md); max-width: 40rem; }
+:is(.ledger, .onward) h2:lang(zh) { font-size: 1.5rem; font-weight: 600; line-height: 1.25; }
+.ticks li { padding-block: var(--space-xs); }
+.ticks li + li { border-top: var(--rule-hair) solid var(--color-rule); }
+.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0 var(--space-lg); margin: 0; }
+.facts :is(dt, dd) { margin: 0; padding-block: var(--space-xs); border-top: var(--rule-hair) solid var(--color-rule); }
+.facts :is(dt, dd):nth-of-type(1) { border-top: 0; }
+.facts dt { font-weight: 600; }
+.qa { gap: var(--space-xs); }
+.qa h3 { margin-top: var(--space-md); font-size: var(--text-md); font-weight: 700; letter-spacing: 0; line-height: 1.4; }
+.qa h3:first-child { margin-top: 0; }
+/* The way on: the heading is the link, set as large as the tool's own words. */
+.onward { display: grid; gap: var(--space-sm); padding-top: var(--space-md); border-top: var(--rule) solid var(--color-ink); }
+.onward h2 { max-width: 20em; font-size: var(--text-display-s); font-stretch: 75%; }
+.onward h2 a { text-decoration-thickness: var(--rule); text-underline-offset: 0.12em; }
+@media (hover: hover) { .onward h2 a:hover { text-decoration-thickness: 4px; } }
+.onward p { max-width: 40rem; color: var(--color-ink-2); }
+
+/* --- Reading: the guide ------------------------------------------------------ */
+
+code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.86em; overflow-wrap: anywhere; }
+pre { margin: 0; padding: var(--space-sm) var(--space-md); overflow-x: auto; border: var(--rule-hair) solid var(--color-rule); background: var(--color-paper-2); line-height: 1.5; }
+pre code { overflow-wrap: normal; }
+
+.guide { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--space-xl) var(--gap-columns); align-items: start; padding-block: var(--space-xl) var(--space-3xl); }
+.guide__head { grid-column: 1 / -1; display: grid; gap: var(--space-md); }
+.guide h1 { max-width: 15em; font-size: var(--text-display); font-stretch: 75%; line-height: 1.02; }
+.guide h1:lang(zh) { max-width: 16em; font-size: 3.25rem; font-weight: 600; line-height: 1.2; }
+.byline { color: var(--color-muted); font-size: var(--text-sm); }
+/* The contents stay beside the text while it scrolls. */
+.toc { grid-column: span 3; position: sticky; top: var(--space-lg); display: grid; gap: var(--space-xs); padding-top: var(--space-sm); border-top: var(--rule) solid var(--color-ink); font-size: var(--text-sm); }
+.toc h2 { font-size: var(--text-sm); font-weight: 600; letter-spacing: 0; line-height: 1.5; }
+.toc ol { margin: 0; padding: 0; list-style: none; counter-reset: toc; }
+.toc li { display: grid; grid-template-columns: 2em minmax(0, 1fr); padding-block: var(--space-2xs); counter-increment: toc; }
+.toc li::before { content: counter(toc); color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.toc a { color: var(--color-ink-2); text-decoration: none; }
+@media (hover: hover) { .toc a:hover { color: var(--color-ink); text-decoration: underline; } }
+
+.prose { grid-column: 5 / -1; display: grid; gap: var(--space-2xl); min-width: 0; line-height: 1.6; }
+.prose section { display: grid; gap: var(--space-md); min-width: 0; scroll-margin-top: var(--space-lg); }
+.prose :is(p, ul, ol, pre) { max-width: 40rem; }
+.prose h2 { padding-top: var(--space-md); border-top: var(--rule) solid var(--color-ink); font-size: var(--text-section); font-stretch: 75%; scroll-margin-top: var(--space-lg); }
+.prose h2:lang(zh) { font-size: 1.5rem; font-weight: 600; line-height: 1.25; }
+.prose h3 { margin-top: var(--space-sm); font-size: var(--text-lead); font-weight: 700; letter-spacing: 0; line-height: 1.3; }
+.prose :is(ul, ol):not(.ticks) { padding-left: 1.25em; }
+.prose ul:not(.ticks) { list-style: square; }
+.prose li + li { margin-top: var(--space-2xs); }
+.prose li::marker { color: var(--color-muted); }
+.prose .aside { color: var(--color-muted); }
+.prose .onward h2 { border-top: 0; padding-top: 0; }
+.prose a:not(h2 a) { text-decoration-thickness: 1px; }
+@media (hover: hover) { .prose p a:hover { text-decoration-thickness: var(--rule); } }
+
+/* The scan, as a track list: what differed, and one sleeve for each album
+   Navidrome made of it. A case only reasoned from the rule draws its sleeves
+   dashed. */
+.cases { max-width: 100%; overflow-x: auto; }
+.cases table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; line-height: 1.45; }
+.cases th, .cases td { padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; border-bottom: var(--rule-hair) solid var(--color-rule); text-align: left; vertical-align: top; }
+.cases thead th { padding-top: 0; border-bottom: var(--rule) solid var(--color-ink); color: var(--color-muted); font-size: var(--text-sm); font-weight: 600; }
+.cases tbody th { color: var(--color-muted); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cases td:last-child { width: 11rem; white-space: nowrap; }
+.cases small { display: block; color: var(--color-muted); font-size: var(--text-sm); white-space: normal; }
+.sleeves { display: inline-flex; gap: 3px; vertical-align: -1px; }
+.sleeves i { width: 12px; height: 12px; border: var(--rule) solid var(--color-ink); }
+[data-by-rule] .sleeves i { border-style: dashed; }
+.count { font-weight: 600; }
+.names td { white-space: nowrap; }
+.names td:last-child { width: auto; }
+
+/* --- The missing page ---------------------------------------------------------- */
+
+.missing { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--space-xl) var(--gap-columns); align-content: center; align-items: start; padding-block: var(--space-xl) var(--space-3xl); }
+.missing__sleeve { grid-column: span 3; }
+.missing__sleeve p { font-size: var(--text-section); font-stretch: 75%; font-weight: 800; }
+.missing__body { grid-column: 5 / -1; display: grid; gap: var(--space-md); justify-items: start; }
+.missing h1 { font-size: var(--text-display-s); font-stretch: 75%; }
+.missing h1:lang(zh) { font-size: 2.25rem; font-weight: 600; line-height: 1.25; }
+.missing .plain a { font-weight: 600; }
+
 /* --- Narrow windows, phones, no script ------------------------------------- */
 
 @media (max-width: 60rem) {
@@ -211,22 +305,44 @@ progress:indeterminate { animation: waiting 1.2s var(--ease-out) infinite altern
   .row[data-tiles] :is(.rack, .body, .cannot) { grid-column: 1 / -1; grid-row: auto; }
   .row[data-tiles="one"] .tiles { grid-template-columns: minmax(0, 16rem); }
   .stage[data-step="arrive"] .body { min-height: 0; }
+  .ledger h2, .ledger__body, .toc, .prose, .missing__body { grid-column: 1 / -1; }
+  .toc { position: static; }
+  .guide h1, .onward h2 { font-size: var(--text-display-s); }
+  .guide h1:lang(zh) { font-size: 2.25rem; }
+  .missing__sleeve { grid-column: span 6; max-width: 12rem; }
 }
 @media (max-width: 40rem) {
   .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .headline, .guide h1, .onward h2, .missing h1 { font-size: 2.25rem; }
+  :lang(zh) :is(.headline, .guide h1) { font-size: 1.875rem; }
+  .facts { grid-template-columns: minmax(0, 1fr); }
+  .facts dd { padding-top: 0; border-top: 0; }
+  /* A table row becomes a short block: the case and its count on one line, what
+     differed below; the tag table gives each format its own line. */
+  .cases { overflow: visible; }
+  .cases thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .cases :is(table, tbody, tr, th, td) { display: block; width: auto; }
+  .cases tr { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2xs) var(--space-md); padding-block: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); }
+  .cases tbody tr:first-child { border-top: var(--rule) solid var(--color-ink); }
+  .cases :is(th, td) { padding: 0; border: 0; white-space: normal; }
+  .cases tbody th { grid-row: 1; }
+  .cases td:last-child { grid-row: 1; grid-column: 2; width: auto; }
+  .cases td:not(:last-child) { grid-column: 1 / -1; }
+  .names tbody th { grid-column: 1 / -1; color: var(--color-ink); }
+  .names td { display: grid; grid-template-columns: 3.5em minmax(0, 1fr); grid-row: auto !important; grid-column: 1 / -1 !important; }
+  .names td::before { color: var(--color-muted); font-size: var(--text-sm); }
+  .names td:nth-of-type(1)::before { content: "FLAC"; }
+  .names td:nth-of-type(2)::before { content: "MP3"; }
+  .names td:nth-of-type(3)::before { content: "M4A"; }
 }
 
-.phone { display: none; }
-.noscript { padding: var(--space-md) var(--gutter); }
 /* A phone or a tablet: a finger for a pointer and no room. A laptop with a
-   touch screen still has a fine pointer first, and stays a desktop. */
+   touch screen still has a fine pointer first, and stays a desktop. The page
+   reads the same; only the sleeve, instead of taking an album, sends you to a
+   computer — and main.js, seeing that, never loads the tool. */
 @media (pointer: coarse) and (max-width: 1400px) {
-  .phone { display: grid; align-content: center; gap: var(--space-md); min-height: 100dvh; padding: var(--gutter); }
-  .phone h1 { max-width: 12em; margin-bottom: var(--space-md); font-size: 2.5rem; font-stretch: 75%; line-height: 1.05; }
-  .phone h1:lang(zh) { max-width: 9em; font-size: 2.125rem; font-weight: 600; line-height: 1.25; }
-  .phone p { max-width: 22rem; font-weight: 600; }
-  .phone p + p { color: var(--color-muted); font-weight: 400; }
-  #app { display: none; }
+  .drop__title, .pickers { display: none; }
+  .drop .drop__phone { display: block; }
 }
 
 @media (prefers-reduced-motion: reduce) {

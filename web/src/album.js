@@ -10,18 +10,15 @@ import { albumIdentity } from '../../shared/identity.js';
 import { planAlbum, planWrites } from '../../shared/plan.js';
 import { readTrack, readPicture, writeTrack } from './tags.js';
 import { openZip, zipWriter } from './zip.js';
+import { LIMITS } from './limits.js';
 
 // The containers the tag code is proven on (spike.test.js).
 const SUPPORTED = new Set(['.flac', '.mp3', '.m4a']);
 const extension = (path) => extname(path).toLowerCase();
 const isTrack = (entry) => SUPPORTED.has(extension(entry.path));
 
-// Ceilings, from measurement (measure.js, and the browser runs in the report).
-// Rewriting a track peaks at about five times its size — the bytes read, three
-// times that inside TagLib's heap, and the bytes written — and that heap never
-// shrinks, so the largest track sets the page's memory for the rest of the
-// visit. The album as a whole is bounded by the zip format without zip64.
-export const LIMITS = { track: 300e6, album: 2e9 };
+// The ceilings live in limits.js, where the static pages can read them too.
+export { LIMITS };
 
 // What a Mac leaves behind in folders and archives; never part of the album.
 const isJunk = (path) => path.startsWith('__MACOSX/') || /^(\._.*|\.DS_Store)$/.test(basename(path));

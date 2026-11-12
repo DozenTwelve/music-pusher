@@ -1,4 +1,4 @@
-// The page: arrive, read, plan, clean, download. All the deciding is done in
+// The tool: arrive, read, plan, clean, download. All the deciding is done in
 // shared/ and album.js; this file collects the files, shows what those say, and
 // keeps the user's choices.
 
@@ -9,7 +9,8 @@ import { basename } from '../../shared/paths.js';
 import { planWrites } from '../../shared/plan.js';
 import { normalizeTagValue } from '../../shared/text.js';
 import { asAlbum, cleanAlbum, inspect, loadCover, readAlbum, recheck, refusal, shelf, LIMITS } from './album.js';
-import { LANGUAGES, saveLanguage, translator } from './i18n.js';
+import { Arrive, FilePicker, Square, Tool } from './arrive.js';
+import { translator } from './i18n.js';
 import { initTagLib } from './tags.js';
 import { openZip } from './zip.js';
 
@@ -111,10 +112,6 @@ const quality = ({ sampleRate, bitDepth }) =>
 // A headline with its [[number and counted word]] pairs kept from breaking apart.
 const unbroken = (line) => line.split(/\[\[(.+?)\]\]/).map((part, index) => (index % 2 ? <span className="nowrap" key={index}>{part}</span> : part));
 
-// The project's repository: the page's only way out, as ordinary links that
-// fetch nothing until followed.
-const REPOSITORY = 'https://github.com/DozenTwelve/music-pusher';
-
 // One thing that cannot be fixed, as a sentence and the files it is about.
 function cannotLine(t, entry) {
   const files = entry.files || [];
@@ -155,18 +152,6 @@ function shelfRows(t, albums) {
 
 // --- Pieces ------------------------------------------------------------------------
 
-function LanguageSwitch({ lang, onChange, t }) {
-  return (
-    <div className="switch" role="group" aria-label={t('language')}>
-      {LANGUAGES.map(({ code, tag, label }) => (
-        <button key={code} type="button" lang={tag} aria-pressed={lang === code} onClick={() => onChange(code)}>
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function Progress({ t, progress }) {
   const fraction = progress.total ? progress.done / progress.total : 0;
   return (
@@ -178,11 +163,6 @@ function Progress({ t, progress }) {
       </p>
     </div>
   );
-}
-
-// A sleeve: the album's cover, or whatever stands in the square without one.
-function Square({ t, cover, children }) {
-  return <div className="square">{cover ? <img src={cover.url} alt={t('cover.alt')} width="360" height="360" /> : children ?? <p className="square__empty">{t('cover.none')}</p>}</div>;
 }
 
 // The rack: one sleeve for each album Navidrome would make of these tracks.
@@ -227,31 +207,6 @@ function Was({ t, cover, albums }) {
         ))}
       </ul>
     </figure>
-  );
-}
-
-function FilePicker({ label, onFiles, className = 'button', ...input }) {
-  const ref = useRef(null);
-  return (
-    <>
-      <button type="button" className={className} onClick={() => ref.current.click()}>
-        {label}
-      </button>
-      <input
-        ref={ref}
-        type="file"
-        hidden
-        tabIndex={-1}
-        {...input}
-        onChange={(event) => {
-          const files = [...event.target.files];
-          event.target.value = '';
-          if (files.length > 0) {
-            onFiles(files);
-          }
-        }}
-      />
-    </>
   );
 }
 
@@ -351,9 +306,10 @@ function CannotFix({ t, entries }) {
 
 // --- The page ----------------------------------------------------------------------
 
-function App({ initialLanguage }) {
-  const [lang, setLang] = useState(initialLanguage);
-  const t = useMemo(() => translator(lang), [lang]);
+// `language` is the page's own: each language has its address, and the page
+// around the tool is already written in it.
+function App({ language }) {
+  const t = useMemo(() => translator(language), [language]);
   const [step, setStep] = useState('arrive'); // arrive | reading | plan | cleaning | done
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState({ done: 0, total: 0, key: 'reading.start' });
@@ -364,11 +320,6 @@ function App({ initialLanguage }) {
   const title = useRef(null);
   const busy = step === 'reading' || step === 'cleaning';
 
-  useEffect(() => {
-    document.documentElement.lang = LANGUAGES.find(({ code }) => code === lang).tag;
-    document.title = t('app');
-    document.querySelector('meta[name="description"]')?.setAttribute('content', t('description'));
-  }, [lang, t]);
   // Each step opens on its headline, for a keyboard or a screen reader.
   useEffect(() => {
     if (step !== 'arrive') {
@@ -535,40 +486,7 @@ function App({ initialLanguage }) {
 
   let main;
   if (step === 'arrive') {
-    main = (
-      <>
-        <h1 className="headline" ref={title} tabIndex={-1}>
-          {t('arrive.title')}
-        </h1>
-        <div className="row" data-tiles="one">
-          <section className="rack" aria-label={t('arrive.drop')}>
-            <div className="tile">
-              <Square t={t}>
-                <div className="drop">
-                  <p className="drop__title">{t(over ? 'arrive.release' : 'arrive.drop')}</p>
-                  <div className="pickers">
-                    <FilePicker className="link" label={t('arrive.folder')} onFiles={takeFiles} webkitdirectory="" />
-                    <FilePicker className="link" label={t('arrive.zip')} onFiles={takeFiles} accept=".zip,application/zip" />
-                  </div>
-                </div>
-              </Square>
-              <span>{t('arrive.formats', { album: t.size(LIMITS.album) })}</span>
-            </div>
-          </section>
-          <div className="body">
-            <ol className="steps">
-              <li>{t('arrive.in')}</li>
-              <li>{t('arrive.fix')}</li>
-              <li>{t('arrive.out')}</li>
-            </ol>
-            {alert}
-            <p className="promise">
-              <strong>{t('arrive.private')}</strong> <span>{t('arrive.local')}</span>
-            </p>
-          </div>
-        </div>
-      </>
-    );
+    main = <Arrive t={t} limit={LIMITS.album} over={over} alert={alert} onFiles={takeFiles} titleRef={title} />;
   } else if (busy) {
     main = (
       <>
@@ -704,40 +622,12 @@ function App({ initialLanguage }) {
   }
 
   return (
-    <div className="shell" data-over={over && !busy ? '' : undefined}>
-      <header className="container bar">
-        <p className="wordmark">{t('app')}</p>
-        <LanguageSwitch lang={lang} t={t} onChange={(code) => (saveLanguage(code), setLang(code))} />
-      </header>
-      <main className="container stage" data-step={step}>
-        {main}
-      </main>
-      <footer className="container">
-        <div className="foot">
-          <dl>
-            <dt>{t('footer.source')}</dt>
-            <dd>
-              <a href={REPOSITORY}>GitHub</a>
-            </dd>
-          </dl>
-          <dl>
-            <dt>{t('footer.tags')}</dt>
-            <dd>{t('footer.taglib')}</dd>
-          </dl>
-          <dl>
-            <dt>{t('footer.licences')}</dt>
-            <dd>
-              <a href="licenses/taglib-wasm-NOTICE.txt">{t('footer.notice')}</a>
-              <a href="licenses/LGPL-2.1.txt">{t('footer.lgpl')}</a>
-              <a href="licenses/third-party.txt">{t('footer.all')}</a>
-            </dd>
-          </dl>
-        </div>
-      </footer>
-    </div>
+    <Tool step={step} over={over && !busy}>
+      {main}
+    </Tool>
   );
 }
 
-export function mount(element, initialLanguage) {
-  createRoot(element).render(<App initialLanguage={initialLanguage} />);
+export function mount(element, language) {
+  createRoot(element).render(<App language={language} />);
 }

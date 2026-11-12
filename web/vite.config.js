@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { defineConfig } from 'vite';
+import { entries, site } from './site/plugin.js';
 
 const read = (file) => fs.readFileSync(new URL(`./node_modules/${file}`, import.meta.url), 'utf8');
 
@@ -21,11 +22,17 @@ function licenses() {
 }
 
 export default defineConfig({
-  // Relative URLs throughout, so the build works from any host and sub-path.
-  base: './',
-  plugins: [licenses()],
-  // Top-level await in the entry (the phone check comes before any import).
-  build: { target: 'es2022' },
+  // Served from the root of its own domain: pages sit at nested addresses
+  // (/zh/, the guide), so every URL in them is absolute from the root.
+  base: '/',
+  // Several real pages and a real 404, not one page answering every address.
+  appType: 'mpa',
+  plugins: [site(), licenses()],
+  build: {
+    // Top-level await in the entry's lazy half.
+    target: 'es2022',
+    rollupOptions: { input: entries }
+  },
   // The rules live in ../shared, outside this package's root.
   server: { fs: { allow: ['..'] } }
 });

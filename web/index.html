@@ -1,24 +1,83 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Album Cleaner</title>
-    <meta name="description" content="Fixes the tags and cover of a downloaded album in the browser, so Navidrome shows it as one album. Nothing is uploaded." />
-    <link rel="canonical" href="https://album.diamonddoge.org/" />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://album.diamonddoge.org/" />
-    <meta property="og:title" content="Album Cleaner" />
-    <meta property="og:description" content="Fixes the tags and cover of a downloaded album in the browser, so Navidrome shows it as one album. Nothing is uploaded." />
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M0 0h16v16H0z'/%3E%3Cpath fill='%23fff' d='M3 11h10v2H3z'/%3E%3C/svg%3E" />
+    <title>Album Cleaner: fix an album Navidrome splits into several</title>
+    <meta name="description" content="Drop in an album folder or zip. The tags and cover that make Navidrome split it, or merge it with another, are fixed in your browser, and it comes back as a zip. Nothing is uploaded." />
+    <!--site:head-->
   </head>
   <body>
-    <div id="phone" class="phone"></div>
-    <div id="app"></div>
-    <noscript>
-      <p class="noscript" lang="zh-Hans">这个页面要开着 JavaScript 才能用。</p>
-      <p class="noscript" lang="en">This page needs JavaScript.</p>
-    </noscript>
-    <script type="module" src="/src/main.js"></script>
+    <!--site:header-->
+    <main>
+      <!--site:tool-->
+
+      <div class="container about">
+        <section class="ledger" aria-labelledby="changes">
+          <h2 id="changes">What it changes, and what it leaves alone</h2>
+          <div class="ledger__body">
+            <p>It reads the album, works out how many albums Navidrome would make of it and why, and offers one fix for each cause. Every fix is a switch, and nothing is written until you press the button.</p>
+            <ul class="ticks">
+              <li>The tags Navidrome groups by: album name, album artist, release date, album version and MusicBrainz album ID, made the same on every track.</li>
+              <li>The date, when the tracks disagree on it, so the album shows a year.</li>
+              <li>Track numbers, written as <code>3/12</code> and counted per disc.</li>
+              <li>Damaged text (<code>Don_t</code>, stray control characters, trailing spaces) where the repair is certain, and file names that lost an apostrophe.</li>
+              <li>The cover: put into every track that lacks it, and saved as <code>cover.jpg</code> beside them, which is the first place Navidrome looks.</li>
+            </ul>
+            <p><strong>The audio is never re-encoded.</strong> Only the tags are rewritten. The test suite compares the md5 of the decoded audio before and after on every file it fixes, and they match.</p>
+            <p>Everything else goes into the zip as it was: the other tags (genre, comments and the rest), scans, logs, cue sheets, and any file it cannot read. The Finder’s <code>.DS_Store</code> and <code>__MACOSX</code> folders are left out. When it has finished, it opens the zip it made and reads every track again, so the count it shows you is of the files you download.</p>
+          </div>
+        </section>
+
+        <section class="ledger" aria-labelledby="cannot">
+          <h2 id="cannot">What it can’t fix</h2>
+          <div class="ledger__body">
+            <p>These it points out and leaves to you:</p>
+            <ul class="ticks">
+              <li>Missing tracks. A gap in the numbering stays a gap.</li>
+              <li>Several tracks with the same number, which is usually a multi-disc set with no disc numbers in the tags. It can’t know which track is on which disc.</li>
+              <li>A track with no number, when its file name has none either.</li>
+              <li>FLAC and MP3 mixed in one album, or tracks of different quality. Converting would mean re-encoding.</li>
+              <li>A FLAC file that doesn’t record its length. That also needs re-encoding.</li>
+              <li>Tracks with no title or no artist. It won’t guess them.</li>
+              <li>Damaged or cut-short files, and audio in formats other than FLAC, MP3 and M4A. They go into the zip untouched.</li>
+            </ul>
+            <p>It looks nothing up online, so it can’t tell you the right release date or fetch a cover. If an album has no cover, you can drop in an image of your own.</p>
+          </div>
+        </section>
+
+        <section class="ledger" aria-labelledby="limits">
+          <h2 id="limits">Limits</h2>
+          <div class="ledger__body">
+            <dl class="facts">
+              <dt>Browser</dt><dd>Firefox or Chrome on a computer. On a phone or tablet the page explains itself but the tool doesn’t open.</dd>
+              <dt>Formats</dt><dd>FLAC, MP3 and M4A.</dd>
+              <dt>Size</dt><dd>2 GB an album, 300 MB a track. One album at a time.</dd>
+              <dt>Zip files</dt><dd>Up to 4 GB, without a password. File names in an old encoding (GBK, Shift_JIS) are read by a guess, and the page warns you when it guessed.</dd>
+            </dl>
+          </div>
+        </section>
+
+        <section class="ledger" aria-labelledby="questions">
+          <h2 id="questions">Questions</h2>
+          <div class="ledger__body qa">
+            <h3>Is anything uploaded?</h3>
+            <p>No. The page is a set of static files. The album is read and rewritten inside the browser tab by TagLib, compiled to WebAssembly, and the zip is put together in the tab and saved like any download. There is no analytics and nothing is fetched from anywhere else. Your browser’s network panel will show nothing going out when you drop an album in.</p>
+            <h3>Does it work for Plex, Jellyfin or other players?</h3>
+            <p>The rules it follows are Navidrome’s, checked against a real Navidrome 0.63.2. The tags it writes are ordinary tags that any player reads, but other players group albums in their own way, and none of them was tested. It may help; we can’t promise it.</p>
+            <h3>I changed <code>PID.Album</code> in my Navidrome config.</h3>
+            <p>Then Navidrome groups albums by your rule, not the default one this page checks against. The tag fixes are still sound, but the album count the page shows may not be what you get.</p>
+            <h3>Why does it want a zip back instead of fixing my files?</h3>
+            <p>A web page can’t write into your folders. You replace the old folder with the one in the zip and rescan in Navidrome. Your originals stay as they were until you do.</p>
+            <h3>Where is the code?</h3>
+            <p>On <a href="https://github.com/DozenTwelve/music-pusher">GitHub</a>, under the MIT licence. The same repository has a self-hosted version that runs on your server next to beets and Navidrome.</p>
+          </div>
+        </section>
+
+        <section class="onward" aria-labelledby="why">
+          <h2 id="why"><a href="/navidrome-album-split/">Why Navidrome splits albums, and how to fix it by hand</a></h2>
+          <p>The rule Navidrome uses to decide what is one album, and every tag difference we tried on a real scan: which ones split an album, which ones don’t, and which ones merge two albums into one.</p>
+        </section>
+      </div>
+    </main>
+    <!--site:footer-->
   </body>
 </html>

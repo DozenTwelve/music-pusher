@@ -1,39 +1,13 @@
-// Every sentence the page shows, in Chinese and English. The rules in shared/
+// Every sentence the tool shows, in Chinese and English. (What stands around
+// the tool — the bar, the footer, the pages' own text — is written into the
+// HTML files and site/.) The rules in shared/
 // answer in codes; this is where a code becomes words. Each language is written
 // on its own terms, not translated from the other.
 //
 // An entry is a string with {placeholders}, or a function of the values when
 // the wording depends on them (English plurals, mostly).
 
-const STORAGE_KEY = 'album-cleaner-language';
-
-// English first: it is what most visitors read, and the fallback.
-export const LANGUAGES = [
-  { code: 'en', tag: 'en', label: 'English' },
-  { code: 'zh', tag: 'zh-Hans', label: '中文' }
-];
-
-// The remembered choice, else the browser's language, else English.
-export function pickLanguage() {
-  let saved = null;
-  try {
-    saved = localStorage.getItem(STORAGE_KEY);
-  } catch {
-    // Storage can be switched off; the browser's language still decides.
-  }
-  if (LANGUAGES.some((language) => language.code === saved)) {
-    return saved;
-  }
-  return (navigator.languages || [navigator.language]).some((tag) => /^zh\b/i.test(tag || '')) ? 'zh' : 'en';
-}
-
-export function saveLanguage(code) {
-  try {
-    localStorage.setItem(STORAGE_KEY, code);
-  } catch {
-    // Not remembered, then.
-  }
-}
+import { LANGUAGES } from './language.js';
 
 // In a headline, [[…]] marks a number with the word it counts ("3 albums",
 // "10 首"): the page keeps what is inside on one line.
@@ -41,10 +15,9 @@ const count = (n, one, many) => (n === 1 ? one : many.replace('{n}', n));
 const tracks = (n) => count(n, '1 track', '{n} tracks');
 
 const en = {
-  app: 'Album Cleaner',
-  description: 'Fixes the tags and cover of a downloaded album in the browser, so Navidrome shows it as one album. Nothing is uploaded.',
-  language: 'Language',
-  phone: 'Open this on a computer. Firefox or Chrome work best.',
+  // In the empty sleeve where the tool does not run: on a phone, without scripts.
+  phone: 'Open this page on a computer to fix an album. Firefox or Chrome.',
+  noscript: 'The tool needs JavaScript. The rest of the page reads without it.',
 
   'arrive.title': 'Fix an album that Navidrome shows in pieces.',
   'arrive.in': 'Drop in the album’s folder or zip.',
@@ -171,23 +144,12 @@ const en = {
   'error.zip_bad': 'That zip won’t open. It may be damaged, password-protected, or over 4 GB.',
   'error.load_failed': 'The tag reader didn’t load. Check the connection and reload.',
   'error.bad_image': 'That image can’t be read. Try a JPEG or a PNG.',
-  'error.unexpected': 'That failed: {message}',
-
-  // The footer: a label and what it points to, never a sentence.
-  'footer.source': 'Source and self-hosted version',
-  'footer.tags': 'Tags',
-  'footer.taglib': 'TagLib, under the LGPL',
-  'footer.licences': 'Licences',
-  'footer.notice': 'TagLib notice',
-  'footer.lgpl': 'LGPL 2.1',
-  'footer.all': 'All licences'
+  'error.unexpected': 'That failed: {message}'
 };
 
 const zh = {
-  app: '专辑整理',
-  description: '在浏览器里修好下载专辑的标签和封面，让 Navidrome 把它显示成一张专辑。不上传任何文件。',
-  language: '语言',
-  phone: '请在电脑浏览器中打开，建议使用 Firefox 或 Chrome。',
+  phone: '修专辑要在电脑上打开这个页面，用 Firefox 或 Chrome。',
+  noscript: '修专辑要开着 JavaScript，页面上其余的内容不开也能看。',
 
   'arrive.title': '修好被 Navidrome 拆散的专辑。',
   'arrive.in': '把专辑的文件夹或 zip 拖进来。',
@@ -309,15 +271,7 @@ const zh = {
   'error.zip_bad': '这个 zip 打不开，可能已损坏、加了密码，或超过 4 GB。',
   'error.load_failed': '标签工具没加载出来，检查网络后刷新。',
   'error.bad_image': '这张图片读不出来，换一张 JPEG 或 PNG。',
-  'error.unexpected': '失败了：{message}',
-
-  'footer.source': '源代码和自托管版',
-  'footer.tags': '标签读写',
-  'footer.taglib': 'TagLib，LGPL 许可',
-  'footer.licences': '许可',
-  'footer.notice': 'TagLib 声明',
-  'footer.lgpl': 'LGPL 2.1',
-  'footer.all': '全部许可'
+  'error.unexpected': '失败了：{message}'
 };
 
 const STRINGS = { en, zh };

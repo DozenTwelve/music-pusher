@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Why Navidrome splits one album into several, and how to fix it</title>
+    <meta name="description" content="The rule Navidrome uses to group tracks into albums, checked on a real Navidrome 0.63.2 scan: which tag differences split an album, which merge two, and how to fix each." />
+    <!--site:head-->
+  </head>
+  <body>
+    <!--site:header-->
+    <main class="container guide">
+      <header class="guide__head">
+        <h1>Why Navidrome splits one album into several</h1>
+        <p class="lead">And why it sometimes merges two albums into one. What decides it, checked against a real Navidrome, and how to fix each cause with the tools you already have.</p>
+        <p class="byline">Tested on Navidrome 0.63.2 with default settings on <time datetime="2026-11-11">11 November 2026</time>. Updated <time datetime="2026-11-12">12 November 2026</time>.</p>
+      </header>
+
+      <nav class="toc" aria-labelledby="toc">
+        <h2 id="toc">On this page</h2>
+        <ol>
+          <li><a href="#rule">The rule</a></li>
+          <li><a href="#release-date">Release date</a></li>
+          <li><a href="#album-artist">Compilations and albums split by artist</a></li>
+          <li><a href="#album-name">Album names that look the same</a></li>
+          <li><a href="#musicbrainz">MusicBrainz album ID</a></li>
+          <li><a href="#version">Album version</a></li>
+          <li><a href="#discs">Multi-disc albums</a></li>
+          <li><a href="#merged">Two albums merged into one</a></li>
+          <li><a href="#cover">Missing cover art</a></li>
+          <li><a href="#artists">Artists joined with a semicolon</a></li>
+          <li><a href="#tags">Where each tag lives</a></li>
+          <li><a href="#tested">What this was tested on</a></li>
+        </ol>
+      </nav>
+
+      <article class="prose">
+        <section aria-labelledby="rule">
+          <h2 id="rule">The rule</h2>
+          <p>Navidrome gives every track an album ID, and the tracks that share an ID are one album. You can’t see the ID, but you see what it does: an album that turns up twice in the library, each copy holding some of the tracks, or an album with tracks missing that are sitting in another album of the same name.</p>
+          <p>With the default settings, the album ID is made from the first of these that the track has:</p>
+          <ol class="steps-list">
+            <li>The <strong>MusicBrainz album ID</strong> (<code>MUSICBRAINZ_ALBUMID</code>), if it is a valid UUID. When it is there, nothing else counts.</li>
+            <li>Otherwise these four together: <strong>album artist</strong>, <strong>album name</strong>, <strong>album version</strong> and <strong>release date</strong>.</li>
+          </ol>
+          <p>That is the whole rule. The folder the files are in is not part of it, and neither is the disc number. So an album splits when its tracks disagree on any one of those four, or when only some of them carry a MusicBrainz ID. And two albums merge when they agree on all of them, wherever they sit on disk.</p>
+          <p>To check it, we wrote 22 test albums of two tracks each with ffmpeg, each pair differing in one thing, and let a fresh Navidrome 0.63.2 with default settings scan them. The tables below give what it made of every one. Three more cases follow from the rule but were not scanned; they are marked.</p>
+          <p class="aside">If you have set <code>PID.Album</code> in your Navidrome configuration, the album ID is built your way and this page doesn’t apply as written.</p>
+        </section>
+
+        <section aria-labelledby="release-date">
+          <h2 id="release-date">Release date: the split you don’t see coming</h2>
+          <p>Most taggers show one “Year” or “Date” field. Navidrome keeps two dates apart: the <em>release date</em>, which is part of the album ID, and the <em>date</em> (the recording date), which is not. Which tag is which depends on the file:</p>
+          <ul>
+            <li><strong>FLAC</strong>: <code>RELEASEDATE</code>, or else <code>YEAR</code>, is the release date. <code>DATE</code> is not.</li>
+            <li><strong>MP3</strong>: the <code>TDRL</code> frame is the release date. The usual year field (<code>TDRC</code>, or <code>TYER</code> in older tags) is not.</li>
+            <li><strong>M4A</strong>: there is only one date, <code>©day</code>, and Navidrome reads it as the release date. So in M4A files the ordinary date field splits albums.</li>
+          </ul>
+          <!--site:cases date-->
+          <p>Two things stand out. In M4A files, <code>2020</code> on one track and <code>2020-05-01</code> on another are two different release dates, and two albums. Albums downloaded track by track, or with bonus tracks added later, often end up like this. It is also why an album kept partly in FLAC and partly in M4A can split even when the tags look the same: the M4A tracks have a release date and the FLAC tracks, with only <code>DATE</code>, have none (by the rule, not scanned). And where the tracks only disagree on the recording date, they stay one album, but the album’s date is shown blank.</p>
+          <h3>Fixing it</h3>
+          <p>Give every track the same release date, in the tag that file type uses. In a tag editor (Mp3tag, foobar2000, kid3, MusicBrainz Picard), select every track of the album and type the date once. For FLAC from the command line:</p>
+          <pre><code>metaflac --remove-tag=RELEASEDATE --set-tag=RELEASEDATE=2020-05-01 *.flac</code></pre>
+          <p>To get a year back on an album that shows none, make <code>DATE</code> the same on every track as well.</p>
+        </section>
+
+        <section aria-labelledby="album-artist">
+          <h2 id="album-artist">Compilations and albums split by artist</h2>
+          <p>Navidrome takes the album artist from <code>ALBUMARTIST</code>. When a track has none, it uses <code>ALBUMARTISTS</code>; then, if the compilation flag is set, “Various Artists”; and only then the track’s own first artist. That last step is where albums come apart: a track with no album artist is filed under whoever performs on it.</p>
+          <p>The first artist is the first value of <code>ARTISTS</code> if the track has that tag. Otherwise it is the <code>ARTIST</code> tag, cut at <code>&nbsp;/&nbsp;</code>, <code>&nbsp;feat.&nbsp;</code>, <code>&nbsp;ft.&nbsp;</code> or <code>;&nbsp;</code> when it holds a single value. That is why a guest appearance doesn’t split an album, while a compilation with no album artist splits into one album per artist.</p>
+          <!--site:cases artist-->
+          <h3>Fixing it</h3>
+          <p>Put the same album artist on every track. For a compilation that is usually “Various Artists”, or set the compilation flag on every track instead (<code>COMPILATION=1</code> in FLAC, <code>TCMP</code> in MP3, <code>cpil</code> in M4A; most editors call it “Compilation” or “Part of a compilation”).</p>
+          <pre><code>metaflac --remove-tag=ALBUMARTIST --set-tag="ALBUMARTIST=Various Artists" *.flac</code></pre>
+        </section>
+
+        <section aria-labelledby="album-name">
+          <h2 id="album-name">Album names that look the same</h2>
+          <p>When the library shows two albums with exactly the same name, the names are usually not quite the same. Navidrome ignores letter case and treats curly and straight quotes and dashes as equal. Everything else counts.</p>
+          <!--site:cases name-->
+          <p>A non-breaking space, a trailing space or an accent stored the other way round is invisible in every tag editor, so the albums look identical. Retyping the album name in one go, with every track selected, writes the same characters to all of them.</p>
+        </section>
+
+        <section aria-labelledby="musicbrainz">
+          <h2 id="musicbrainz">MusicBrainz album ID</h2>
+          <p>A MusicBrainz album ID outranks everything else. That works both ways.</p>
+          <!--site:cases mbid-->
+          <p>A track that came from somewhere else, or was re-tagged on its own, may lack the ID the others have, and then it is an album by itself. Copy the ID to the tracks without it, or remove it from all of them; MusicBrainz Picard, run on the whole album, writes it to every track. An ID that isn’t a valid UUID is ignored.</p>
+          <pre><code>metaflac --remove-tag=MUSICBRAINZ_ALBUMID *.flac</code></pre>
+        </section>
+
+        <section aria-labelledby="version">
+          <h2 id="version">Album version</h2>
+          <p><code>ALBUMVERSION</code> (or, without it, <code>MUSICBRAINZ_ALBUMCOMMENT</code>) is there to keep a deluxe edition apart from the original. On some tracks only, it splits the album.</p>
+          <!--site:cases version-->
+          <p>Give every track the same version, or none.</p>
+        </section>
+
+        <section aria-labelledby="discs">
+          <h2 id="discs">Multi-disc albums shown as separate albums</h2>
+          <p>The disc number is not part of the album ID, so discs on their own never split an album. When a two-disc set shows up as two albums, the discs disagree on one of the four things above. The usual ones are an album name with the disc in it (<code>Album (Disc 1)</code> and <code>Album (Disc 2)</code> are two different names) and a release date that is only on one disc. Give both discs the same album name and put the disc in <code>DISCNUMBER</code> instead. (By the rule; the scan had no multi-disc case.)</p>
+        </section>
+
+        <section aria-labelledby="merged">
+          <h2 id="merged">Two albums merged into one</h2>
+          <p>Because the folder is not part of the album ID, two albums with the same tags are one album to Navidrome, even in different folders. Tracks with no album name at all go together into one “[Unknown Album]” per artist, from anywhere in the library. Tracks with no artist of any kind end up under “[Unknown Artist]”.</p>
+          <!--site:cases folders-->
+          <h3>Fixing it</h3>
+          <p>Give every track an album name. To keep two releases of the same album apart, give them different release dates, an album version, or their own MusicBrainz IDs.</p>
+        </section>
+
+        <section aria-labelledby="cover">
+          <h2 id="cover">Missing cover art</h2>
+          <p>Navidrome looks for an album’s cover in a fixed order: an image file named <code>cover</code> in the album’s folder, then <code>folder</code>, then <code>front</code>, then the picture embedded in the tracks. A cover saved as <code>scan.jpg</code> or under the album’s name is not among them. This was not part of the scan; it is the default of Navidrome’s <code>CoverArtPriority</code> setting, <code>cover.*, folder.*, front.*, embedded, external</code>, as its <a href="https://www.navidrome.org/docs/usage/library/artwork/">artwork documentation</a> gives it.</p>
+          <p>The sure fix is both: a <code>cover.jpg</code> in the album’s folder, and the same picture embedded in every track, for the apps that show a track’s own artwork.</p>
+        </section>
+
+        <section aria-labelledby="artists">
+          <h2 id="artists">Artists joined with a semicolon</h2>
+          <p>Navidrome reads <code>ARTISTS</code> as a list, one artist per value, and never cuts a value up. Written as one value, <code>Nujabes; Shing02</code> is a single artist with a semicolon in its name: it gets its own artist page, and on a track with no album artist it becomes the album artist too.</p>
+          <!--site:cases artists-->
+          <p>The cure is to write the tag once for each artist. In FLAC:</p>
+          <pre><code>metaflac --remove-tag=ARTISTS --set-tag=ARTISTS=Nujabes --set-tag=ARTISTS=Shing02 track.flac</code></pre>
+          <p>Check the result with <code>metaflac --export-tags-to=- track.flac</code>, which prints each value on its own line. <code>ffprobe</code> joins repeated values with “;”, so in its output the right tags and the wrong one look the same.</p>
+        </section>
+
+        <section aria-labelledby="tags">
+          <h2 id="tags">Where each tag lives</h2>
+          <p>The same field has a different name in each kind of file. These are the names this site reads and writes, through TagLib, the library Navidrome reads tags with as well.</p>
+          <div class="cases">
+            <table class="names">
+              <thead><tr><th scope="col">Field</th><th scope="col">FLAC</th><th scope="col">MP3</th><th scope="col">M4A</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Album</th><td><code>ALBUM</code></td><td><code>TALB</code></td><td><code>©alb</code></td></tr>
+                <tr><th scope="row">Album artist</th><td><code>ALBUMARTIST</code></td><td><code>TPE2</code></td><td><code>aART</code></td></tr>
+                <tr><th scope="row">Release date</th><td><code>RELEASEDATE</code>, else <code>YEAR</code></td><td><code>TDRL</code></td><td><code>©day</code></td></tr>
+                <tr><th scope="row">Date (not in the album ID)</th><td><code>DATE</code></td><td><code>TDRC</code></td><td>none</td></tr>
+                <tr><th scope="row">Album version</th><td><code>ALBUMVERSION</code></td><td><code>TXXX:ALBUMVERSION</code></td><td><code>----:com.apple.iTunes:ALBUMVERSION</code></td></tr>
+                <tr><th scope="row">MusicBrainz album ID</th><td><code>MUSICBRAINZ_ALBUMID</code></td><td><code>TXXX:MusicBrainz Album Id</code></td><td><code>----:com.apple.iTunes:MusicBrainz Album Id</code></td></tr>
+                <tr><th scope="row">Compilation</th><td><code>COMPILATION</code></td><td><code>TCMP</code></td><td><code>cpil</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section aria-labelledby="tested">
+          <h2 id="tested">What this was tested on</h2>
+          <p>A fresh Navidrome 0.63.2 in Docker, default configuration, scanned on <time datetime="2026-11-11">11 November 2026</time>. Each test album was two short tracks written by ffmpeg, under an album name of its own so no two cases could merge. The files, the tags each was written with and the number of albums Navidrome made are in the repository as <a href="https://github.com/DozenTwelve/music-pusher/blob/main/shared/navidrome.groundtruth.js">navidrome.groundtruth.js</a>, and the rule as <a href="https://github.com/DozenTwelve/music-pusher/blob/main/shared/identity.js">identity.js</a>.</p>
+          <p>The cases marked “by the rule, not scanned” follow from the same rule and were not run through Navidrome. Navidrome has had releases since (0.64.2 is the latest at the time of writing), and a later one may change its defaults. If what you see disagrees with this page, the scan is easy to repeat.</p>
+          <p>This site is an independent project, not affiliated with Navidrome. For Navidrome’s own word on tagging, see its <a href="https://www.navidrome.org/docs/usage/library/tagging/">tagging guidelines</a>.</p>
+        </section>
+
+        <section class="onward" aria-labelledby="cleaner">
+          <h2 id="cleaner"><a href="/">Let the cleaner do it</a></h2>
+          <p>Drop the album’s folder or zip on the Album Cleaner. It shows how many albums Navidrome would make of it and which of the causes above are behind it, fixes the tags in your browser without re-encoding the audio, and gives the album back as a zip. Nothing is uploaded.</p>
+        </section>
+      </article>
+    </main>
+    <!--site:footer-->
+  </body>
+</html>

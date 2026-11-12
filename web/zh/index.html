@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <title>专辑整理：修好被 Navidrome 拆成几张的专辑</title>
+    <meta name="description" content="把专辑文件夹或 zip 拖进来，让 Navidrome 把一张专辑拆成几张、或把两张并成一张的标签和封面问题，在浏览器里修好，打包成 zip 还给你。不上传任何文件。" />
+    <!--site:head-->
+  </head>
+  <body>
+    <!--site:header-->
+    <main>
+      <!--site:tool-->
+
+      <div class="container about">
+        <section class="ledger" aria-labelledby="changes">
+          <h2 id="changes">改什么，不改什么</h2>
+          <div class="ledger__body">
+            <p>它先读一遍专辑，算出 Navidrome 会把它认成几张、为什么，再针对每个原因给出一项修改。每一项都可以关掉，点按钮之前什么都不会写。</p>
+            <ul class="ticks">
+              <li>Navidrome 用来归专辑的几个标签：专辑名、专辑艺人、发行日期、专辑版本、MusicBrainz 专辑编号，统一成每首歌都一样。</li>
+              <li>各首歌的日期不一致时统一日期，专辑才显示得出年份。</li>
+              <li>音轨号补完整，写成 <code>3/12</code> 这样，每张碟分开计数。</li>
+              <li>能确定怎么修的乱码文字（<code>Don_t</code>、混进去的控制字符、多余的空格），以及丢了撇号的文件名。</li>
+              <li>封面：写进每一首没有封面的歌，再在旁边放一个 <code>cover.jpg</code>，Navidrome 最先找的就是它。</li>
+            </ul>
+            <p><strong>音频不会重新编码。</strong>只改标签。测试里对每个改过的文件，都会比较改前改后解码出来的音频的 md5，结果一致。</p>
+            <p>其余的东西原样放进 zip：别的标签（流派、注释等）、扫描图、日志、cue 文件，还有读不出来的文件。Mac 留下的 <code>.DS_Store</code> 和 <code>__MACOSX</code> 不会放进去。改完以后，它会重新打开自己做好的 zip，把每首歌再读一遍，所以页面上告诉你的张数，说的就是你下载到的那些文件。</p>
+          </div>
+        </section>
+
+        <section class="ledger" aria-labelledby="cannot">
+          <h2 id="cannot">修不了的</h2>
+          <div class="ledger__body">
+            <p>下面这些它会指出来，但要你自己处理：</p>
+            <ul class="ticks">
+              <li>缺歌。音轨号中间空了一首，就还是空着。</li>
+              <li>几首歌音轨号相同。多半是多碟专辑、标签里没写碟号，它没法知道哪首在第几张碟。</li>
+              <li>歌没有音轨号，文件名里也看不出来。</li>
+              <li>一张专辑里混了 FLAC 和 MP3，或者音质规格不一样。要统一只能重新编码。</li>
+              <li>没有记录时长的 FLAC 文件，同样要重新编码才能修。</li>
+              <li>没有标题或没写艺人的歌。它不会替你猜。</li>
+              <li>损坏或没下完的文件，以及 FLAC、MP3、M4A 以外格式的音频，原样放进 zip。</li>
+            </ul>
+            <p>它不联网查任何东西，所以没法告诉你正确的发行日期，也不会去下载封面。专辑没有封面的话，可以拖一张自己的图片进来。</p>
+          </div>
+        </section>
+
+        <section class="ledger" aria-labelledby="limits">
+          <h2 id="limits">限制</h2>
+          <div class="ledger__body">
+            <dl class="facts">
+              <dt>浏览器</dt><dd>电脑上的 Firefox 或 Chrome。手机和平板可以看这个页面，但用不了修专辑的工具。</dd>
+              <dt>格式</dt><dd>FLAC、MP3、M4A。</dd>
+              <dt>大小</dt><dd>每张专辑最大 2 GB，单首最大 300 MB，一次一张。</dd>
+              <dt>zip</dt><dd>最大 4 GB，不能加密码。文件名是 GBK、Shift_JIS 这类旧编码的，会按猜测来读，猜了的话页面会提醒你。</dd>
+            </dl>
+          </div>
+        </section>
+
+        <section class="ledger" aria-labelledby="questions">
+          <h2 id="questions">常见问题</h2>
+          <div class="ledger__body qa">
+            <h3>文件会上传吗？</h3>
+            <p>不会。这个页面只是一组静态文件。读取和改写都在浏览器标签页里，由编译成 WebAssembly 的 TagLib 完成，zip 也是在标签页里打包好、像普通下载一样保存的。没有统计代码，也不从别的网站加载任何东西。拖专辑进来的时候打开浏览器的网络面板看，不会有任何请求发出去。</p>
+            <h3>Plex、Jellyfin 这些播放器能用吗？</h3>
+            <p>它依据的是 Navidrome 的规则，在真实的 Navidrome 0.63.2 上核对过。它写的都是普通标签，哪个播放器都读得懂，但别的播放器归专辑的方式各不相同，一个都没有测过。可能有用，不敢保证。</p>
+            <h3>我改过 Navidrome 的 <code>PID.Album</code> 设置</h3>
+            <p>那 Navidrome 就按你自己的规则归专辑，而不是这个页面所依据的默认规则。标签照样修得对，但页面算出来的张数，不一定是你实际看到的。</p>
+            <h3>为什么要下载 zip，不能直接改我的文件？</h3>
+            <p>网页没法往你的文件夹里写东西。用 zip 里的文件夹替换原来的，再让 Navidrome 重新扫描。在你替换之前，原来的文件一点都不会变。</p>
+            <h3>源代码在哪里？</h3>
+            <p>在 <a href="https://github.com/DozenTwelve/music-pusher">GitHub</a> 上，MIT 许可。同一个仓库里还有一个自托管版，装在自己的服务器上，和 beets、Navidrome 配合使用。</p>
+          </div>
+        </section>
+
+        <section class="onward" aria-labelledby="why">
+          <h2 id="why"><a href="/zh/navidrome-album-split/">Navidrome 为什么拆专辑，自己动手怎么修</a></h2>
+          <p>Navidrome 判断“是不是同一张专辑”的规则，以及我们在真实扫描上试过的每一种标签差异：哪些会把专辑拆开，哪些不会，哪些会把两张专辑并成一张。</p>
+        </section>
+      </div>
+    </main>
+    <!--site:footer-->
+  </body>
+</html>

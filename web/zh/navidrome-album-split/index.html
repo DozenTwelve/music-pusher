@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <title>Navidrome 为什么把一张专辑拆成好几张，怎么修</title>
+    <meta name="description" content="Navidrome 按什么把歌归成一张专辑，在真实的 Navidrome 0.63.2 扫描上逐项核对过：哪些标签差异会拆开专辑，哪些会把两张并成一张，每一种怎么修。" />
+    <!--site:head-->
+  </head>
+  <body>
+    <!--site:header-->
+    <main class="container guide">
+      <header class="guide__head">
+        <h1>Navidrome 为什么把一张专辑拆成好几张</h1>
+        <p class="lead">有时候又反过来，把两张专辑并成一张。到底是什么在决定，我们在真实的 Navidrome 上核对过；每一种原因，用手头现有的工具怎么修。</p>
+        <p class="byline">测试环境：Navidrome 0.63.2，默认设置，<time datetime="2026-11-11">2026 年 11 月 11 日</time>。更新于 <time datetime="2026-11-12">2026 年 11 月 12 日</time>。</p>
+      </header>
+
+      <nav class="toc" aria-labelledby="toc">
+        <h2 id="toc">本页内容</h2>
+        <ol>
+          <li><a href="#rule">规则</a></li>
+          <li><a href="#release-date">发行日期</a></li>
+          <li><a href="#album-artist">合辑和按艺人拆开的专辑</a></li>
+          <li><a href="#album-name">看起来一样的专辑名</a></li>
+          <li><a href="#musicbrainz">MusicBrainz 专辑编号</a></li>
+          <li><a href="#version">专辑版本</a></li>
+          <li><a href="#discs">多碟专辑</a></li>
+          <li><a href="#merged">两张专辑并成一张</a></li>
+          <li><a href="#cover">封面不显示</a></li>
+          <li><a href="#artists">用分号连起来的艺人</a></li>
+          <li><a href="#tags">各个标签在文件里叫什么</a></li>
+          <li><a href="#tested">测试条件</a></li>
+        </ol>
+      </nav>
+
+      <article class="prose">
+        <section aria-labelledby="rule">
+          <h2 id="rule">规则</h2>
+          <p>Navidrome 给每首歌算一个专辑 ID，ID 相同的歌就是同一张专辑。这个 ID 你看不到，但看得到它的结果：同一张专辑在曲库里出现两次，每一份里只有一部分歌；或者一张专辑缺了几首，缺的那几首待在另一张同名专辑里。</p>
+          <p>默认设置下，专辑 ID 取下面两条里第一条能用的：</p>
+          <ol class="steps-list">
+            <li>歌曲带有 <strong>MusicBrainz 专辑编号</strong>（<code>MUSICBRAINZ_ALBUMID</code>），并且是合法的 UUID。有它就只看它，别的都不算。</li>
+            <li>没有的话，就把这四样合在一起：<strong>专辑艺人</strong>、<strong>专辑名</strong>、<strong>专辑版本</strong>、<strong>发行日期</strong>。</li>
+          </ol>
+          <p>规则就这么多。文件放在哪个文件夹不算在内，碟号也不算。所以，只要各首歌在这四样里有一样对不上，或者只有一部分歌带了 MusicBrainz 编号，专辑就会被拆开；反过来，两张专辑只要这四样都一样，不管放在硬盘的哪里，都会被并成一张。</p>
+          <p>为了核对，我们用 ffmpeg 做了 22 张测试专辑，每张两首歌，每对之间只差一样东西，然后让一个全新的、默认设置的 Navidrome 0.63.2 去扫描。下面的表格列出了它对每一张的处理结果。另有三种情况是按规则推出来的，没有实际扫描，表里单独标了出来。</p>
+          <p class="aside">如果你在 Navidrome 的配置里改过 <code>PID.Album</code>，专辑 ID 就按你自己的写法来算，这一页的结论不能直接套用。</p>
+        </section>
+
+        <section aria-labelledby="release-date">
+          <h2 id="release-date">发行日期：最容易忽略的拆分原因</h2>
+          <p>大多数标签编辑器只显示一个“年份”或“日期”。Navidrome 却把两个日期分开看：<em>发行日期</em>算在专辑 ID 里，<em>日期</em>（录音日期）不算。哪个标签算哪个，要看文件格式：</p>
+          <ul>
+            <li><strong>FLAC</strong>：<code>RELEASEDATE</code> 是发行日期，没有的话看 <code>YEAR</code>。<code>DATE</code> 不是。</li>
+            <li><strong>MP3</strong>：<code>TDRL</code> 帧是发行日期。平常写年份的那个字段（<code>TDRC</code>，旧版标签里是 <code>TYER</code>）不是。</li>
+            <li><strong>M4A</strong>：只有一个日期 <code>©day</code>，Navidrome 把它当发行日期读。所以 M4A 文件里，普通的日期字段一不一致，专辑就会拆开。</li>
+          </ul>
+          <!--site:cases date-->
+          <p>有两点值得注意。M4A 文件里，一首写 <code>2020</code>、另一首写 <code>2020-05-01</code>，是两个不同的发行日期，也就是两张专辑；一首一首下载的专辑，或者后来补进了加曲的专辑，常常就是这样。一张专辑里 FLAC 和 M4A 混放，标签看着一样也可能被拆开，也是同一个原因：M4A 那几首有发行日期，只有 <code>DATE</code> 的 FLAC 没有（按规则推出，没有实测）。另外，如果各首歌只是录音日期不同，专辑不会拆开，但专辑的日期会显示为空。</p>
+          <h3>怎么修</h3>
+          <p>给每首歌写上同一个发行日期，写在这种格式对应的标签里。用标签编辑器（Mp3tag、foobar2000、kid3、MusicBrainz Picard）的话，把这张专辑的歌全选上，日期只填一次。FLAC 也可以用命令行：</p>
+          <pre><code>metaflac --remove-tag=RELEASEDATE --set-tag=RELEASEDATE=2020-05-01 *.flac</code></pre>
+          <p>专辑显示不出年份的话，再把每首歌的 <code>DATE</code> 也改成一样。</p>
+        </section>
+
+        <section aria-labelledby="album-artist">
+          <h2 id="album-artist">合辑，和按艺人拆开的专辑</h2>
+          <p>Navidrome 从 <code>ALBUMARTIST</code> 读专辑艺人。歌里没有这个标签，就看 <code>ALBUMARTISTS</code>；再没有，如果设了合辑标记，就是“Various Artists”；最后才轮到这首歌自己的第一个艺人。问题就出在最后这一步：没写专辑艺人的歌，会归到唱这首歌的人名下。</p>
+          <p>“第一个艺人”是指：歌里有 <code>ARTISTS</code> 标签的话，取它的第一个值；没有的话取 <code>ARTIST</code>，如果它只有一个值，就在 <code>&nbsp;/&nbsp;</code>、<code>&nbsp;feat.&nbsp;</code>、<code>&nbsp;ft.&nbsp;</code>、<code>;&nbsp;</code> 这些地方切开取第一段。所以有嘉宾参与的歌不会把专辑拆开，而没写专辑艺人的合辑，会按艺人拆成一人一张，每首歌都是不同歌手的话，曲库里就是一排封面一样的专辑。</p>
+          <!--site:cases artist-->
+          <h3>怎么修</h3>
+          <p>每首歌写上同一个专辑艺人。合辑一般写“Various Artists”；也可以给每首歌都设上合辑标记（FLAC 里是 <code>COMPILATION=1</code>，MP3 里是 <code>TCMP</code>，M4A 里是 <code>cpil</code>；编辑器里一般叫“合辑”或“Part of a compilation”）。</p>
+          <pre><code>metaflac --remove-tag=ALBUMARTIST --set-tag="ALBUMARTIST=Various Artists" *.flac</code></pre>
+        </section>
+
+        <section aria-labelledby="album-name">
+          <h2 id="album-name">看起来一样的专辑名</h2>
+          <p>曲库里出现两张名字一模一样的专辑时，名字往往并不真的一样。Navidrome 不区分字母大小写，也把弯引号和直引号、各种破折号当成一样，除此之外的差别都算数。</p>
+          <!--site:cases name-->
+          <p>不换行空格、末尾多出的空格、重音字母的另一种存法，在任何标签编辑器里都看不出来，所以两张专辑看着完全一样。把所有歌全选上，专辑名重新输入一次，写进去的字符就一致了。</p>
+        </section>
+
+        <section aria-labelledby="musicbrainz">
+          <h2 id="musicbrainz">MusicBrainz 专辑编号</h2>
+          <p>MusicBrainz 专辑编号比别的都优先，这一点两头都管用。</p>
+          <!--site:cases mbid-->
+          <p>从别处补来的歌，或者单独重新打过标签的歌，可能缺了其他歌都有的编号，于是自成一张专辑。把编号补到缺的那几首上，或者干脆从所有歌里删掉；用 MusicBrainz Picard 对整张专辑打标签，会给每一首都写上。不是合法 UUID 的编号会被忽略。</p>
+          <pre><code>metaflac --remove-tag=MUSICBRAINZ_ALBUMID *.flac</code></pre>
+        </section>
+
+        <section aria-labelledby="version">
+          <h2 id="version">专辑版本</h2>
+          <p><code>ALBUMVERSION</code>（没有的话看 <code>MUSICBRAINZ_ALBUMCOMMENT</code>）本来是用来把豪华版和原版分开的。只有一部分歌带着它，专辑就会被拆开。</p>
+          <!--site:cases version-->
+          <p>每首歌写同一个版本，或者都不写。</p>
+        </section>
+
+        <section aria-labelledby="discs">
+          <h2 id="discs">多碟专辑被拆成几张</h2>
+          <p>碟号不算在专辑 ID 里，所以光是分碟，不会把专辑拆开。一套双碟专辑显示成两张，一定是两张碟在上面那四样里有一样对不上。常见的是专辑名里带了碟号（<code>Album (Disc 1)</code> 和 <code>Album (Disc 2)</code> 是两个不同的名字），或者只有一张碟写了发行日期。两张碟用同一个专辑名，碟号写进 <code>DISCNUMBER</code>。（按规则推出，扫描里没有多碟的例子。）</p>
+        </section>
+
+        <section aria-labelledby="merged">
+          <h2 id="merged">两张专辑并成一张</h2>
+          <p>文件夹不算在专辑 ID 里，所以标签相同的两张专辑，即使放在不同的文件夹，对 Navidrome 来说也是一张。完全没有专辑名的歌，不管在曲库的哪里，同一个艺人的都会被归进同一张“[Unknown Album]”。连艺人都没有的歌，会归到“[Unknown Artist]”下面。</p>
+          <!--site:cases folders-->
+          <h3>怎么修</h3>
+          <p>每首歌都写上专辑名。同一张专辑的两个版本想分开放，就给它们写上不同的发行日期、专辑版本，或者各自的 MusicBrainz 编号。</p>
+        </section>
+
+        <section aria-labelledby="cover">
+          <h2 id="cover">封面不显示</h2>
+          <p>Navidrome 找专辑封面有固定的顺序：先找专辑文件夹里叫 <code>cover</code> 的图片，然后是 <code>folder</code>、<code>front</code>，再然后才是嵌在歌里的图片。叫 <code>scan.jpg</code> 或者以专辑名命名的图片不在其中。这一条不在扫描范围内，依据的是 Navidrome <a href="https://www.navidrome.org/docs/usage/library/artwork/">封面文档</a>里 <code>CoverArtPriority</code> 设置的默认值：<code>cover.*, folder.*, front.*, embedded, external</code>。</p>
+          <p>最稳妥的办法是两样都做：专辑文件夹里放一个 <code>cover.jpg</code>，同一张图再嵌进每一首歌，照顾那些只显示单曲封面的客户端。</p>
+        </section>
+
+        <section aria-labelledby="artists">
+          <h2 id="artists">用分号连起来的艺人</h2>
+          <p>Navidrome 把 <code>ARTISTS</code> 当成一个列表来读，一个值一位艺人，从不把一个值切开。如果写成一个值 <code>Nujabes; Shing02</code>，那就是一位名字里带分号的艺人：它会有自己的艺人页；在没写专辑艺人的歌上，它还会成为专辑艺人。</p>
+          <!--site:cases artists-->
+          <p>正确的写法是每位艺人各写一次这个标签。FLAC 里：</p>
+          <pre><code>metaflac --remove-tag=ARTISTS --set-tag=ARTISTS=Nujabes --set-tag=ARTISTS=Shing02 track.flac</code></pre>
+          <p>写完用 <code>metaflac --export-tags-to=- track.flac</code> 检查，每个值单独一行。别用 <code>ffprobe</code> 看：它会把重复的值用“;”连起来显示，对的写法和错的写法在它眼里一模一样。</p>
+        </section>
+
+        <section aria-labelledby="tags">
+          <h2 id="tags">各个标签在文件里叫什么</h2>
+          <p>同一个字段，在不同格式的文件里名字不一样。下面是本站读写时用的名字，经由 TagLib 读写；Navidrome 读标签用的也是 TagLib。</p>
+          <div class="cases">
+            <table class="names">
+              <thead><tr><th scope="col">字段</th><th scope="col">FLAC</th><th scope="col">MP3</th><th scope="col">M4A</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">专辑名</th><td><code>ALBUM</code></td><td><code>TALB</code></td><td><code>©alb</code></td></tr>
+                <tr><th scope="row">专辑艺人</th><td><code>ALBUMARTIST</code></td><td><code>TPE2</code></td><td><code>aART</code></td></tr>
+                <tr><th scope="row">发行日期</th><td><code>RELEASEDATE</code>，没有则 <code>YEAR</code></td><td><code>TDRL</code></td><td><code>©day</code></td></tr>
+                <tr><th scope="row">日期（不算在专辑 ID 里）</th><td><code>DATE</code></td><td><code>TDRC</code></td><td>没有</td></tr>
+                <tr><th scope="row">专辑版本</th><td><code>ALBUMVERSION</code></td><td><code>TXXX:ALBUMVERSION</code></td><td><code>----:com.apple.iTunes:ALBUMVERSION</code></td></tr>
+                <tr><th scope="row">MusicBrainz 专辑编号</th><td><code>MUSICBRAINZ_ALBUMID</code></td><td><code>TXXX:MusicBrainz Album Id</code></td><td><code>----:com.apple.iTunes:MusicBrainz Album Id</code></td></tr>
+                <tr><th scope="row">合辑标记</th><td><code>COMPILATION</code></td><td><code>TCMP</code></td><td><code>cpil</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section aria-labelledby="tested">
+          <h2 id="tested">测试条件</h2>
+          <p>在 Docker 里新装的 Navidrome 0.63.2，默认配置，<time datetime="2026-11-11">2026 年 11 月 11 日</time>扫描。每张测试专辑是 ffmpeg 生成的两首短曲，各用一个独立的专辑名，保证不同的测试之间不会互相合并。所有文件、每个文件写了哪些标签、Navidrome 认成了几张专辑，都在仓库里的 <a href="https://github.com/DozenTwelve/music-pusher/blob/main/shared/navidrome.groundtruth.js">navidrome.groundtruth.js</a>，规则本身在 <a href="https://github.com/DozenTwelve/music-pusher/blob/main/shared/identity.js">identity.js</a>。</p>
+          <p>表里标着“按规则推出，没有实测”的几项，是从同一条规则推出来的，没有经过 Navidrome 扫描。Navidrome 之后又发了新版本（写这一页时最新是 0.64.2），以后的版本也可能改默认设置。你看到的情况和这一页对不上的话，这个扫描很容易重做一遍。</p>
+          <p>本站是个人项目，与 Navidrome 官方无关。Navidrome 自己对打标签的说明，见它的<a href="https://www.navidrome.org/docs/usage/library/tagging/">标签指南</a>。</p>
+        </section>
+
+        <section class="onward" aria-labelledby="cleaner">
+          <h2 id="cleaner"><a href="/zh/">交给专辑整理来修</a></h2>
+          <p>把专辑的文件夹或 zip 拖到专辑整理页面上。它会告诉你 Navidrome 会把它认成几张、是上面哪几种原因造成的，在浏览器里修好标签、不重新编码音频，再打包成 zip 还给你。不上传任何文件。</p>
+        </section>
+      </article>
+    </main>
+    <!--site:footer-->
+  </body>
+</html>
